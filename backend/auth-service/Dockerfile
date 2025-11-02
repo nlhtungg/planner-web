@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (including dev dependencies for nodemon)
+RUN npm install
 
 # Copy source code
 COPY src/ ./src/
@@ -34,5 +34,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     req.on('error', () => process.exit(1)); \
     req.end();"
 
-# Start the application
-CMD ["node", "src/index.js"]
+# Start the application with nodemon for auto-reload
+CMD ["npm", "run", "dev"]

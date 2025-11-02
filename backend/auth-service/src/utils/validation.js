@@ -51,6 +51,24 @@ const registrationSchema = Joi.object({
   avatar: Joi.string().uri().optional()
 });
 
+// Validation schema for Google OAuth
+const googleAuthSchema = Joi.object({
+  idToken: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Google ID token is required'
+    })
+});
+
+// Validation schema for Google OAuth callback
+const googleCallbackSchema = Joi.object({
+  code: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Authorization code is required'
+    })
+});
+
 // Validation schema for user login
 const loginSchema = Joi.object({
   identifier: Joi.string()
@@ -196,6 +214,14 @@ const validatePasswordReset = (data) => {
   return passwordResetSchema.validate(data, { abortEarly: false });
 };
 
+const validateGoogleAuth = (data) => {
+  return googleAuthSchema.validate(data, { abortEarly: false });
+};
+
+const validateGoogleCallback = (data) => {
+  return googleCallbackSchema.validate(data, { abortEarly: false });
+};
+
 module.exports = {
   validateRegistration,
   validateLogin,
@@ -204,5 +230,7 @@ module.exports = {
   validateRefreshToken,
   validateEmailVerification,
   validatePasswordResetRequest,
-  validatePasswordReset
+  validatePasswordReset,
+  validateGoogleAuth,
+  validateGoogleCallback
 };

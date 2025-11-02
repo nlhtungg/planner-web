@@ -2,10 +2,16 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const userRepository = require('../repositories/userRepository');
 const authService = require('../services/authService');
-const { validateRegistration, validateLogin } = require('../utils/validation');
+const googleAuthService = require('../services/googleAuthService');
+const { 
+  validateRegistration, 
+  validateLogin, 
+  validateGoogleAuth,
+  validateGoogleCallback 
+} = require('../utils/validation');
 
 class AuthController {
-  // Register a new user
+  // Register a new user with email/password (local auth)
   async register(req, res) {
     try {
       const { error } = validateRegistration(req.body);
@@ -18,12 +24,19 @@ class AuthController {
 
       const { username, email, password, firstName, lastName } = req.body;
 
-      // Check if user already exists
-      const existingUser = await User.findByEmailOrUsername(email);
-      if (existingUser) {
+      // Check if email already exists
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        // Check the authentication method
+        if (existingEmail.authMethod === 'google') {
+          return res.status(400).json({
+            success: false,
+            message: 'This email is already registered with Google. Please sign in with Google instead.'
+          });
+        }
         return res.status(400).json({
           success: false,
-          message: 'User with this email or username already exists'
+          message: 'Email is already registered'
         });
       }
 
@@ -36,13 +49,14 @@ class AuthController {
         });
       }
 
-      // Create new user
+      // Create new user with local auth method
       const userData = {
         username,
         email,
         password,
         firstName,
-        lastName
+        lastName,
+        authMethod: 'local'
       };
 
       const user = await userRepository.createUser(userData);
@@ -71,7 +85,7 @@ class AuthController {
     }
   }
 
-  // Login user
+  // Login user with email/password (local auth)
   async login(req, res) {
     try {
       const { error } = validateLogin(req.body);
@@ -90,6 +104,14 @@ class AuthController {
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
+        });
+      }
+
+      // Check if user registered with Google
+      if (user.authMethod === 'google') {
+        return res.status(400).json({
+          success: false,
+          message: 'This account was created with Google. Please sign in with Google instead.'
         });
       }
 
@@ -164,6 +186,184 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Internal server error'
+      });
+    }
+  }
+
+  // Google OAuth - Sign in with ID token (client-side flow)
+  async googleAuth(req, res) {
+    try {
+      const { error } = validateGoogleAuth(req.body);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.details[0].message
+        });
+      }
+
+      const { idToken } = req.body;
+
+      // Verify Google ID token
+      const googleUser = await googleAuthService.verifyIdToken(idToken);
+
+      if (!googleUser.emailVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email not verified by Google'
+        });
+      }
+
+      // Check if user exists by email
+      let user = await User.findOne({ email: googleUser.email });
+
+      if (user) {
+        // User exists - check auth method
+        if (user.authMethod === 'local') {
+          return res.status(400).json({
+            success: false,
+            message: 'This email is already registered with a password. Please sign in with your email and password instead.'
+          });
+        }
+
+        // Update last login for Google user
+        await User.findByIdAndUpdate(user._id, { 
+          lastLogin: new Date(),
+          avatar: googleUser.avatar || user.avatar // Update avatar if changed
+        });
+      } else {
+        // Create new user with Google auth
+        const userData = {
+          email: googleUser.email,
+          firstName: googleUser.firstName,
+          lastName: googleUser.lastName,
+          avatar: googleUser.avatar,
+          authMethod: 'google',
+          googleId: googleUser.googleId,
+          isEmailVerified: true
+        };
+
+        user = await userRepository.createUser(userData);
+      }
+
+      // Generate tokens
+      const { accessToken, refreshToken } = authService.generateTokens(user._id);
+      
+      // Save refresh token
+      await authService.saveRefreshToken(user._id, refreshToken);
+
+      res.status(200).json({
+        success: true,
+        message: user.isNew ? 'Account created successfully' : 'Login successful',
+        data: {
+          user,
+          accessToken,
+          refreshToken
+        }
+      });
+    } catch (error) {
+      console.error('Google auth error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error'
+      });
+    }
+  }
+
+  // Google OAuth - Get authorization URL (server-side flow)
+  async getGoogleAuthUrl(req, res) {
+    try {
+      const authUrl = googleAuthService.getAuthUrl();
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          authUrl
+        }
+      });
+    } catch (error) {
+      console.error('Get Google auth URL error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Google OAuth - Handle callback (server-side flow)
+  async googleCallback(req, res) {
+    try {
+      const { error } = validateGoogleCallback(req.body);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.details[0].message
+        });
+      }
+
+      const { code } = req.body;
+
+      // Exchange code for tokens and get user info
+      const { userInfo } = await googleAuthService.getTokensFromCode(code);
+
+      if (!userInfo.emailVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email not verified by Google'
+        });
+      }
+
+      // Check if user exists by email
+      let user = await User.findOne({ email: userInfo.email });
+
+      if (user) {
+        // User exists - check auth method
+        if (user.authMethod === 'local') {
+          return res.status(400).json({
+            success: false,
+            message: 'This email is already registered with a password. Please sign in with your email and password instead.'
+          });
+        }
+
+        // Update last login
+        await User.findByIdAndUpdate(user._id, { 
+          lastLogin: new Date(),
+          avatar: userInfo.avatar || user.avatar
+        });
+      } else {
+        // Create new user with Google auth
+        const userData = {
+          email: userInfo.email,
+          firstName: userInfo.firstName,
+          lastName: userInfo.lastName,
+          avatar: userInfo.avatar,
+          authMethod: 'google',
+          googleId: userInfo.googleId,
+          isEmailVerified: true
+        };
+
+        user = await userRepository.createUser(userData);
+      }
+
+      // Generate tokens
+      const { accessToken, refreshToken } = authService.generateTokens(user._id);
+      
+      // Save refresh token
+      await authService.saveRefreshToken(user._id, refreshToken);
+
+      res.status(200).json({
+        success: true,
+        message: user.isNew ? 'Account created successfully' : 'Login successful',
+        data: {
+          user,
+          accessToken,
+          refreshToken
+        }
+      });
+    } catch (error) {
+      console.error('Google callback error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error'
       });
     }
   }
@@ -252,7 +452,7 @@ class AuthController {
     }
   }
 
-  // Change password
+  // Change password (only for local auth users)
   async changePassword(req, res) {
     try {
       const { currentPassword, newPassword } = req.body;
@@ -273,6 +473,14 @@ class AuthController {
         });
       }
 
+      // Check if user is using local auth
+      if (user.authMethod !== 'local') {
+        return res.status(400).json({
+          success: false,
+          message: 'Password change is not available for Google authenticated accounts'
+        });
+      }
+
       // Verify current password
       const isCurrentPasswordValid = await user.comparePassword(currentPassword);
       if (!isCurrentPasswordValid) {
@@ -286,12 +494,12 @@ class AuthController {
       user.password = newPassword;
       await user.save();
 
-      // Invalidate all refresh tokens
+      // Invalidate all refresh tokens for security
       await User.findByIdAndUpdate(userId, { refreshTokens: [] });
 
       res.status(200).json({
         success: true,
-        message: 'Password changed successfully'
+        message: 'Password changed successfully. Please login again.'
       });
     } catch (error) {
       console.error('Change password error:', error);

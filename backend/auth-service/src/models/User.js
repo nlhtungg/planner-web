@@ -4,8 +4,8 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: [true, 'Username is required'],
     unique: true,
+    sparse: true, // Allow null values to be unique
     trim: true,
     minlength: [3, 'Username must be at least 3 characters long'],
     maxlength: [30, 'Username cannot exceed 30 characters']
@@ -20,8 +20,8 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters long']
+    minlength: [6, 'Password must be at least 6 characters long'],
+    select: false // Don't return password by default
   },
   firstName: {
     type: String,
@@ -48,6 +48,22 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  // Authentication method tracking
+  authMethod: {
+    type: String,
+    enum: ['local', 'google'],
+    required: true
+  },
+  // OAuth specific fields
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
   lastLogin: {
     type: Date,
     default: null
@@ -67,10 +83,32 @@ const userSchema = new mongoose.Schema({
 // Index for performance
 userSchema.index({ email: 1 });
 userSchema.index({ username: 1 });
+userSchema.index({ googleId: 1 });
 
-// Hash password before saving
+// Validate before saving - runs first
+userSchema.pre('save', function(next) {
+  // For local auth, password is required
+  if (this.authMethod === 'local' && !this.password && this.isNew) {
+    return next(new Error('Password is required for local authentication'));
+  }
+  
+  // For Google auth, googleId is required
+  if (this.authMethod === 'google' && !this.googleId) {
+    return next(new Error('Google ID is required for Google authentication'));
+  }
+  
+  // For Google auth, email is automatically verified
+  if (this.authMethod === 'google') {
+    this.isEmailVerified = true;
+  }
+  
+  next();
+});
+
+// Hash password before saving (only for local auth) - runs second
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+  // Only hash password if it exists and is modified
+  if (!this.password || !this.isModified('password')) return next();
   
   try {
     const salt = await bcrypt.genSalt(12);
