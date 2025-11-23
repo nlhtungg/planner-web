@@ -42,6 +42,16 @@ class UserRepository {
     }
   }
 
+  // Get user by Google ID
+  async getUserByGoogleId(googleId) {
+    try {
+      const user = await User.findOne({ googleId });
+      return user ? user.toJSON() : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Update user
   async updateUser(userId, updateData) {
     try {
