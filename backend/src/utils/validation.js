@@ -222,6 +222,114 @@ const validateGoogleCallback = (data) => {
   return googleCallbackSchema.validate(data, { abortEarly: false });
 };
 
+// Workspace validation schemas
+const workspaceSchema = Joi.object({
+  name: Joi.string()
+    .trim()
+    .min(1)
+    .max(100)
+    .required()
+    .messages({
+      'string.min': 'Workspace name cannot be empty',
+      'string.max': 'Workspace name cannot exceed 100 characters',
+      'any.required': 'Workspace name is required'
+    }),
+  
+  description: Joi.string()
+    .trim()
+    .max(500)
+    .allow('')
+    .messages({
+      'string.max': 'Description cannot exceed 500 characters'
+    }),
+  
+  color: Joi.string()
+    .pattern(new RegExp('^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$'))
+    .messages({
+      'string.pattern.base': 'Please provide a valid hex color code'
+    }),
+  
+  settings: Joi.object({
+    isPublic: Joi.boolean(),
+    allowMemberInvites: Joi.boolean(),
+    defaultRole: Joi.string().valid('member', 'viewer')
+  })
+});
+
+const workspaceUpdateSchema = Joi.object({
+  name: Joi.string()
+    .trim()
+    .min(1)
+    .max(100)
+    .messages({
+      'string.min': 'Workspace name cannot be empty',
+      'string.max': 'Workspace name cannot exceed 100 characters'
+    }),
+  
+  description: Joi.string()
+    .trim()
+    .max(500)
+    .allow('')
+    .messages({
+      'string.max': 'Description cannot exceed 500 characters'
+    }),
+  
+  color: Joi.string()
+    .pattern(new RegExp('^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$'))
+    .messages({
+      'string.pattern.base': 'Please provide a valid hex color code'
+    }),
+  
+  settings: Joi.object({
+    isPublic: Joi.boolean(),
+    allowMemberInvites: Joi.boolean(),
+    defaultRole: Joi.string().valid('member', 'viewer')
+  })
+});
+
+const addMemberSchema = Joi.object({
+  email: Joi.string()
+    .email()
+    .required()
+    .messages({
+      'string.email': 'Please provide a valid email address',
+      'any.required': 'Email is required'
+    }),
+  
+  role: Joi.string()
+    .valid('admin', 'member', 'viewer')
+    .default('member')
+    .messages({
+      'any.only': 'Role must be admin, member, or viewer'
+    })
+});
+
+const updateMemberRoleSchema = Joi.object({
+  role: Joi.string()
+    .valid('admin', 'member', 'viewer')
+    .required()
+    .messages({
+      'any.only': 'Role must be admin, member, or viewer',
+      'any.required': 'Role is required'
+    })
+});
+
+const validateWorkspace = (data) => {
+  return workspaceSchema.validate(data, { abortEarly: false });
+};
+
+const validateWorkspaceUpdate = (data) => {
+  return workspaceUpdateSchema.validate(data, { abortEarly: false });
+};
+
+const validateAddMember = (data) => {
+  return addMemberSchema.validate(data, { abortEarly: false });
+};
+
+const validateUpdateMemberRole = (data) => {
+  return updateMemberRoleSchema.validate(data, { abortEarly: false });
+};
+
 module.exports = {
   validateRegistration,
   validateLogin,
@@ -232,5 +340,9 @@ module.exports = {
   validatePasswordResetRequest,
   validatePasswordReset,
   validateGoogleAuth,
-  validateGoogleCallback
+  validateGoogleCallback,
+  validateWorkspace,
+  validateWorkspaceUpdate,
+  validateAddMember,
+  validateUpdateMemberRole
 };

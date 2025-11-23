@@ -44,7 +44,7 @@ const Register = () => {
     const result = await register(userData);
 
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/home');
     } else {
       setError(result.message);
     }
@@ -59,7 +59,7 @@ const Register = () => {
     const result = await googleLogin(idToken);
 
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/home');
     } else {
       setError(result.message);
     }
