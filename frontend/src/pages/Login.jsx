@@ -30,7 +30,7 @@ const Login = () => {
     const result = await login(formData);
 
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/home');
     } else {
       setError(result.message);
     }
@@ -45,7 +45,7 @@ const Login = () => {
     const result = await googleLogin(idToken);
 
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/home');
     } else {
       setError(result.message);
     }

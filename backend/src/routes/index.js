@@ -1,5 +1,6 @@
 const express = require('express');
 const authRoutes = require('./authRoutes');
+const workspaceRoutes = require('./workspaceRoutes');
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.get('/health', (req, res) => {
  * API Routes
  */
 router.use('/api/auth', authRoutes);
+router.use('/api/workspaces', workspaceRoutes);
 
 /**
  * 404 handler for undefined routes
