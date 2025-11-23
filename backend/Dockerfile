@@ -5,20 +5,19 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY backend/package*.json ./
 
 # Install dependencies (including dev dependencies for nodemon)
 RUN npm install
 
-# Copy source code
-COPY src/ ./src/
-
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
 # Change ownership of the app directory
 RUN chown -R nextjs:nodejs /app
+
+# Switch to non-root user
 USER nextjs
 
 # Expose port

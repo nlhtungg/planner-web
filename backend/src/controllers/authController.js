@@ -213,36 +213,55 @@ class AuthController {
         });
       }
 
-      // Check if user exists by email
-      let user = await User.findOne({ email: googleUser.email });
+      let user;
+      let isNewUser = false;
 
+      // First check if user exists by Google ID
+      user = await User.findOne({ googleId: googleUser.googleId });
+      
       if (user) {
-        // User exists - check auth method
-        if (user.authMethod === 'local') {
-          return res.status(400).json({
-            success: false,
-            message: 'This email is already registered with a password. Please sign in with your email and password instead.'
-          });
-        }
-
-        // Update last login for Google user
+        // Existing Google user - update last login and avatar
         await User.findByIdAndUpdate(user._id, { 
           lastLogin: new Date(),
-          avatar: googleUser.avatar || user.avatar // Update avatar if changed
+          avatar: googleUser.avatar || user.avatar,
+          // Update email if it changed in Google account
+          email: googleUser.email
         });
+        user = await User.findById(user._id);
       } else {
-        // Create new user with Google auth
-        const userData = {
-          email: googleUser.email,
-          firstName: googleUser.firstName,
-          lastName: googleUser.lastName,
-          avatar: googleUser.avatar,
-          authMethod: 'google',
-          googleId: googleUser.googleId,
-          isEmailVerified: true
-        };
+        // Check if user exists with this email but different auth method
+        const existingEmailUser = await User.findOne({ email: googleUser.email });
+        
+        if (existingEmailUser) {
+          if (existingEmailUser.authMethod === 'local') {
+            return res.status(400).json({
+              success: false,
+              message: 'This email is already registered with a password. Please sign in with your email and password instead.'
+            });
+          } else if (existingEmailUser.authMethod === 'google' && !existingEmailUser.googleId) {
+            // Existing Google user without googleId (data migration case)
+            await User.findByIdAndUpdate(existingEmailUser._id, { 
+              googleId: googleUser.googleId,
+              lastLogin: new Date(),
+              avatar: googleUser.avatar || existingEmailUser.avatar
+            });
+            user = await User.findById(existingEmailUser._id);
+          }
+        } else {
+          // Create new user with Google auth
+          const userData = {
+            email: googleUser.email,
+            firstName: googleUser.firstName,
+            lastName: googleUser.lastName,
+            avatar: googleUser.avatar,
+            authMethod: 'google',
+            googleId: googleUser.googleId,
+            isEmailVerified: true
+          };
 
-        user = await userRepository.createUser(userData);
+          user = await userRepository.createUser(userData);
+          isNewUser = true;
+        }
       }
 
       // Generate tokens
@@ -253,7 +272,7 @@ class AuthController {
 
       res.status(200).json({
         success: true,
-        message: user.isNew ? 'Account created successfully' : 'Login successful',
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
         data: {
           user,
           accessToken,
@@ -312,36 +331,55 @@ class AuthController {
         });
       }
 
-      // Check if user exists by email
-      let user = await User.findOne({ email: userInfo.email });
+      let user;
+      let isNewUser = false;
 
+      // First check if user exists by Google ID
+      user = await User.findOne({ googleId: userInfo.googleId });
+      
       if (user) {
-        // User exists - check auth method
-        if (user.authMethod === 'local') {
-          return res.status(400).json({
-            success: false,
-            message: 'This email is already registered with a password. Please sign in with your email and password instead.'
-          });
-        }
-
-        // Update last login
+        // Existing Google user - update last login and avatar
         await User.findByIdAndUpdate(user._id, { 
           lastLogin: new Date(),
-          avatar: userInfo.avatar || user.avatar
+          avatar: userInfo.avatar || user.avatar,
+          // Update email if it changed in Google account
+          email: userInfo.email
         });
+        user = await User.findById(user._id);
       } else {
-        // Create new user with Google auth
-        const userData = {
-          email: userInfo.email,
-          firstName: userInfo.firstName,
-          lastName: userInfo.lastName,
-          avatar: userInfo.avatar,
-          authMethod: 'google',
-          googleId: userInfo.googleId,
-          isEmailVerified: true
-        };
+        // Check if user exists with this email but different auth method
+        const existingEmailUser = await User.findOne({ email: userInfo.email });
+        
+        if (existingEmailUser) {
+          if (existingEmailUser.authMethod === 'local') {
+            return res.status(400).json({
+              success: false,
+              message: 'This email is already registered with a password. Please sign in with your email and password instead.'
+            });
+          } else if (existingEmailUser.authMethod === 'google' && !existingEmailUser.googleId) {
+            // Existing Google user without googleId (data migration case)
+            await User.findByIdAndUpdate(existingEmailUser._id, { 
+              googleId: userInfo.googleId,
+              lastLogin: new Date(),
+              avatar: userInfo.avatar || existingEmailUser.avatar
+            });
+            user = await User.findById(existingEmailUser._id);
+          }
+        } else {
+          // Create new user with Google auth
+          const userData = {
+            email: userInfo.email,
+            firstName: userInfo.firstName,
+            lastName: userInfo.lastName,
+            avatar: userInfo.avatar,
+            authMethod: 'google',
+            googleId: userInfo.googleId,
+            isEmailVerified: true
+          };
 
-        user = await userRepository.createUser(userData);
+          user = await userRepository.createUser(userData);
+          isNewUser = true;
+        }
       }
 
       // Generate tokens
@@ -352,7 +390,7 @@ class AuthController {
 
       res.status(200).json({
         success: true,
-        message: user.isNew ? 'Account created successfully' : 'Login successful',
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
         data: {
           user,
           accessToken,
