@@ -100,16 +100,18 @@ workspaceSchema.virtual('memberCount').get(function() {
 
 // Method to check if user is a member
 workspaceSchema.methods.isMember = function(userId) {
-  return this.members.some(member => 
-    member.user.toString() === userId.toString()
-  );
+  return this.members.some(member => {
+    const memberUserId = member.user._id || member.user;
+    return memberUserId.toString() === userId.toString();
+  });
 };
 
 // Method to get user's role in workspace
 workspaceSchema.methods.getUserRole = function(userId) {
-  const member = this.members.find(member => 
-    member.user.toString() === userId.toString()
-  );
+  const member = this.members.find(member => {
+    const memberUserId = member.user._id || member.user;
+    return memberUserId.toString() === userId.toString();
+  });
   return member ? member.role : null;
 };
 
@@ -128,6 +130,24 @@ workspaceSchema.statics.findByUser = function(userId) {
         $or: [
           { owner: userId },
           { 'members.user': userId }
+        ]
+      }
+    ]
+  }).populate('owner', 'firstName lastName email avatar')
+    .populate('members.user', 'firstName lastName email avatar')
+    .sort({ lastActivity: -1 });
+};
+
+// Static method to find all workspaces available to user (member + public)
+workspaceSchema.statics.findAvailableToUser = function(userId) {
+  return this.find({
+    $and: [
+      { isActive: true },
+      {
+        $or: [
+          { owner: userId },
+          { 'members.user': userId },
+          { 'settings.isPublic': true }
         ]
       }
     ]
