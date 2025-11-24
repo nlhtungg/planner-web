@@ -140,4 +140,4 @@ vite.config.ts.timestamp-*
 
 data/
 package-lock.json
-.vite/
+frontend/.vite/
