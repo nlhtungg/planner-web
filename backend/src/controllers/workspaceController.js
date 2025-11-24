@@ -56,7 +56,11 @@ class WorkspaceController {
   async getMyWorkspaces(req, res) {
     try {
       const userId = req.user._id || req.user.id;
-      const workspaces = await workspaceRepository.getWorkspacesByUser(userId);
+      const includePublic = req.query.includePublic === 'true';
+      
+      const workspaces = includePublic 
+        ? await workspaceRepository.getAvailableWorkspaces(userId)
+        : await workspaceRepository.getWorkspacesByUser(userId);
 
       res.status(200).json({
         success: true,
@@ -88,7 +92,19 @@ class WorkspaceController {
       }
 
       // Check if user has access to this workspace
-      if (!workspace.isMember(userId)) {
+      console.log('getWorkspace Debug:');
+      console.log('userId:', userId);
+      console.log('workspace.owner:', workspace.owner);
+      console.log('workspace.members:', workspace.members.map(m => ({ user: m.user, role: m.role })));
+      console.log('isMember result:', workspace.isMember(userId));
+      const ownerIdString = (workspace.owner._id || workspace.owner).toString();
+      console.log('isOwner:', ownerIdString === userId.toString());
+      
+      // Check if user is the owner or is a member
+      const isOwner = ownerIdString === userId.toString();
+      const isMember = workspace.isMember(userId);
+      
+      if (!isOwner && !isMember) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this workspace'
@@ -313,6 +329,53 @@ class WorkspaceController {
       });
     } catch (error) {
       console.error('Remove member error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error'
+      });
+    }
+  }
+
+  // Join a public workspace
+  async joinWorkspace(req, res) {
+    try {
+      const { workspaceId } = req.params;
+      const userId = req.user._id || req.user.id;
+
+      const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+
+      if (!workspace || !workspace.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: 'Workspace not found'
+        });
+      }
+
+      // Check if workspace is public
+      if (!workspace.settings?.isPublic) {
+        return res.status(403).json({
+          success: false,
+          message: 'This workspace is private. You need an invitation to join.'
+        });
+      }
+
+      // Check if user is already a member
+      if (workspace.isMember(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already a member of this workspace'
+        });
+      }
+
+      const updatedWorkspace = await workspaceRepository.addMember(workspaceId, userId, 'member');
+
+      res.status(200).json({
+        success: true,
+        message: 'Successfully joined the workspace',
+        data: updatedWorkspace
+      });
+    } catch (error) {
+      console.error('Join workspace error:', error);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'

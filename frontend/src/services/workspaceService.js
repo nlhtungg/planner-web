@@ -12,9 +12,9 @@ class WorkspaceService {
   }
 
   // Get all user's workspaces
-  async getMyWorkspaces() {
+  async getMyWorkspaces(includePublic = true) {
     try {
-      const response = await api.get('/workspaces');
+      const response = await api.get(`/workspaces?includePublic=${includePublic}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -85,6 +85,36 @@ class WorkspaceService {
   async getWorkspaceStats(workspaceId) {
     try {
       const response = await api.get(`/workspaces/${workspaceId}/stats`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Add member to workspace
+  async addMember(workspaceId, memberData) {
+    try {
+      const response = await api.post(`/workspaces/${workspaceId}/members`, memberData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Remove member from workspace
+  async removeMember(workspaceId, memberId) {
+    try {
+      const response = await api.delete(`/workspaces/${workspaceId}/members/${memberId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Join a public workspace
+  async joinWorkspace(workspaceId) {
+    try {
+      const response = await api.post(`/workspaces/${workspaceId}/join`);
       return response.data;
     } catch (error) {
       throw error;

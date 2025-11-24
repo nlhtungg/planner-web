@@ -37,6 +37,16 @@ class WorkspaceRepository {
     }
   }
 
+  // Get all workspaces available to user (member + public)
+  async getAvailableWorkspaces(userId) {
+    try {
+      const workspaces = await Workspace.findAvailableToUser(userId);
+      return workspaces;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Update workspace
   async updateWorkspace(workspaceId, updateData) {
     try {
