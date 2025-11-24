@@ -391,10 +391,10 @@ class WorkspaceController {
       const userId = req.user._id || req.user.id;
 
       // Validate role
-      if (!['admin', 'member', 'viewer'].includes(role)) {
+      if (!['admin', 'member'].includes(role)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid role. Must be admin, member, or viewer'
+          message: 'Invalid role. Must be admin or member'
         });
       }
 
