@@ -1,20 +1,6 @@
 version: "3.9"
 
 services:
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    restart: always
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: app_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./data/postgres_data:/var/lib/postgresql/data
-    networks:
-      - backend
 
   mongodb:
     image: mongo:7
@@ -70,10 +56,10 @@ services:
     entrypoint: >
       /bin/sh -c "
         sleep 5;
-        mc alias set local http://minio:9000 minioadmin minioadmin123;
-        mc mb -p local/my-bucket;
-        mc policy set public local/my-bucket;
-        echo 'MinIO bucket created: my-bucket';
+        mc alias set local http://minio:9000 minioadmin minioadmin;
+        mc mb -p local/user-media local/workspace-media local/message-media;
+        mc policy set public local/user-media local/workspace-media local/message-media;
+        echo 'MinIO buckets created: user-media, workspace-media, message-media';
       "
     networks:
       - backend
