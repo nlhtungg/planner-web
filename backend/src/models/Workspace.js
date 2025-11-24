@@ -25,7 +25,7 @@ const workspaceSchema = new mongoose.Schema({
     },
     role: {
       type: String,
-      enum: ['owner', 'admin', 'member', 'viewer'],
+      enum: ['owner', 'admin', 'member'],
       default: 'member'
     },
     joinedAt: {
@@ -53,7 +53,7 @@ const workspaceSchema = new mongoose.Schema({
     },
     defaultRole: {
       type: String,
-      enum: ['member', 'viewer'],
+      enum: ['member'],
       default: 'member'
     }
   },

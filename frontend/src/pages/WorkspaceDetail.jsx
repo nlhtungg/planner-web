@@ -35,6 +35,10 @@ const WorkspaceDetail = () => {
   const [removingMemberId, setRemovingMemberId] = useState(null);
   const [isRemoveMemberModalOpen, setIsRemoveMemberModalOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState(null);
+  const [isChangeRoleModalOpen, setIsChangeRoleModalOpen] = useState(false);
+  const [memberToChangeRole, setMemberToChangeRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [changingRoleLoading, setChangingRoleLoading] = useState(false);
 
   // Mock data for workspace content
   const recentActivity = [
@@ -91,6 +95,11 @@ const WorkspaceDetail = () => {
     return userRole === 'owner' || userRole === 'admin';
   };
 
+  const isOwner = () => {
+    if (!workspace) return false;
+    return workspace.owner._id === user._id || workspace.owner._id === user.id;
+  };
+
   const handleAddMember = async (memberData) => {
     setAddMemberLoading(true);
     try {
@@ -141,6 +150,49 @@ const WorkspaceDetail = () => {
     
     // Only owners and admins can remove other members
     return isOwnerOrAdmin();
+  };
+
+  const canChangeRole = (member) => {
+    // Can't change owner's role
+    if (member.role === 'owner') return false;
+    
+    // Can't change own role
+    const isCurrentUser = member.user.email === user.email;
+    if (isCurrentUser) return false;
+    
+    // Only owners can change roles
+    return isOwner();
+  };
+
+  const openChangeRoleModal = (member) => {
+    setMemberToChangeRole(member);
+    setSelectedRole(member.role);
+    setIsChangeRoleModalOpen(true);
+  };
+
+  const handleChangeRole = async () => {
+    if (!memberToChangeRole || !selectedRole) return;
+    
+    setChangingRoleLoading(true);
+    try {
+      const response = await workspaceService.updateMemberRole(
+        workspaceId, 
+        memberToChangeRole.user._id || memberToChangeRole.user.id, 
+        selectedRole
+      );
+      
+      if (response.success) {
+        setWorkspace(response.data);
+        setIsChangeRoleModalOpen(false);
+        setMemberToChangeRole(null);
+        setSelectedRole('');
+      }
+    } catch (error) {
+      console.error('Change role error:', error);
+      alert('Failed to change member role. Please try again.');
+    } finally {
+      setChangingRoleLoading(false);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -525,6 +577,14 @@ const WorkspaceDetail = () => {
                       }`}>
                         {member.role.toUpperCase()}
                       </span>
+                      {canChangeRole(member) && (
+                        <button 
+                          onClick={() => openChangeRoleModal(member)}
+                          className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200 hover:border-blue-300 transition-colors"
+                        >
+                          <PencilIcon className="w-3 h-3" />
+                        </button>
+                      )}
                       {canRemoveMember(member) && (
                         <button 
                           onClick={() => openRemoveMemberModal(member)}
@@ -570,6 +630,94 @@ const WorkspaceDetail = () => {
         isCurrentUser={memberToRemove && memberToRemove.user.email === user.email}
         loading={removingMemberId === (memberToRemove?.user._id || memberToRemove?.user.id)}
       />
+
+      {/* Change Role Modal */}
+      {isChangeRoleModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Change Member Role</h2>
+              <button
+                onClick={() => {
+                  setIsChangeRoleModalOpen(false);
+                  setMemberToChangeRole(null);
+                  setSelectedRole('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6">
+              {memberToChangeRole && (
+                <>
+                  <div className="mb-4">
+                    <p className="text-gray-700">
+                      Change role for <span className="font-medium">
+                        {memberToChangeRole.user.firstName} {memberToChangeRole.user.lastName}
+                      </span>?
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {memberToChangeRole.user.email}
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Role
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="admin"
+                          checked={selectedRole === 'admin'}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Admin - Can manage members and settings</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="member"
+                          checked={selectedRole === 'member'}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Member - Can view and contribute to workspace</span>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangeRoleModalOpen(false);
+                    setMemberToChangeRole(null);
+                    setSelectedRole('');
+                  }}
+                  className="btn-secondary"
+                  disabled={changingRoleLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleChangeRole}
+                  className="btn-primary"
+                  disabled={changingRoleLoading || !selectedRole || selectedRole === memberToChangeRole?.role}
+                >
+                  {changingRoleLoading ? 'Changing...' : 'Change Role'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

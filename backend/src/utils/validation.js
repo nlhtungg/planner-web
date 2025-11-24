@@ -252,7 +252,7 @@ const workspaceSchema = Joi.object({
   settings: Joi.object({
     isPublic: Joi.boolean(),
     allowMemberInvites: Joi.boolean(),
-    defaultRole: Joi.string().valid('member', 'viewer')
+    defaultRole: Joi.string().valid('member')
   })
 });
 
@@ -283,7 +283,7 @@ const workspaceUpdateSchema = Joi.object({
   settings: Joi.object({
     isPublic: Joi.boolean(),
     allowMemberInvites: Joi.boolean(),
-    defaultRole: Joi.string().valid('member', 'viewer')
+    defaultRole: Joi.string().valid('member')
   })
 });
 
@@ -297,19 +297,19 @@ const addMemberSchema = Joi.object({
     }),
   
   role: Joi.string()
-    .valid('admin', 'member', 'viewer')
+    .valid('admin', 'member')
     .default('member')
     .messages({
-      'any.only': 'Role must be admin, member, or viewer'
+      'any.only': 'Role must be admin or member'
     })
 });
 
 const updateMemberRoleSchema = Joi.object({
   role: Joi.string()
-    .valid('admin', 'member', 'viewer')
+    .valid('admin', 'member')
     .required()
     .messages({
-      'any.only': 'Role must be admin, member, or viewer',
+      'any.only': 'Role must be admin or member',
       'any.required': 'Role is required'
     })
 });
