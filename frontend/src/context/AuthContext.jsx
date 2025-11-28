@@ -106,6 +106,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (updatedUserData) => {
+    localStorage.setItem('user', JSON.stringify(updatedUserData));
+    setUser(updatedUserData);
+  };
+
   const value = {
     user,
     loading,
@@ -114,6 +119,7 @@ export const AuthProvider = ({ children }) => {
     googleLogin,
     logout,
     updateUserProfile,
+    updateUser,
     isAuthenticated: !!user,
   };
 
