@@ -158,10 +158,19 @@ class UserRepository {
   // Remove refresh token from user
   async removeRefreshToken(userId, refreshToken) {
     try {
+      console.log('removeRefreshToken called with userId:', userId, 'refreshToken:', refreshToken ? 'provided' : 'not provided');
+      
+      if (!userId) {
+        console.error('userId is null/undefined in removeRefreshToken');
+        throw new Error('User ID is required');
+      }
+
       const user = await User.findById(userId);
       if (!user) {
+        console.error('User not found in removeRefreshToken for userId:', userId);
         throw new Error('User not found');
       }
+      console.log('Found user in removeRefreshToken:', { id: user._id, email: user.email });
 
       user.refreshTokens = user.refreshTokens.filter(
         token => token.token !== refreshToken

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticateToken, validateRefreshToken } = require('../middlewares/auth');
+const { uploadSingle } = require('../middlewares/upload');
 
 // Public routes - Local Authentication
 router.post('/register', authController.register);
@@ -19,6 +20,11 @@ router.use(authenticateToken);
 router.get('/profile', authController.getProfile);
 router.put('/profile', authController.updateProfile);
 router.post('/change-password', authController.changePassword);
+router.post('/upload-avatar', (req, res, next) => {
+  console.log('🛣️ Upload avatar route hit');
+  next();
+}, uploadSingle, authController.uploadAvatar);
+router.delete('/delete-avatar', authController.deleteAvatar);
 router.post('/logout', authController.logout);
 
 module.exports = router;

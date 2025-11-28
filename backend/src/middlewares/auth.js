@@ -33,8 +33,9 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Add user to request object
+    // Add user to request object with both id formats for consistency
     req.user = user;
+    req.user.id = decoded.id; // Add the JWT payload id for compatibility
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

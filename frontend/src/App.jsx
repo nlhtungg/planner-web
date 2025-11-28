@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Home from './pages/Home';
 import Workspaces from './pages/Workspaces';
 import WorkspaceDetail from './pages/WorkspaceDetail';
+import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 
 function App() {
@@ -38,6 +39,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <WorkspaceDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

@@ -3,11 +3,13 @@ const User = require('../models/User');
 const userRepository = require('../repositories/userRepository');
 const authService = require('../services/authService');
 const googleAuthService = require('../services/googleAuthService');
+const minioService = require('../services/minioService');
 const { 
   validateRegistration, 
   validateLogin, 
   validateGoogleAuth,
-  validateGoogleCallback 
+  validateGoogleCallback,
+  validateChangePassword
 } = require('../utils/validation');
 
 class AuthController {
@@ -410,9 +412,11 @@ class AuthController {
   async logout(req, res) {
     try {
       const { refreshToken } = req.body;
-      const userId = req.user?.id;
+      const userId = req.user?._id || req.user?.id;
 
-      if (refreshToken) {
+      console.log('Logout request - userId:', userId, 'refreshToken provided:', !!refreshToken);
+
+      if (refreshToken && userId) {
         await authService.removeRefreshToken(userId, refreshToken);
       }
 
@@ -432,7 +436,7 @@ class AuthController {
   // Get current user profile
   async getProfile(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user._id || req.user.id;
       const user = await userRepository.getUserById(userId);
 
       if (!user) {
@@ -458,7 +462,7 @@ class AuthController {
   // Update user profile
   async updateProfile(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user._id || req.user.id;
       const updates = req.body;
 
       // Remove sensitive fields from updates
@@ -493,25 +497,41 @@ class AuthController {
   // Change password (only for local auth users)
   async changePassword(req, res) {
     try {
-      const { currentPassword, newPassword } = req.body;
-      const userId = req.user.id;
-
-      if (!currentPassword || !newPassword) {
+      // Validate input data
+      const { error } = validateChangePassword(req.body);
+      if (error) {
         return res.status(400).json({
           success: false,
-          message: 'Current password and new password are required'
+          message: error.details[0].message
+        });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user._id || req.user.id;
+
+      console.log('Change password request for userId:', userId);
+      console.log('User object:', { id: req.user._id, email: req.user.email, authMethod: req.user.authMethod });
+
+      // Check if user is using local auth (check from req.user first, then database)
+      if (req.user.authMethod !== 'local') {
+        return res.status(400).json({
+          success: false,
+          message: 'Password change is not available for Google authenticated accounts'
         });
       }
 
       const user = await User.findById(userId).select('+password');
       if (!user) {
+        console.error('User not found in database for userId:', userId);
         return res.status(404).json({
           success: false,
           message: 'User not found'
         });
       }
 
-      // Check if user is using local auth
+      console.log('Found user in database:', { id: user._id, email: user.email, authMethod: user.authMethod });
+
+      // Double check auth method from database
       if (user.authMethod !== 'local') {
         return res.status(400).json({
           success: false,
@@ -532,6 +552,8 @@ class AuthController {
       user.password = newPassword;
       await user.save();
 
+      console.log('Password updated successfully for user:', user.email);
+
       // Invalidate all refresh tokens for security
       await User.findByIdAndUpdate(userId, { refreshTokens: [] });
 
@@ -541,6 +563,110 @@ class AuthController {
       });
     } catch (error) {
       console.error('Change password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Upload user avatar
+  async uploadAvatar(req, res) {
+    try {
+      console.log('📸 Avatar upload request received for user:', req.user?._id || req.user?.id);
+      console.log('📁 File details:', req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : 'No file received');
+      
+      const userId = req.user._id || req.user.id;
+      
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded'
+        });
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed'
+        });
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (req.file.size > maxSize) {
+        return res.status(400).json({
+          success: false,
+          message: 'File size too large. Maximum size is 5MB'
+        });
+      }
+
+      // Upload to MinIO
+      const uploadResult = await minioService.uploadAvatar(
+        userId,
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+
+      if (!uploadResult.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload avatar'
+        });
+      }
+
+      // Update user's avatar URL in database
+      console.log('💾 Updating user avatar in database for userId:', userId);
+      const updatedUser = await userRepository.updateUser(userId, {
+        avatar: uploadResult.url
+      });
+      console.log('✅ Database updated successfully. User avatar field:', updatedUser.avatar);
+
+      res.status(200).json({
+        success: true,
+        message: 'Avatar uploaded successfully',
+        data: {
+          user: { ...updatedUser, avatarUrl: uploadResult.url },
+          avatarUrl: uploadResult.url
+        }
+      });
+      console.log('📤 Avatar upload response sent successfully');
+    } catch (error) {
+      console.error('Upload avatar error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Delete user avatar
+  async deleteAvatar(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+
+      // Delete from MinIO
+      await minioService.deleteAvatar(userId);
+
+      // Update user's avatar URL in database
+      const updatedUser = await userRepository.updateUser(userId, {
+        avatar: null
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Avatar deleted successfully',
+        data: { user: updatedUser }
+      });
+    } catch (error) {
+      console.error('Delete avatar error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error'

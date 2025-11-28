@@ -52,10 +52,18 @@ const RemoveMemberModal = ({
         <div className="p-6">
           {/* Member Info */}
           <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg mb-6">
-            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-700">
-                {member.user.firstName?.[0]}{member.user.lastName?.[0]}
-              </span>
+            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
+              {member.user.avatar ? (
+                <img
+                  src={`${member.user.avatar}?t=${Date.now()}`}
+                  alt="User Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-medium text-gray-700">
+                  {member.user.firstName?.[0]}{member.user.lastName?.[0]}
+                </span>
+              )}
             </div>
             <div className="flex-1">
               <h4 className="font-medium text-gray-900">
