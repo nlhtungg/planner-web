@@ -1,6 +1,8 @@
 const express = require('express');
 const authRoutes = require('./authRoutes');
 const workspaceRoutes = require('./workspaceRoutes');
+const projectRoutes = require('./projectRoutes');
+const taskRoutes = require('./taskRoutes');
 
 const router = express.Router();
 
@@ -21,6 +23,8 @@ router.get('/health', (req, res) => {
  */
 router.use('/api/auth', authRoutes);
 router.use('/api/workspaces', workspaceRoutes);
+router.use('/api/projects', projectRoutes);
+router.use('/api/tasks', taskRoutes);
 
 /**
  * 404 handler for undefined routes

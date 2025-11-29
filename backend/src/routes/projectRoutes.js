@@ -2,13 +2,13 @@
 const express = require('express');
 const router = express.Router();
 const projectController = require('../controllers/projectController');
-const auth = require('../middlewares/auth');
+const { authenticateToken } = require('../middlewares/auth');
 
-router.post('/', auth, projectController.createProject);
-router.post('/add-member', auth, projectController.addMember);
-router.post('/add-task', auth, projectController.addTask);
-router.get('/:id', auth, projectController.getProject);
-router.get('/', auth, projectController.getProjects);
-router.delete('/:id', auth, projectController.deleteProject);
+router.post('/', authenticateToken, projectController.createProject);
+router.post('/add-member', authenticateToken, projectController.addMember);
+router.post('/add-task', authenticateToken, projectController.addTask);
+router.get('/:id', authenticateToken, projectController.getProject);
+router.get('/', authenticateToken, projectController.getProjects);
+router.delete('/:id', authenticateToken, projectController.deleteProject);
 
 module.exports = router;
