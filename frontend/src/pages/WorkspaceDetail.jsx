@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import workspaceService from '../services/workspaceService';
+import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
+import { Link } from 'react-router-dom';
+import { percentOf } from '../utils/taskUtils';
 import AddMemberModal from '../components/AddMemberModal';
 import RemoveMemberModal from '../components/RemoveMemberModal';
+import UserFuzzySelect from '../components/UserFuzzySelect';
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
@@ -48,12 +52,15 @@ const WorkspaceDetail = () => {
     { id: 4, type: 'member', action: 'joined', item: 'the workspace', user: 'David Wilson', time: '1 day ago', avatar: 'DW' },
   ];
 
-  const tasks = [
-    { id: 1, title: 'Update user interface mockups', status: 'in-progress', assignee: 'Alice Johnson', dueDate: '2025-11-25' },
-    { id: 2, title: 'Implement authentication system', status: 'completed', assignee: 'Bob Smith', dueDate: '2025-11-20' },
-    { id: 3, title: 'Write API documentation', status: 'pending', assignee: 'Carol Davis', dueDate: '2025-11-28' },
-    { id: 4, title: 'Set up CI/CD pipeline', status: 'in-progress', assignee: 'David Wilson', dueDate: '2025-11-30' },
-  ];
+  // Tasks state (real data)
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState('');
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', priority: 'medium', assignees: [] });
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskFilters, setTaskFilters] = useState({ status: 'all', assignee: 'all' });
+  const [quickAssign, setQuickAssign] = useState({}); // { [taskId]: identifier }
 
   const documents = [
     { id: 1, name: 'Project Requirements.docx', type: 'document', size: '2.4 MB', modified: '2 hours ago', author: 'Alice Johnson' },
@@ -65,6 +72,99 @@ const WorkspaceDetail = () => {
   useEffect(() => {
     fetchWorkspace();
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (activeTab === 'tasks') {
+      fetchTasks();
+    }
+  }, [activeTab, workspaceId]);
+  const fetchTasks = async () => {
+    setTasksLoading(true);
+    setTasksError('');
+    try {
+      const res = await getTasksByWorkspace(workspaceId);
+      // Backend returns array of task objects
+      setTasks(res.data);
+    } catch (err) {
+      setTasksError(err.response?.data?.message || 'Failed to load tasks');
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  const openTaskModal = () => {
+    setNewTask({ title: '', description: '', dueDate: '', priority: 'medium', assignees: [] });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    if (!newTask.title) return;
+    setCreatingTask(true);
+    try {
+      const payload = {
+        title: newTask.title,
+        description: newTask.description,
+        dueDate: newTask.dueDate || undefined,
+        priority: newTask.priority,
+        workspace: workspaceId,
+        assignees: (newTask.assignees || []).map(a => a?._id || a).filter(Boolean)
+      };
+      const res = await createTask(payload);
+      setTasks(prev => [res.data, ...prev]);
+      setIsTaskModalOpen(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create task');
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const filteredTasks = tasks.filter(t => {
+    if (taskFilters.status !== 'all' && t.status !== taskFilters.status) return false;
+    if (taskFilters.assignee !== 'all' && !t.assignees?.some(a => (a._id || a) === taskFilters.assignee)) return false;
+    return true;
+  });
+
+  const handleQuickAssign = async (taskId) => {
+    const identifier = (quickAssign[taskId] || '').trim();
+    if (!identifier) return;
+    try {
+      const res = await assignTaskByIdentifier(taskId, identifier);
+      setTasks(prev => prev.map(t => t._id === taskId ? res.data : t));
+      setQuickAssign(q => ({ ...q, [taskId]: '' }));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to assign');
+    }
+  };
+
+  const handleAssignToMe = async (taskId) => {
+    try {
+      const meId = user._id || user.id;
+      const task = tasks.find(t => t._id === taskId);
+      if (task && task.assignees?.some(a => (a._id || a) === meId)) {
+        return; // already assigned; avoid duplicate UI action
+      }
+      const res = await assignTask(taskId, user._id || user.id);
+      setTasks(prev => prev.map(t => t._id === taskId ? res.data : t));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to assign to me');
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!confirm('Delete this task?')) return;
+    try {
+      await deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t._id !== taskId));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete task');
+    }
+  };
+
+  const handleUpdateTask = (taskId) => {
+    navigate(`/tasks/${taskId}`); // navigate to task detail/edit page if exists
+  };
 
   const fetchWorkspace = async () => {
     try {
@@ -197,9 +297,18 @@ const WorkspaceDetail = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
+      case 'done': return 'bg-green-100 text-green-800';
       case 'in-progress': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'todo': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-orange-100 text-orange-800';
+      case 'low': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -390,13 +499,13 @@ const WorkspaceDetail = () => {
               </div>
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="card text-center">
                   <div className="text-2xl font-bold text-blue-600">{tasks.length}</div>
                   <div className="text-sm text-gray-600">Total Tasks</div>
                 </div>
                 <div className="card text-center">
-                  <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'completed').length}</div>
+                  <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'done').length}</div>
                   <div className="text-sm text-gray-600">Completed</div>
                 </div>
                 <div className="card text-center">
@@ -472,10 +581,22 @@ const WorkspaceDetail = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
-              <button className="btn-primary flex items-center space-x-2">
-                <PlusIcon className="w-4 h-4" />
-                <span>New Task</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <select
+                  value={taskFilters.status}
+                  onChange={e => setTaskFilters(f => ({ ...f, status: e.target.value }))}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="todo">Todo</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="done">Done</option>
+                </select>
+                <button onClick={openTaskModal} className="btn-primary flex items-center space-x-2">
+                  <PlusIcon className="w-4 h-4" />
+                  <span>New Task</span>
+                </button>
+              </div>
             </div>
             
             <div className="card">
@@ -485,25 +606,103 @@ const WorkspaceDetail = () => {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Task</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Priority</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Progress</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Assignee</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Due Date</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tasks.map((task) => (
-                      <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    {tasksLoading && (
+                      <tr><td colSpan="4" className="py-4 text-center text-sm text-gray-500">Loading tasks...</td></tr>
+                    )}
+                    {tasksError && !tasksLoading && (
+                      <tr><td colSpan="4" className="py-4 text-center text-sm text-red-600">{tasksError}</td></tr>
+                    )}
+                    {!tasksLoading && !tasksError && filteredTasks.map((task) => (
+                      <tr key={task._id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4">
-                          <div className="font-medium text-gray-900">{task.title}</div>
+                          <div className="font-medium text-gray-900">
+                            <Link to={`/tasks/${task._id}`} className="text-blue-600 hover:underline">{task.title}</Link>
+                          </div>
+                          {task.description && (
+                            <div className="text-xs text-gray-500 mt-1 line-clamp-1">{task.description}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <button className="btn-secondary text-xs" onClick={() => handleUpdateTask(task._id)}>Update</button>
+                            <button className="btn-secondary text-xs" onClick={() => handleDeleteTask(task._id)}>Delete</button>
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                            {task.status.replace('-', ' ').toUpperCase()}
+                            {task.status?.replace('-', ' ').toUpperCase()}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-gray-700">{task.assignee}</td>
-                        <td className="py-3 px-4 text-gray-700">{new Date(task.dueDate).toLocaleDateString()}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                            {(task.priority || 'medium').toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-24 bg-gray-200 rounded h-2 overflow-hidden">
+                                <div
+                                  className="h-2 bg-blue-600"
+                                  style={{ width: `${percentOf(task.loggedHours, task.estimatedHours)}%` }}
+                                  title={`Time: ${task.loggedHours || 0}h / ${task.estimatedHours || 0}h`}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-600">{task.autoProgress || 0}%</span>
+                            </div>
+                            {typeof task.progress === 'number' && task.progress !== task.autoProgress && (
+                              <div className="text-[10px] text-gray-400">Manual: {task.progress}%</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-gray-700">
+                          {task.assignees && task.assignees.length > 0 ? (
+                            <div className="flex -space-x-2">
+                              {task.assignees.slice(0,3).map((a, idx) => (
+                                <div key={`${a._id || a}-${idx}`} className="w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border border-white" title={a.firstName ? `${a.firstName} ${a.lastName}` : ''}>
+                                  {(a.firstName?.[0] || '?')}{(a.lastName?.[0] || '')}
+                                </div>
+                              ))}
+                              {task.assignees.length > 3 && (
+                                <div className="w-6 h-6 rounded-full bg-gray-300 text-gray-700 text-[10px] flex items-center justify-center border border-white" title={`${task.assignees.length - 3} more`}>+{task.assignees.length - 3}</div>
+                              )}
+                            </div>
+                          ) : <span className="text-xs text-gray-400">Unassigned</span>}
+                          <div className="mt-2 flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="email or username"
+                              value={quickAssign[task._id] || ''}
+                              onChange={(e) => setQuickAssign(q => ({ ...q, [task._id]: e.target.value }))}
+                              className="border rounded px-2 py-1 text-xs"
+                              style={{ width: '180px' }}
+                            />
+                            <button
+                              className="text-xs btn-secondary"
+                              onClick={() => handleQuickAssign(task._id)}
+                            >Assign</button>
+                            <button
+                              className="text-xs btn-secondary"
+                              onClick={() => handleAssignToMe(task._id)}
+                            >Assign to me</button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-gray-700">
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : <span className="text-xs text-gray-400">No due date</span>}
+                        </td>
                       </tr>
                     ))}
+                    {!tasksLoading && !tasksError && filteredTasks.length === 0 && (
+                      <tr><td colSpan="4" className="py-4 text-center text-sm text-gray-500">No tasks match filters.</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -726,6 +925,110 @@ const WorkspaceDetail = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Task Creation Modal */}
+      {isTaskModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <form onSubmit={handleCreateTask}>
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">New Task</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsTaskModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >×</button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    value={newTask.title}
+                    onChange={e => setNewTask(t => ({ ...t, title: e.target.value }))}
+                    required
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Task title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={newTask.description}
+                    onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
+                    rows={3}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Optional description"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={newTask.dueDate}
+                      onChange={e => setNewTask(t => ({ ...t, dueDate: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <select
+                      value={newTask.priority}
+                      onChange={e => setNewTask(t => ({ ...t, priority: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assignees</label>
+                  <UserFuzzySelect
+                    workspaceId={workspaceId}
+                    onSelect={(u) => setNewTask(t => ({
+                      ...t,
+                      assignees: (t.assignees || []).some(x => (x._id || x) === u._id)
+                        ? t.assignees
+                        : [...(t.assignees || []), u]
+                    }))}
+                  />
+                  {newTask.assignees && newTask.assignees.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {newTask.assignees.map((a, idx) => (
+                        <span key={`${a._id || a}-${idx}`} className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">
+                          <span>{a.displayName || a.email || a}</span>
+                          <button
+                            type="button"
+                            className="text-gray-500 hover:text-gray-700"
+                            onClick={() => setNewTask(t => ({
+                              ...t,
+                              assignees: t.assignees.filter(x => (x._id || x) !== (a._id || a))
+                            }))}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setIsTaskModalOpen(false)}
+                  className="btn-secondary"
+                  disabled={creatingTask}
+                >Cancel</button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={creatingTask || !newTask.title}
+                >{creatingTask ? 'Creating...' : 'Create Task'}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

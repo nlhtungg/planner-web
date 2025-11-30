@@ -4,7 +4,10 @@ const taskService = require('../services/taskService');
 const taskController = {
   async createTask(req, res, next) {
     try {
-      const task = await taskService.createTask({ ...req.body, createdBy: req.user._id });
+      const task = await taskService.createTask(
+        { ...req.body, createdBy: req.user._id },
+        req.user._id
+      );
       res.status(201).json(task);
     } catch (err) {
       next(err);
@@ -12,8 +15,13 @@ const taskController = {
   },
   async assignTask(req, res, next) {
     try {
-      const { taskId, userId } = req.body;
-      const task = await taskService.assignTask(taskId, userId);
+      const { taskId, userId, identifier } = req.body;
+      let task;
+      if (identifier) {
+        task = await taskService.assignTaskByIdentifier(taskId, identifier, req.user._id);
+      } else {
+        task = await taskService.assignTask(taskId, userId, req.user._id);
+      }
       res.json(task);
     } catch (err) {
       next(err);
@@ -46,9 +54,35 @@ const taskController = {
       next(err);
     }
   },
+  async updateTask(req, res, next) {
+    try {
+      const updated = await taskService.updateTask(req.params.id, req.body, req.user._id);
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
+  },
+  async setEstimate(req, res, next) {
+    try {
+      const { estimatedHours } = req.body;
+      const task = await taskService.setEstimate(req.params.id, estimatedHours, req.user._id);
+      res.json(task);
+    } catch (err) {
+      next(err);
+    }
+  },
+  async logTime(req, res, next) {
+    try {
+      const { hours, description } = req.body;
+      const task = await taskService.logTime(req.params.id, hours, description, req.user._id);
+      res.json(task);
+    } catch (err) {
+      next(err);
+    }
+  },
   async getTask(req, res, next) {
     try {
-      const task = await taskService.getTask(req.params.id);
+      const task = await taskService.getTask(req.params.id, req.user._id);
       res.json(task);
     } catch (err) {
       next(err);
@@ -62,9 +96,20 @@ const taskController = {
       next(err);
     }
   },
+  async getTasksByWorkspace(req, res, next) {
+    try {
+      const tasks = await taskService.getTasksByWorkspace(
+        req.params.workspaceId,
+        req.user._id
+      );
+      res.json(tasks);
+    } catch (err) {
+      next(err);
+    }
+  },
   async deleteTask(req, res, next) {
     try {
-      await taskService.deleteTask(req.params.id);
+      await taskService.deleteTask(req.params.id, req.user._id);
       res.status(204).end();
     } catch (err) {
       next(err);

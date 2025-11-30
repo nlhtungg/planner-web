@@ -469,6 +469,45 @@ class WorkspaceController {
       });
     }
   }
+
+  // Fuzzy search members within a workspace (Jira-style user picker backend)
+  async searchMembers(req, res) {
+    try {
+      const { workspaceId } = req.params;
+      const { q, limit = 10 } = req.query;
+      const userId = req.user._id || req.user.id;
+
+      const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+      if (!workspace || !workspace.isActive) {
+        return res.status(404).json({ success: false, message: 'Workspace not found' });
+      }
+
+      // Access control: must be member or owner
+      const isOwner = (workspace.owner._id || workspace.owner).toString() === userId.toString();
+      const isMember = workspace.isMember(userId);
+      if (!isOwner && !isMember) {
+        return res.status(403).json({ success: false, message: 'Access denied to this workspace' });
+      }
+
+      // Basic validation: require at least 2 chars for query (unless empty for initial list)
+      if (q && q.trim().length > 0 && q.trim().length < 2) {
+        return res.status(400).json({ success: false, message: 'Query must be at least 2 characters' });
+      }
+
+      const numericLimit = Math.min(parseInt(limit) || 10, 50);
+      const results = await workspaceRepository.searchMembers(workspaceId, q, numericLimit);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Members search completed',
+        data: results,
+        meta: { count: results.length, limit: numericLimit, query: q || '' }
+      });
+    } catch (error) {
+      console.error('Search members error:', error);
+      res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    }
+  }
 }
 
 module.exports = new WorkspaceController();
