@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Home from './pages/Home';
 import Workspaces from './pages/Workspaces';
 import WorkspaceDetail from './pages/WorkspaceDetail';
+import TaskDetail from './pages/TaskDetail';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 
@@ -55,6 +56,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+        <Routes>
+          <Route
+            path="/tasks/:id"
+            element={
+              <ProtectedRoute>
+                <TaskDetail />
               </ProtectedRoute>
             }
           />

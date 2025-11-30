@@ -19,6 +19,7 @@ router.post('/:workspaceId/members', workspaceController.addMember);
 router.post('/:workspaceId/join', workspaceController.joinWorkspace);
 router.delete('/:workspaceId/members/:memberId', workspaceController.removeMember);
 router.put('/:workspaceId/members/:memberId/role', workspaceController.updateMemberRole);
+router.get('/:workspaceId/members/search', workspaceController.searchMembers);
 
 // Statistics route
 router.get('/:workspaceId/stats', workspaceController.getWorkspaceStats);

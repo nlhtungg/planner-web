@@ -200,6 +200,52 @@ class WorkspaceRepository {
       throw error;
     }
   }
+
+  // Fuzzy search members inside a workspace (case-insensitive partial match)
+  async searchMembers(workspaceId, query, limit = 10) {
+    try {
+      const workspace = await Workspace.findById(workspaceId)
+        .select('members isActive')
+        .populate('members.user', 'firstName lastName email username avatar');
+
+      if (!workspace || !workspace.isActive) {
+        return [];
+      }
+
+      const trimmed = (query || '').trim();
+      if (trimmed.length === 0) {
+        // Return first N members if no query provided
+        return workspace.members.slice(0, limit).map(m => ({
+          _id: m.user._id,
+          displayName: `${m.user.firstName} ${m.user.lastName}`.trim(),
+          email: m.user.email,
+          username: m.user.username || null,
+          avatar: m.user.avatar || null,
+          role: m.role
+        }));
+      }
+
+      const regex = new RegExp(trimmed, 'i');
+      const matched = workspace.members.filter(m => {
+        const u = m.user;
+        return regex.test(u.firstName) ||
+               regex.test(u.lastName) ||
+               regex.test(u.email) ||
+               (u.username && regex.test(u.username));
+      }).slice(0, limit).map(m => ({
+        _id: m.user._id,
+        displayName: `${m.user.firstName} ${m.user.lastName}`.trim(),
+        email: m.user.email,
+        username: m.user.username || null,
+        avatar: m.user.avatar || null,
+        role: m.role
+      }));
+
+      return matched;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = new WorkspaceRepository();

@@ -12,6 +12,16 @@ class UserRepository {
     }
   }
 
+  // Find user by email or username (returns full mongoose doc)
+  async findByEmailOrUsername(identifier) {
+    try {
+      const user = await User.findByEmailOrUsername(identifier);
+      return user;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Get user by ID
   async getUserById(userId) {
     try {
