@@ -138,10 +138,15 @@ const Home = () => {
           <nav className="p-4 space-y-2">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
+              const handleClick = () => {
+                if (item.id === 'workspaces') navigate('/workspaces');
+                else if (item.id === 'calendar') navigate('/calendar');
+                else setActiveSection(item.id);
+              };
               return (
                 <button
                   key={item.id}
-                  onClick={() => item.id === 'workspaces' ? navigate('/workspaces') : setActiveSection(item.id)}
+                  onClick={handleClick}
                   className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                     activeSection === item.id
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'

@@ -90,7 +90,7 @@ const taskController = {
   },
   async getTasks(req, res, next) {
     try {
-      const tasks = await taskService.getTasks(req.query);
+      const tasks = await taskService.getTasks(req.query, req.user._id);
       res.json(tasks);
     } catch (err) {
       next(err);

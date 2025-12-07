@@ -122,4 +122,13 @@ class WorkspaceService {
   }
 }
 
-export default new WorkspaceService();
+const workspaceServiceInstance = new WorkspaceService();
+
+// Named exports for convenience
+export const getMyWorkspaces = (includePublic) => workspaceServiceInstance.getMyWorkspaces(includePublic);
+export const getWorkspace = (workspaceId) => workspaceServiceInstance.getWorkspace(workspaceId);
+export const createWorkspace = (data) => workspaceServiceInstance.createWorkspace(data);
+export const updateWorkspace = (id, data) => workspaceServiceInstance.updateWorkspace(id, data);
+export const deleteWorkspace = (id) => workspaceServiceInstance.deleteWorkspace(id);
+
+export default workspaceServiceInstance;
