@@ -58,7 +58,7 @@ services:
         sleep 5;
         mc alias set local http://minio:9000 minioadmin minioadmin;
         mc mb -p local/user-media local/workspace-media local/message-media;
-        mc policy set public local/user-media local/workspace-media local/message-media;
+        mc anonymous set public local/user-media local/workspace-media local/message-media;
         echo 'MinIO buckets created: user-media, workspace-media, message-media';
       "
     networks:
