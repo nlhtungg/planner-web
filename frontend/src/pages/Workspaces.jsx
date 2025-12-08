@@ -102,12 +102,28 @@ const Workspaces = () => {
         const userWorkspaces = [];
         const publicNonMemberWorkspaces = [];
         
+        const currentUserId = (user && (user._id || user.id)) ? (user._id || user.id).toString() : null;
         allWorkspaces.forEach(workspace => {
-          const isMember = workspace.members.some(member => 
-            member.user.email === user.email
-          );
+          const isMember = workspace.members?.some(member => {
+            const memberUser = member.user;
+            const memberId = (memberUser && (memberUser._id || memberUser.id))
+              ? (memberUser._id || memberUser.id).toString()
+              : (typeof memberUser === 'string' ? memberUser : null);
+
+            // Prefer ID match; fall back to email match if IDs unavailable
+            if (currentUserId && memberId) {
+              return memberId === currentUserId;
+            }
+            if (memberUser && memberUser.email && user?.email) {
+              return memberUser.email.toLowerCase() === user.email.toLowerCase();
+            }
+            return false;
+          });
+          const isOwner = currentUserId && (workspace.owner?._id || workspace.owner?.id)
+            ? (workspace.owner._id || workspace.owner.id).toString() === currentUserId
+            : false;
           
-          if (isMember) {
+          if (isMember || isOwner) {
             userWorkspaces.push(workspace);
           } else if (workspace.settings?.isPublic) {
             publicNonMemberWorkspaces.push(workspace);
@@ -606,7 +622,7 @@ const Workspaces = () => {
                             <div className="flex items-center space-x-1 mb-2">
                               <span className="text-xs text-gray-500">by</span>
                               <span className="text-xs font-medium text-gray-700">
-                                {workspace.owner.firstName} {workspace.owner.lastName}
+                                {workspace.owner?.firstName || workspace.owner?.username || workspace.owner?.email || 'Unknown'}{workspace.owner?.lastName ? ` ${workspace.owner.lastName}` : ''}
                               </span>
                             </div>
 
@@ -620,12 +636,17 @@ const Workspaces = () => {
                               <div className="flex items-center space-x-4 text-sm text-gray-500">
                                 <div className="flex items-center space-x-1">
                                   <UserGroupIcon className="w-4 h-4" />
-                                  <span>{workspace.memberCount} member{workspace.memberCount !== 1 ? 's' : ''}</span>
+                                  <span>
+                                    {(workspace.memberCount ?? workspace.members?.length ?? 1)} member
+                                    {(workspace.memberCount ?? workspace.members?.length ?? 1) !== 1 ? 's' : ''}
+                                  </span>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <ClockIcon className="w-4 h-4" />
-                                  <span>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
-                                </div>
+                                {workspace.lastActivity && (
+                                  <div className="flex items-center space-x-1">
+                                    <ClockIcon className="w-4 h-4" />
+                                    <span>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
