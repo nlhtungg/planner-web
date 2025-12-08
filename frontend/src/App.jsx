@@ -10,6 +10,7 @@ import WorkspaceDetail from './pages/WorkspaceDetail';
 import TaskDetail from './pages/TaskDetail';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
+import Calendar from './pages/Calendar';
 
 function App() {
   return (
@@ -56,6 +57,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <Calendar />
               </ProtectedRoute>
             }
           />

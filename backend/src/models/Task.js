@@ -19,8 +19,9 @@ const TaskSchema = new mongoose.Schema({
       loggedAt: { type: Date, default: Date.now }
     }
   ],
-  workspace: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true },
+  workspace: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: false }, // Optional for personal tasks
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  isPersonal: { type: Boolean, default: false }, // Flag for personal tasks (no workspace)
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

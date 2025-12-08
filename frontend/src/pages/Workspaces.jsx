@@ -58,7 +58,7 @@ const Workspaces = () => {
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces', active: true },
     { id: 'connections', name: 'Connections', icon: UserGroupIcon, active: false },
     { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, active: false },
-    { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, active: false },
+    { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: false },
   ];
 
   const colorOptions = [
