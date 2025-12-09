@@ -10,7 +10,6 @@ import {
   updateCalendarEvent, 
   deleteCalendarEvent 
 } from '../services/calendarService';
-import { getMyWorkspaces } from '../services/workspaceService';
 import {
   HomeIcon,
   BriefcaseIcon,
@@ -33,14 +32,14 @@ const Calendar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
-  const [workspaces, setWorkspaces] = useState([]);
-  const [selectedWorkspace, setSelectedWorkspace] = useState('all');
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('month');
   const [date, setDate] = useState(new Date());
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const [selectedWorkspaceTask, setSelectedWorkspaceTask] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [formData, setFormData] = useState({
@@ -48,8 +47,7 @@ const Calendar = () => {
     description: '',
     dueDate: '',
     priority: 'medium',
-    status: 'todo',
-    workspace: ''
+    status: 'todo'
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -64,28 +62,16 @@ const Calendar = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedWorkspace]);
+  }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(''); // Clear previous errors
-      
-      // Fetch workspaces
-      const workspacesResponse = await getMyWorkspaces();
-      // Backend returns { success, message, data: workspaces[] }
-      const fetchedWorkspaces = workspacesResponse.data || [];
-      console.log('Workspaces fetched:', fetchedWorkspaces.length, fetchedWorkspaces);
-      setWorkspaces(fetchedWorkspaces);
 
-      // Fetch calendar events (tasks with dueDate)
-      const params = {};
-      if (selectedWorkspace !== 'all') {
-        params.workspace = selectedWorkspace;
-      }
-      
-      console.log('Fetching calendar events with params:', params);
-      const eventsResponse = await getCalendarEvents(params);
+      // Fetch personal calendar events only (no workspace filter)
+      console.log('Fetching personal calendar events');
+      const eventsResponse = await getCalendarEvents({});
       console.log('Calendar events response:', eventsResponse);
       
       setEvents(eventsResponse.data.events || []);
@@ -106,18 +92,35 @@ const Calendar = () => {
   };
 
   const handleSelectEvent = (event) => {
-    // Open edit modal
-    setModalMode('edit');
-    setSelectedEvent(event);
-    setFormData({
-      title: event.resource.title,
-      description: event.resource.description || '',
-      dueDate: moment(event.resource.dueDate).format('YYYY-MM-DD'),
-      priority: event.resource.priority || 'medium',
-      status: event.resource.status || 'todo',
-      workspace: event.resource.workspace || ''
-    });
-    setShowModal(true);
+    // Check if this is a personal event or workspace task
+    const isPersonalEvent = event.resource.isPersonal || !event.resource.workspace;
+    
+    if (isPersonalEvent) {
+      // Personal event: Open edit modal
+      setModalMode('edit');
+      setSelectedEvent(event);
+      setFormData({
+        title: event.resource.title,
+        description: event.resource.description || '',
+        dueDate: moment(event.resource.dueDate).format('YYYY-MM-DD'),
+        priority: event.resource.priority || 'medium',
+        status: event.resource.status || 'todo'
+      });
+      setShowModal(true);
+    } else {
+      // Workspace task: Show info modal
+      setSelectedWorkspaceTask(event);
+      setShowWorkspaceModal(true);
+    }
+  };
+
+  const handleGoToWorkspace = () => {
+    if (selectedWorkspaceTask?.resource?.workspace) {
+      const workspace = selectedWorkspaceTask.resource.workspace;
+      const workspaceId = typeof workspace === 'object' ? workspace._id : workspace;
+      navigate(`/workspace/${workspaceId}`);
+    }
+    setShowWorkspaceModal(false);
   };
 
   const handleSelectSlot = (slotInfo) => {
@@ -129,8 +132,7 @@ const Calendar = () => {
       description: '',
       dueDate: moment(slotInfo.start).format('YYYY-MM-DD'),
       priority: 'medium',
-      status: 'todo',
-      workspace: selectedWorkspace !== 'all' ? selectedWorkspace : '' // Empty = personal task
+      status: 'todo'
     });
     setShowModal(true);
   };
@@ -143,8 +145,7 @@ const Calendar = () => {
       description: '',
       dueDate: '',
       priority: 'medium',
-      status: 'todo',
-      workspace: ''
+      status: 'todo'
     });
     setError('');
   };
@@ -162,16 +163,12 @@ const Calendar = () => {
       setError('');
       
       if (modalMode === 'create') {
-        // Create new calendar event
+        // Create new calendar event (always personal - no workspace)
         const eventData = { ...formData };
-        
-        // If no workspace selected, remove it (personal event)
-        if (!eventData.workspace) {
-          delete eventData.workspace;
-        }
+        delete eventData.workspace; // Force personal task
         
         await createCalendarEvent(eventData);
-        alert('Event created successfully!');
+        alert('Personal event created successfully!');
         fetchData(); // Refresh calendar
       } else {
         // Update existing event
@@ -211,6 +208,7 @@ const Calendar = () => {
 
   const eventStyleGetter = (event) => {
     const task = event.resource;
+    const isPersonalEvent = task.isPersonal || !task.workspace;
     let backgroundColor = '#3b82f6'; // Default blue
 
     // Color by priority
@@ -233,12 +231,27 @@ const Calendar = () => {
         borderRadius: '4px',
         opacity: task.status === 'done' ? 0.6 : 1,
         color: 'white',
-        border: '0px',
+        border: isPersonalEvent ? '0px' : '2px solid white',
         display: 'block',
         fontSize: '0.875rem',
         padding: '2px 5px',
+        cursor: isPersonalEvent ? 'pointer' : 'pointer',
+        fontWeight: isPersonalEvent ? 'normal' : '600',
       }
     };
+  };
+
+  // Custom event component to show icon for workspace tasks
+  const EventComponent = ({ event }) => {
+    const isPersonalEvent = event.resource.isPersonal || !event.resource.workspace;
+    return (
+      <div className="flex items-center justify-between">
+        <span className="truncate">{event.title}</span>
+        {!isPersonalEvent && (
+          <BriefcaseIcon className="w-3 h-3 ml-1 flex-shrink-0" />
+        )}
+      </div>
+    );
   };
 
   const CustomToolbar = (toolbar) => {
@@ -291,22 +304,6 @@ const Calendar = () => {
         </div>
 
         {label()}
-
-        <div className="flex items-center space-x-2">
-          <select
-            value={selectedWorkspace}
-            onChange={(e) => setSelectedWorkspace(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">All Workspaces</option>
-            <option value="personal">Personal Tasks Only</option>
-            {workspaces.map(workspace => (
-              <option key={workspace._id} value={workspace._id}>
-                {workspace.name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
     );
   };
@@ -406,8 +403,7 @@ const Calendar = () => {
                       description: '',
                       dueDate: moment().format('YYYY-MM-DD'),
                       priority: 'medium',
-                      status: 'todo',
-                      workspace: selectedWorkspace !== 'all' ? selectedWorkspace : ''
+                      status: 'todo'
                     });
                     setShowModal(true);
                   }}
@@ -421,23 +417,37 @@ const Calendar = () => {
 
             {/* Legend */}
             <div className="mb-6 bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <div className="flex items-center space-x-6">
-                <span className="text-sm font-medium text-gray-700">Priority:</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-red-500 rounded"></div>
-                  <span className="text-sm text-gray-600">High</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-6">
+                  <span className="text-sm font-medium text-gray-700">Priority:</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-red-500 rounded"></div>
+                    <span className="text-sm text-gray-600">High</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                    <span className="text-sm text-gray-600">Medium</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-green-500 rounded"></div>
+                    <span className="text-sm text-gray-600">Low</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-gray-500 rounded opacity-60"></div>
+                    <span className="text-sm text-gray-600">Completed</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                  <span className="text-sm text-gray-600">Medium</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-sm text-gray-600">Low</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-gray-500 rounded opacity-60"></div>
-                  <span className="text-sm text-gray-600">Completed</span>
+                <div className="flex items-center space-x-6">
+                  <span className="text-sm font-medium text-gray-700">Type:</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                    <span className="text-sm text-gray-600">Personal Event (Editable)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-blue-500 rounded border-2 border-white"></div>
+                    <BriefcaseIcon className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm text-gray-600">Workspace Task (Click to navigate)</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -494,6 +504,7 @@ const Calendar = () => {
                   onNavigate={setDate}
                   components={{
                     toolbar: CustomToolbar,
+                    event: EventComponent,
                   }}
                   popup
                   selectable
@@ -617,36 +628,21 @@ const Calendar = () => {
                 />
               </div>
 
-              {/* Workspace */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Workspace <span className="text-gray-400 text-xs">(Optional - leave empty for personal task)</span>
-                </label>
-                <select
-                  value={formData.workspace}
-                  onChange={(e) => setFormData({ ...formData, workspace: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">📝 Personal Task (No Workspace)</option>
-                  {workspaces.length === 0 ? (
-                    <option disabled>No workspaces available</option>
-                  ) : (
-                    workspaces.map(workspace => (
-                      <option key={workspace._id} value={workspace._id}>
-                        🏢 {workspace.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-                {!formData.workspace ? (
-                  <p className="mt-1 text-xs text-gray-500">
-                    💡 This will be a personal task visible only to you
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-blue-600">
-                    ✓ This task will appear in the selected workspace and calendar
-                  </p>
-                )}
+              {/* Personal Task Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900">Personal Calendar Event</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Events created here are personal and editable. Workspace tasks with due dates will also appear but are read-only - click them to navigate to the workspace for editing.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Due Date */}
@@ -736,7 +732,7 @@ const Calendar = () => {
       )}
 
       {/* Custom CSS for calendar styling */}
-      <style jsx>{`
+      <style>{`
         .rbc-calendar {
           font-family: inherit;
         }
@@ -815,6 +811,112 @@ const Calendar = () => {
           background-color: #f9fafb;
         }
       `}</style>
+
+      {/* Workspace Task Info Modal */}
+      {showWorkspaceModal && selectedWorkspaceTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <BriefcaseIcon className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Workspace Task</h3>
+                  <p className="text-sm text-gray-500">Read-only view</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWorkspaceModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Info Banner */}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-orange-900">Cannot Edit Here</p>
+                    <p className="text-xs text-orange-700 mt-1">
+                      This is a workspace task. To edit or manage it, please go to the workspace where it was created.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Task Details */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
+                  <p className="text-base font-semibold text-gray-900">{selectedWorkspaceTask.title}</p>
+                </div>
+
+                {selectedWorkspaceTask.resource.description && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
+                    <p className="text-sm text-gray-700">{selectedWorkspaceTask.resource.description}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Due Date</label>
+                    <p className="text-sm text-gray-900">{moment(selectedWorkspaceTask.resource.dueDate).format('MMM DD, YYYY')}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Priority</label>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      selectedWorkspaceTask.resource.priority === 'high' ? 'bg-red-100 text-red-800' :
+                      selectedWorkspaceTask.resource.priority === 'medium' ? 'bg-orange-100 text-orange-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {selectedWorkspaceTask.resource.priority}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    selectedWorkspaceTask.resource.status === 'done' ? 'bg-gray-100 text-gray-800' :
+                    selectedWorkspaceTask.resource.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedWorkspaceTask.resource.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={() => setShowWorkspaceModal(false)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGoToWorkspace}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center space-x-2"
+              >
+                <BriefcaseIcon className="w-4 h-4" />
+                <span>Go to Workspace</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
