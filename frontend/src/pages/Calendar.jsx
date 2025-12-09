@@ -4,7 +4,12 @@ import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getTasks, createTask, updateTask, deleteTask } from '../services/taskService';
+import { 
+  getCalendarEvents, 
+  createCalendarEvent, 
+  updateCalendarEvent, 
+  deleteCalendarEvent 
+} from '../services/calendarService';
 import { getMyWorkspaces } from '../services/workspaceService';
 import {
   HomeIcon,
@@ -27,7 +32,6 @@ const localizer = momentLocalizer(moment);
 const Calendar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState([]);
   const [events, setEvents] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState('all');
@@ -60,50 +64,45 @@ const Calendar = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
-
-  useEffect(() => {
-    convertTasksToEvents();
-  }, [tasks, selectedWorkspace]);
+  }, [selectedWorkspace]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
+      
       // Fetch workspaces
       const workspacesResponse = await getMyWorkspaces();
-      setWorkspaces(workspacesResponse.data.workspaces || []);
+      // Backend returns { success, message, data: workspaces[] }
+      const fetchedWorkspaces = workspacesResponse.data || [];
+      console.log('Workspaces fetched:', fetchedWorkspaces.length, fetchedWorkspaces);
+      setWorkspaces(fetchedWorkspaces);
 
-      // Fetch all tasks
-      const tasksResponse = await getTasks();
-      setTasks(tasksResponse.data.tasks || []);
+      // Fetch calendar events (tasks with dueDate)
+      const params = {};
+      if (selectedWorkspace !== 'all') {
+        params.workspace = selectedWorkspace;
+      }
+      
+      console.log('Fetching calendar events with params:', params);
+      const eventsResponse = await getCalendarEvents(params);
+      console.log('Calendar events response:', eventsResponse);
+      
+      setEvents(eventsResponse.data.events || []);
+      console.log('Events set:', eventsResponse.data.events?.length || 0, 'events');
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching calendar data:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      // Set error message
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to load calendar';
+      setError(errorMsg);
+      
+      // Keep empty events array so calendar still renders
+      setEvents([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const convertTasksToEvents = () => {
-    let filteredTasks = tasks;
-
-    // Filter by workspace if selected
-    if (selectedWorkspace !== 'all') {
-      filteredTasks = tasks.filter(task => task.workspace === selectedWorkspace);
-    }
-
-    // Convert tasks to calendar events
-    const calendarEvents = filteredTasks
-      .filter(task => task.dueDate) // Only tasks with due date
-      .map(task => ({
-        id: task._id,
-        title: task.title,
-        start: new Date(task.dueDate),
-        end: new Date(task.dueDate),
-        resource: task,
-        allDay: true,
-      }));
-
-    setEvents(calendarEvents);
   };
 
   const handleSelectEvent = (event) => {
@@ -136,24 +135,6 @@ const Calendar = () => {
     setShowModal(true);
   };
 
-  const handleEventDrop = async ({ event, start, end }) => {
-    try {
-      const taskId = event.id;
-      const newDueDate = moment(start).format('YYYY-MM-DD');
-      
-      await updateTask(taskId, { dueDate: newDueDate });
-      
-      // Update local state
-      const updatedTasks = tasks.map(task =>
-        task._id === taskId ? { ...task, dueDate: newDueDate } : task
-      );
-      setTasks(updatedTasks);
-    } catch (error) {
-      console.error('Error updating task date:', error);
-      alert('Failed to update task date');
-    }
-  };
-
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedEvent(null);
@@ -181,32 +162,22 @@ const Calendar = () => {
       setError('');
       
       if (modalMode === 'create') {
-        // Create new task
-        const taskData = {
-          ...formData,
-          assignees: []
-        };
+        // Create new calendar event
+        const eventData = { ...formData };
         
-        // If no workspace selected, remove it (personal task)
-        if (!taskData.workspace) {
-          delete taskData.workspace;
+        // If no workspace selected, remove it (personal event)
+        if (!eventData.workspace) {
+          delete eventData.workspace;
         }
         
-        const response = await createTask(taskData);
-        
-        // Add to local state
-        setTasks([...tasks, response.data.task || response.data]);
-        alert('Task created successfully!');
+        await createCalendarEvent(eventData);
+        alert('Event created successfully!');
+        fetchData(); // Refresh calendar
       } else {
-        // Update existing task
-        const response = await updateTask(selectedEvent.id, formData);
-        
-        // Update local state
-        const updatedTasks = tasks.map(task =>
-          task._id === selectedEvent.id ? (response.data.task || response.data) : task
-        );
-        setTasks(updatedTasks);
-        alert('Task updated successfully!');
+        // Update existing event
+        await updateCalendarEvent(selectedEvent.id, formData);
+        alert('Event updated successfully!');
+        fetchData(); // Refresh calendar
       }
       
       handleCloseModal();
@@ -225,25 +196,17 @@ const Calendar = () => {
     
     try {
       setSaving(true);
-      await deleteTask(selectedEvent.id);
+      await deleteCalendarEvent(selectedEvent.id);
       
-      // Remove from local state
-      const updatedTasks = tasks.filter(task => task._id !== selectedEvent.id);
-      setTasks(updatedTasks);
-      
-      alert('Task deleted successfully!');
+      alert('Event deleted successfully!');
       handleCloseModal();
+      fetchData(); // Refresh calendar
     } catch (error) {
       console.error('Error deleting task:', error);
       setError(error.response?.data?.message || 'Failed to delete task');
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
   };
 
   const eventStyleGetter = (event) => {
@@ -336,6 +299,7 @@ const Calendar = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Workspaces</option>
+            <option value="personal">Personal Tasks Only</option>
             {workspaces.map(workspace => (
               <option key={workspace._id} value={workspace._id}>
                 {workspace.name}
@@ -413,15 +377,6 @@ const Calendar = () => {
               </button>
             ))}
           </nav>
-
-          <div className="absolute bottom-4 left-4 right-4">
-            <button
-              onClick={handleLogout}
-              className="w-full px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-            >
-              Logout
-            </button>
-          </div>
         </aside>
 
         {/* Main Content */}
@@ -429,16 +384,39 @@ const Calendar = () => {
           <div className="max-w-7xl mx-auto">
             {/* Page Header */}
             <div className="mb-6">
-              <div className="flex items-center space-x-3 mb-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => navigate(-1)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">Calendar</h2>
+                    <p className="text-gray-600 text-sm mt-1">View and manage your tasks by date</p>
+                  </div>
+                </div>
                 <button
-                  onClick={() => navigate(-1)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  onClick={() => {
+                    setModalMode('create');
+                    setSelectedEvent(null);
+                    setFormData({
+                      title: '',
+                      description: '',
+                      dueDate: moment().format('YYYY-MM-DD'),
+                      priority: 'medium',
+                      status: 'todo',
+                      workspace: selectedWorkspace !== 'all' ? selectedWorkspace : ''
+                    });
+                    setShowModal(true);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+                  <PlusIcon className="w-5 h-5" />
+                  <span>Create Event</span>
                 </button>
-                <h2 className="text-3xl font-bold text-gray-900">Calendar</h2>
               </div>
-              <p className="text-gray-600 ml-12">View and manage your tasks by date</p>
             </div>
 
             {/* Legend */}
@@ -464,6 +442,22 @@ const Calendar = () => {
               </div>
             </div>
 
+            {/* Error Banner */}
+            {error && (
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <XMarkIcon className="w-5 h-5 text-red-600" />
+                  <p className="text-red-600 font-medium">{error}</p>
+                </div>
+                <button
+                  onClick={fetchData}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* Calendar */}
             <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200" style={{ height: '700px' }}>
               {loading ? (
@@ -471,6 +465,16 @@ const Calendar = () => {
                   <div className="text-center">
                     <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-600">Loading calendar...</p>
+                  </div>
+                </div>
+              ) : events.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <CalendarDaysIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 font-medium mb-2">No events found</p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Click on a date to create your first event
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -482,7 +486,6 @@ const Calendar = () => {
                   style={{ height: '100%' }}
                   onSelectEvent={handleSelectEvent}
                   onSelectSlot={handleSelectSlot}
-                  onEventDrop={handleEventDrop}
                   eventPropGetter={eventStyleGetter}
                   views={['month', 'week', 'day', 'agenda']}
                   view={view}
@@ -494,7 +497,6 @@ const Calendar = () => {
                   }}
                   popup
                   selectable
-                  draggableAccessor={() => true}
                 />
               )}
             </div>
@@ -626,15 +628,23 @@ const Calendar = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">📝 Personal Task (No Workspace)</option>
-                  {workspaces.map(workspace => (
-                    <option key={workspace._id} value={workspace._id}>
-                      {workspace.name}
-                    </option>
-                  ))}
+                  {workspaces.length === 0 ? (
+                    <option disabled>No workspaces available</option>
+                  ) : (
+                    workspaces.map(workspace => (
+                      <option key={workspace._id} value={workspace._id}>
+                        🏢 {workspace.name}
+                      </option>
+                    ))
+                  )}
                 </select>
-                {!formData.workspace && (
+                {!formData.workspace ? (
                   <p className="mt-1 text-xs text-gray-500">
-                    This will be a personal task visible only to you
+                    💡 This will be a personal task visible only to you
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-blue-600">
+                    ✓ This task will appear in the selected workspace and calendar
                   </p>
                 )}
               </div>
