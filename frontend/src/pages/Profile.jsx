@@ -22,12 +22,12 @@ import api from '../services/api';
 const Profile = () => {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
-  
+
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -97,7 +97,7 @@ const Profile = () => {
       };
 
       const response = await api.put('/auth/profile', updateData);
-      
+
       if (response.data.success) {
         await updateUser(response.data.data.user);
         setSuccess('Profile updated successfully!');
@@ -162,12 +162,12 @@ const Profile = () => {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });
-      
+
       if (response.data.success) {
         setPasswordSuccess('Password changed successfully! Please log in again.');
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setShowChangePassword(false);
-        
+
         // Auto logout after 3 seconds
         setTimeout(() => {
           handleLogout();
@@ -231,7 +231,7 @@ const Profile = () => {
     // Automatically upload the selected file
     console.log('🚀 Calling handleAvatarUpload with file');
     await handleAvatarUpload(file);
-    
+
     // Clear the input so the same file can be selected again if needed
     e.target.value = '';
   };
@@ -253,7 +253,7 @@ const Profile = () => {
       formData.append('avatar', file);
       console.log('📦 FormData created and file appended');
       console.log('📋 FormData entries:', Array.from(formData.entries()));
-      
+
       // Log the file object details again
       console.log('📂 File being uploaded:', {
         name: file.name,
@@ -270,17 +270,17 @@ const Profile = () => {
         console.log('✅ Upload successful, updating user context');
         console.log('📷 New avatar URL:', response.data.data.avatarUrl);
         console.log('👤 Current user before update:', user);
-        
+
         // Update user context with new avatar URL
         const updatedUser = { ...user, avatar: response.data.data.avatarUrl };
         console.log('👤 Updated user object:', updatedUser);
         updateUser(updatedUser);
-        
+
         // Clear file state
         setAvatarFile(null);
         setAvatarPreview(null);
         setSuccess('Avatar uploaded successfully!');
-        
+
         // Force re-render by adding timestamp to avoid browser cache
         const urlWithTimestamp = `${response.data.data.avatarUrl}?t=${Date.now()}`;
         console.log('🔄 URL with cache buster:', urlWithTimestamp);
@@ -361,7 +361,7 @@ const Profile = () => {
                   </span>
                 )}
               </div>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded hover:bg-gray-100"
               >
@@ -382,11 +382,10 @@ const Profile = () => {
                 <button
                   key={item.id}
                   onClick={() => item.path ? navigate(item.path) : null}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                    item.active
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${item.active
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
@@ -399,7 +398,7 @@ const Profile = () => {
           <div className="p-4 border-t border-gray-200 mt-8">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
             <div className="space-y-2">
-              <button 
+              <button
                 onClick={() => navigate('/workspaces')}
                 className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
               >
@@ -515,7 +514,7 @@ const Profile = () => {
                           </span>
                         )}
                       </div>
-                      
+
                       {/* Avatar Error Display */}
                       {avatarError && (
                         <div className="mt-2 flex items-center space-x-2 text-red-600 text-sm">
@@ -523,7 +522,7 @@ const Profile = () => {
                           <span>{avatarError}</span>
                         </div>
                       )}
-                      
+
                       {/* Delete Avatar Button */}
                       {user?.avatar && (
                         <button
@@ -717,7 +716,7 @@ const Profile = () => {
                         <h4 className="font-medium text-gray-900">Password</h4>
                         <p className="text-sm text-gray-600">Change your account password</p>
                       </div>
-                      <button 
+                      <button
                         onClick={() => setShowChangePassword(true)}
                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                       >
@@ -728,7 +727,7 @@ const Profile = () => {
                     <div>
                       <div className="flex items-center justify-between mb-6">
                         <h4 className="font-medium text-gray-900">Change Password</h4>
-                        <button 
+                        <button
                           onClick={handleCancelPasswordChange}
                           disabled={passwordLoading}
                           className="text-gray-500 hover:text-gray-700"

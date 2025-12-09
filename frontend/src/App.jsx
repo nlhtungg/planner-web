@@ -11,6 +11,7 @@ import TaskDetail from './pages/TaskDetail';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
+import DocumentEditor from './pages/DocumentEditor';
 
 function App() {
   return (
@@ -68,13 +69,19 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Routes>
-        <Routes>
           <Route
             path="/tasks/:id"
             element={
               <ProtectedRoute>
                 <TaskDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents/:id"
+            element={
+              <ProtectedRoute>
+                <DocumentEditor />
               </ProtectedRoute>
             }
           />

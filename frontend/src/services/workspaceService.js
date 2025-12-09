@@ -120,6 +120,16 @@ class WorkspaceService {
       throw error;
     }
   }
+
+  // Leave workspace
+  async leaveWorkspace(workspaceId) {
+    try {
+      const response = await api.post(`/workspaces/${workspaceId}/leave`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 const workspaceServiceInstance = new WorkspaceService();

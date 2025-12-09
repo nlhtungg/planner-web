@@ -19,18 +19,59 @@ const server = app.listen(config.port, () => {
   console.log(`🚀 Server running on port ${config.port}`);
   console.log(`📝 Environment: ${config.env}`);
   console.log(`🗄️  Database: MongoDB`);
-  console.log('=================================');
 });
+
+// Initialize Socket.io
+const io = require('socket.io')(server, {
+  cors: {
+    origin: config.cors.origin,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('👤 User connected:', socket.id);
+
+  socket.on('join-document', (documentId) => {
+    socket.join(documentId);
+    console.log(`User ${socket.id} joined document ${documentId}`);
+  });
+
+  socket.on('leave-document', (documentId) => {
+    socket.leave(documentId);
+    console.log(`User ${socket.id} left document ${documentId}`);
+  });
+
+  socket.on('send-changes', (delta, documentId) => {
+    socket.broadcast.to(documentId).emit('receive-changes', delta);
+  });
+
+  socket.on('new-comment', (comment, documentId) => {
+    socket.broadcast.to(documentId).emit('comment-added', comment);
+  });
+
+  socket.on('new-version', (version, documentId) => {
+    socket.broadcast.to(documentId).emit('version-added', version);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+console.log('📡 Socket.io initialized');
+console.log('=================================');
 
 /**
  * Graceful Shutdown
  */
 const gracefulShutdown = (signal) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
-  
+
   server.close(() => {
     console.log('✅ HTTP server closed');
-    
+
     // Close database connection
     if (global.mongoose && global.mongoose.connection) {
       global.mongoose.connection.close(() => {
