@@ -1,6 +1,7 @@
 const express = require('express');
 const authRoutes = require('./authRoutes');
 const workspaceRoutes = require('./workspaceRoutes');
+const postRoutes = require('./postRoutes');
 const taskRoutes = require('./taskRoutes');
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get('/health', (req, res) => {
  */
 router.use('/api/auth', authRoutes);
 router.use('/api/workspaces', workspaceRoutes);
+router.use('/api/workspaces', postRoutes);
 router.use('/api/tasks', taskRoutes);
 
 /**
