@@ -1,10 +1,10 @@
 const workspaceRepository = require('../repositories/workspaceRepository');
 const User = require('../models/User');
-const { 
-  validateWorkspace, 
-  validateWorkspaceUpdate, 
-  validateAddMember, 
-  validateUpdateMemberRole 
+const {
+  validateWorkspace,
+  validateWorkspaceUpdate,
+  validateAddMember,
+  validateUpdateMemberRole
 } = require('../utils/validation');
 
 class WorkspaceController {
@@ -57,8 +57,8 @@ class WorkspaceController {
     try {
       const userId = req.user._id || req.user.id;
       const includePublic = req.query.includePublic === 'true';
-      
-      const workspaces = includePublic 
+
+      const workspaces = includePublic
         ? await workspaceRepository.getAvailableWorkspaces(userId)
         : await workspaceRepository.getWorkspacesByUser(userId);
 
@@ -99,11 +99,11 @@ class WorkspaceController {
       console.log('isMember result:', workspace.isMember(userId));
       const ownerIdString = (workspace.owner._id || workspace.owner).toString();
       console.log('isOwner:', ownerIdString === userId.toString());
-      
+
       // Check if user is the owner or is a member
       const isOwner = ownerIdString === userId.toString();
       const isMember = workspace.isMember(userId);
-      
+
       if (!isOwner && !isMember) {
         return res.status(403).json({
           success: false,
@@ -144,7 +144,7 @@ class WorkspaceController {
       // Check if user can manage this workspace (owner or admin)
       const isOwner = workspace.owner._id.toString() === userId.toString();
       const canManage = isOwner || workspace.canManage(userId);
-      
+
       if (!canManage) {
         console.log('Permission check failed:', {
           userId: userId.toString(),
@@ -376,6 +376,53 @@ class WorkspaceController {
       });
     } catch (error) {
       console.error('Join workspace error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error'
+      });
+    }
+  }
+
+  // Leave workspace
+  async leaveWorkspace(req, res) {
+    try {
+      const { workspaceId } = req.params;
+      const userId = req.user._id || req.user.id;
+
+      const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+
+      if (!workspace || !workspace.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: 'Workspace not found'
+        });
+      }
+
+      // Owner cannot leave their own workspace
+      if (workspace.owner._id.toString() === userId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Workspace owner cannot leave. Please transfer ownership or delete the workspace.'
+        });
+      }
+
+      // Check if user is a member
+      if (!workspace.isMember(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are not a member of this workspace'
+        });
+      }
+
+      const updatedWorkspace = await workspaceRepository.removeMember(workspaceId, userId.toString());
+
+      res.status(200).json({
+        success: true,
+        message: 'Successfully left the workspace',
+        data: updatedWorkspace
+      });
+    } catch (error) {
+      console.error('Leave workspace error:', error);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
