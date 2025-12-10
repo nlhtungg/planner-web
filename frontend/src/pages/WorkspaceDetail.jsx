@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import workspaceService from '../services/workspaceService';
 import postService from '../services/postService';
+import commentService from '../services/commentService';
+import reactionService from '../services/reactionService';
 import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
 import AddMemberModal from '../components/AddMemberModal';
 import RemoveMemberModal from '../components/RemoveMemberModal';
 import UserFuzzySelect from '../components/UserFuzzySelect';
+import ReactionPicker from '../components/ReactionPicker';
+import ReactionBar from '../components/ReactionBar';
+import MentionInput from '../components/MentionInput';
+import MentionText from '../components/MentionText';
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
@@ -43,10 +49,33 @@ const WorkspaceDetail = () => {
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
+  const [newPostMentions, setNewPostMentions] = useState([]);
+  const [newPostMentionsEveryone, setNewPostMentionsEveryone] = useState(false);
   const [createPostLoading, setCreatePostLoading] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [editPostContent, setEditPostContent] = useState('');
+  const [editPostMentions, setEditPostMentions] = useState([]);
+  const [editPostMentionsEveryone, setEditPostMentionsEveryone] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(null);
+  
+  // Comments state
+  const [expandedComments, setExpandedComments] = useState({}); // { [postId]: true/false }
+  const [postComments, setPostComments] = useState({}); // { [postId]: [...comments] }
+  const [commentsLoading, setCommentsLoading] = useState({}); // { [postId]: true/false }
+  const [newCommentContent, setNewCommentContent] = useState({}); // { [postId]: 'content' }
+  const [newCommentMentions, setNewCommentMentions] = useState({}); // { [postId]: [...mentions] }
+  const [newCommentMentionsEveryone, setNewCommentMentionsEveryone] = useState({}); // { [postId]: boolean }
+  const [commentCounts, setCommentCounts] = useState({}); // { [postId]: count }
+  const [editingComment, setEditingComment] = useState(null); // commentId
+  const [editCommentContent, setEditCommentContent] = useState('');
+  const [editCommentMentions, setEditCommentMentions] = useState([]);
+  const [editCommentMentionsEveryone, setEditCommentMentionsEveryone] = useState(false);
+  const [commentDropdownOpen, setCommentDropdownOpen] = useState(null);
+  
+  // Reactions state
+  const [postReactions, setPostReactions] = useState({}); // { [postId]: { summary: [...], userReaction: {...} } }
+  const [commentReactions, setCommentReactions] = useState({}); // { [commentId]: { summary: [...], userReaction: {...} } }
+  
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [addMemberLoading, setAddMemberLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState(null);
@@ -81,6 +110,29 @@ const WorkspaceDetail = () => {
     { id: 3, name: 'Design Assets.zip', type: 'archive', size: '15.2 MB', modified: '2 days ago', author: 'Carol Davis' },
     { id: 4, name: 'Meeting Notes.md', type: 'markdown', size: '45 KB', modified: '3 days ago', author: 'David Wilson' },
   ];
+
+  // Memoized handlers for mention callbacks to prevent infinite re-renders
+  const handleNewPostMentionsChange = useCallback((mentions, mentionsEveryone) => {
+    setNewPostMentions(mentions);
+    setNewPostMentionsEveryone(mentionsEveryone);
+  }, []);
+
+  const handleEditPostMentionsChange = useCallback((mentions, mentionsEveryone) => {
+    setEditPostMentions(mentions);
+    setEditPostMentionsEveryone(mentionsEveryone);
+  }, []);
+
+  const handleEditCommentMentionsChange = useCallback((mentions, mentionsEveryone) => {
+    setEditCommentMentions(mentions);
+    setEditCommentMentionsEveryone(mentionsEveryone);
+  }, []);
+
+  const handleNewCommentMentionsChange = useCallback((postId) => {
+    return (mentions, mentionsEveryone) => {
+      setNewCommentMentions(prev => ({ ...prev, [postId]: mentions }));
+      setNewCommentMentionsEveryone(prev => ({ ...prev, [postId]: mentionsEveryone }));
+    };
+  }, []);
 
   useEffect(() => {
     fetchWorkspace();
@@ -332,6 +384,34 @@ const WorkspaceDetail = () => {
       const response = await postService.getWorkspacePosts(workspaceId);
       if (response.success) {
         setPosts(response.data);
+        
+        // Fetch comment counts and reactions for all posts
+        const counts = {};
+        const reactions = {};
+        for (const post of response.data) {
+          try {
+            const [commentsResponse, reactionsResponse] = await Promise.all([
+              commentService.getPostComments(workspaceId, post._id),
+              reactionService.getPostReactionSummary(workspaceId, post._id)
+            ]);
+            
+            if (commentsResponse.success) {
+              counts[post._id] = commentsResponse.data.length;
+            }
+            
+            if (reactionsResponse.success) {
+              reactions[post._id] = {
+                summary: reactionsResponse.data.summary,
+                userReaction: reactionsResponse.data.userReaction
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch data for post ${post._id}:`, error);
+            counts[post._id] = 0;
+          }
+        }
+        setCommentCounts(counts);
+        setPostReactions(reactions);
       } else {
         setPostsError(response.message);
       }
@@ -350,11 +430,15 @@ const WorkspaceDetail = () => {
     setCreatePostLoading(true);
     try {
       const response = await postService.createPost(workspaceId, {
-        content: newPostContent.trim()
+        content: newPostContent.trim(),
+        mentions: newPostMentions,
+        mentionsEveryone: newPostMentionsEveryone
       });
       if (response.success) {
         setPosts([response.data, ...posts]);
         setNewPostContent('');
+        setNewPostMentions([]);
+        setNewPostMentionsEveryone(false);
       }
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to create post');
@@ -369,12 +453,16 @@ const WorkspaceDetail = () => {
 
     try {
       const response = await postService.updatePost(workspaceId, postId, {
-        content: editPostContent.trim()
+        content: editPostContent.trim(),
+        mentions: editPostMentions,
+        mentionsEveryone: editPostMentionsEveryone
       });
       if (response.success) {
         setPosts(posts.map(p => p._id === postId ? response.data : p));
         setEditingPost(null);
         setEditPostContent('');
+        setEditPostMentions([]);
+        setEditPostMentionsEveryone(false);
       }
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to update post');
@@ -399,11 +487,204 @@ const WorkspaceDetail = () => {
   const startEditingPost = (post) => {
     setEditingPost(post._id);
     setEditPostContent(post.content);
+    setEditPostMentions(post.mentions || []);
+    setEditPostMentionsEveryone(post.mentionsEveryone || false);
   };
 
   const cancelEditingPost = () => {
     setEditingPost(null);
     setEditPostContent('');
+    setEditPostMentions([]);
+    setEditPostMentionsEveryone(false);
+  };
+
+  // Comment handlers
+  const toggleComments = async (postId) => {
+    const isExpanded = expandedComments[postId];
+    
+    if (!isExpanded) {
+      // Expanding - fetch comments if not already loaded
+      if (!postComments[postId]) {
+        await fetchComments(postId);
+      }
+      setExpandedComments({ ...expandedComments, [postId]: true });
+    } else {
+      // Collapsing
+      setExpandedComments({ ...expandedComments, [postId]: false });
+    }
+  };
+
+  const fetchComments = async (postId) => {
+    setCommentsLoading({ ...commentsLoading, [postId]: true });
+    try {
+      const response = await commentService.getPostComments(workspaceId, postId);
+      if (response.success) {
+        setPostComments({ ...postComments, [postId]: response.data });
+        setCommentCounts({ ...commentCounts, [postId]: response.data.length });
+        
+        // Fetch reactions for each comment
+        const reactions = {};
+        for (const comment of response.data) {
+          try {
+            const reactionResponse = await reactionService.getCommentReactionSummary(workspaceId, postId, comment._id);
+            if (reactionResponse.success) {
+              reactions[comment._id] = {
+                summary: reactionResponse.data.summary,
+                userReaction: reactionResponse.data.userReaction
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch reactions for comment ${comment._id}:`, error);
+          }
+        }
+        setCommentReactions(prev => ({ ...prev, ...reactions }));
+      }
+    } catch (error) {
+      console.error('Fetch comments error:', error);
+    } finally {
+      setCommentsLoading({ ...commentsLoading, [postId]: false });
+    }
+  };
+
+  const handleCreateComment = async (postId) => {
+    const content = newCommentContent[postId];
+    if (!content || !content.trim()) return;
+
+    try {
+      const response = await commentService.createComment(
+        workspaceId, 
+        postId, 
+        content.trim(),
+        newCommentMentions[postId] || [],
+        newCommentMentionsEveryone[postId] || false
+      );
+      if (response.success) {
+        const currentComments = postComments[postId] || [];
+        setPostComments({ ...postComments, [postId]: [...currentComments, response.data] });
+        setCommentCounts({ ...commentCounts, [postId]: (commentCounts[postId] || 0) + 1 });
+        setNewCommentContent({ ...newCommentContent, [postId]: '' });
+        setNewCommentMentions({ ...newCommentMentions, [postId]: [] });
+        setNewCommentMentionsEveryone({ ...newCommentMentionsEveryone, [postId]: false });
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to create comment');
+      console.error('Create comment error:', error);
+    }
+  };
+
+  const handleUpdateComment = async (postId, commentId) => {
+    if (!editCommentContent.trim()) return;
+
+    try {
+      const response = await commentService.updateComment(
+        workspaceId, 
+        postId, 
+        commentId, 
+        editCommentContent.trim(),
+        editCommentMentions,
+        editCommentMentionsEveryone
+      );
+      if (response.success) {
+        const updatedComments = postComments[postId].map(c => c._id === commentId ? response.data : c);
+        setPostComments({ ...postComments, [postId]: updatedComments });
+        setEditingComment(null);
+        setEditCommentContent('');
+        setEditCommentMentions([]);
+        setEditCommentMentionsEveryone(false);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update comment');
+      console.error('Update comment error:', error);
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+
+    try {
+      const response = await commentService.deleteComment(workspaceId, postId, commentId);
+      if (response.success) {
+        const updatedComments = postComments[postId].filter(c => c._id !== commentId);
+        setPostComments({ ...postComments, [postId]: updatedComments });
+        setCommentCounts({ ...commentCounts, [postId]: (commentCounts[postId] || 1) - 1 });
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to delete comment');
+      console.error('Delete comment error:', error);
+    }
+  };
+
+  const startEditingComment = (comment) => {
+    setEditingComment(comment._id);
+    setEditCommentContent(comment.content);
+    setEditCommentMentions(comment.mentions || []);
+    setEditCommentMentionsEveryone(comment.mentionsEveryone || false);
+  };
+
+  const cancelEditingComment = () => {
+    setEditingComment(null);
+    setEditCommentContent('');
+    setEditCommentMentions([]);
+    setEditCommentMentionsEveryone(false);
+  };
+
+  // Reaction handlers
+  const handlePostReaction = async (postId, reactionType, emoji) => {
+    try {
+      const response = await reactionService.togglePostReaction(workspaceId, postId, reactionType, emoji);
+      if (response.success) {
+        // Refresh reaction summary for this post
+        fetchPostReactions(postId);
+      }
+    } catch (error) {
+      console.error('Post reaction error:', error);
+    }
+  };
+
+  const handleCommentReaction = async (postId, commentId, reactionType, emoji) => {
+    try {
+      const response = await reactionService.toggleCommentReaction(workspaceId, postId, commentId, reactionType, emoji);
+      if (response.success) {
+        // Refresh reaction summary for this comment
+        fetchCommentReactions(postId, commentId);
+      }
+    } catch (error) {
+      console.error('Comment reaction error:', error);
+    }
+  };
+
+  const fetchPostReactions = async (postId) => {
+    try {
+      const response = await reactionService.getPostReactionSummary(workspaceId, postId);
+      if (response.success) {
+        setPostReactions(prev => ({
+          ...prev,
+          [postId]: {
+            summary: response.data.summary,
+            userReaction: response.data.userReaction
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Fetch post reactions error:', error);
+    }
+  };
+
+  const fetchCommentReactions = async (postId, commentId) => {
+    try {
+      const response = await reactionService.getCommentReactionSummary(workspaceId, postId, commentId);
+      if (response.success) {
+        setCommentReactions(prev => ({
+          ...prev,
+          [commentId]: {
+            summary: response.data.summary,
+            userReaction: response.data.userReaction
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Fetch comment reactions error:', error);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -466,6 +747,9 @@ const WorkspaceDetail = () => {
   if (!workspace) {
     return null;
   }
+
+  const workspaceMembers = workspace.members || [];
+  const memberUsers = workspaceMembers.map(m => m.user);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -724,13 +1008,16 @@ const WorkspaceDetail = () => {
                       )}
                     </div>
                     <div className="flex-1">
-                      <textarea
+                      <MentionInput
                         value={newPostContent}
-                        onChange={(e) => setNewPostContent(e.target.value)}
+                        onChange={(value) => setNewPostContent(value)}
+                        onMentionsChange={handleNewPostMentionsChange}
+                        members={workspaceMembers}
                         placeholder="Start a conversation..."
                         className="w-full px-0 py-0 border-0 focus:ring-0 resize-none text-gray-900 placeholder-gray-400"
-                        rows="3"
+                        rows={3}
                         disabled={createPostLoading}
+                        maxLength={5000}
                       />
                     </div>
                   </div>
@@ -882,11 +1169,14 @@ const WorkspaceDetail = () => {
                           </div>
                           {editingPost === post._id ? (
                             <div className="mt-3">
-                              <textarea
+                              <MentionInput
                                 value={editPostContent}
-                                onChange={(e) => setEditPostContent(e.target.value)}
+                                onChange={(value) => setEditPostContent(value)}
+                                onMentionsChange={handleEditPostMentionsChange}
+                                members={workspaceMembers}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                                rows="4"
+                                rows={4}
+                                maxLength={5000}
                               />
                               <span className="text-xs text-gray-500 mt-1 block">
                                 {editPostContent.length}/5000
@@ -894,10 +1184,262 @@ const WorkspaceDetail = () => {
                             </div>
                           ) : (
                             <div className="mt-3">
-                              <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                              <MentionText 
+                                content={post.content}
+                                mentions={post.mentions}
+                                mentionsEveryone={post.mentionsEveryone}
+                                members={memberUsers}
+                                className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap"
+                              />
                             </div>
                           )}
                         </div>
+                      </div>
+                      
+                      {/* Reactions and interactions bar */}
+                      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          {/* Reaction Picker */}
+                          <ReactionPicker
+                            onReact={(reactionType, emoji) => handlePostReaction(post._id, reactionType, emoji)}
+                            currentReaction={postReactions[post._id]?.userReaction}
+                            position="top"
+                          />
+                          
+                          {/* Reaction Bar */}
+                          {postReactions[post._id]?.summary && postReactions[post._id].summary.length > 0 && (
+                            <ReactionBar
+                              reactions={postReactions[post._id].summary}
+                              userReaction={postReactions[post._id].userReaction}
+                              onShowDetails={() => console.log('Show reaction details')}
+                            />
+                          )}
+                        </div>
+                        
+                        {/* Comment count button */}
+                        <button
+                          onClick={() => toggleComments(post._id)}
+                          className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                          <span>
+                            {commentCounts[post._id] || 0} {commentCounts[post._id] === 1 ? 'comment' : 'comments'}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {expandedComments[post._id] ? '▼' : '▶'}
+                          </span>
+                        </button>
+                      </div>
+                      
+                      {/* Comment section */}
+                      <div className="mt-3">
+                        {/* Expanded comments section */}
+                        {expandedComments[post._id] && (
+                          <div className="mt-4 space-y-3">
+                            {commentsLoading[post._id] ? (
+                              <div className="text-center py-4">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                <p className="mt-2 text-xs text-gray-500">Loading comments...</p>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Comments list */}
+                                {postComments[post._id]?.length > 0 ? (
+                                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    {postComments[post._id].map((comment) => (
+                                      <div key={comment._id} className="flex items-start space-x-2 bg-gray-50 rounded-lg p-3">
+                                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                          {comment.author?.avatar ? (
+                                            <img src={comment.author.avatar} alt={`${comment.author.firstName} ${comment.author.lastName}`} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                              <span className="text-white text-xs font-semibold">
+                                                {comment.author?.firstName?.[0]}{comment.author?.lastName?.[0]}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                              <h5 className="font-semibold text-gray-900 text-xs">
+                                                {comment.author?.firstName} {comment.author?.lastName}
+                                              </h5>
+                                              <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                                <span>
+                                                  {new Date(comment.createdAt).toLocaleDateString('en-US', { 
+                                                    month: 'numeric', 
+                                                    day: 'numeric',
+                                                    year: 'numeric'
+                                                  })}
+                                                </span>
+                                                <span>•</span>
+                                                <span>
+                                                  {new Date(comment.createdAt).toLocaleTimeString('en-US', { 
+                                                    hour: 'numeric', 
+                                                    minute: '2-digit',
+                                                    hour12: true 
+                                                  })}
+                                                </span>
+                                                {comment.updatedAt !== comment.createdAt && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="text-blue-600">Edited</span>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {(comment.author?._id === user._id || comment.author?._id === user.id || 
+                                              comment.author?.email === user.email) && (
+                                              <div className="relative">
+                                                {editingComment === comment._id ? (
+                                                  <div className="flex items-center space-x-1">
+                                                    <button
+                                                      onClick={() => handleUpdateComment(post._id, comment._id)}
+                                                      className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                                    >
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      onClick={cancelEditingComment}
+                                                      className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                                                    >
+                                                      Cancel
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setCommentDropdownOpen(commentDropdownOpen === comment._id ? null : comment._id);
+                                                    }}
+                                                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
+                                                  >
+                                                    <EllipsisVerticalIcon className="w-4 h-4" />
+                                                  </button>
+                                                )}
+                                                {commentDropdownOpen === comment._id && (
+                                                  <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        startEditingComment(comment);
+                                                        setCommentDropdownOpen(null);
+                                                      }}
+                                                      className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                                                    >
+                                                      <PencilIcon className="w-3 h-3" />
+                                                      <span>Edit</span>
+                                                    </button>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteComment(post._id, comment._id);
+                                                        setCommentDropdownOpen(null);
+                                                      }}
+                                                      className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-b-lg"
+                                                    >
+                                                      <TrashIcon className="w-3 h-3" />
+                                                      <span>Delete</span>
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                          {editingComment === comment._id ? (
+                                            <div className="mt-2">
+                                              <MentionInput
+                                                value={editCommentContent}
+                                                onChange={(value) => setEditCommentContent(value)}
+                                                onMentionsChange={handleEditCommentMentionsChange}
+                                                members={workspaceMembers}
+                                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-xs"
+                                                rows={2}
+                                                maxLength={2000}
+                                              />
+                                              <span className="text-xs text-gray-500 mt-0.5 block">
+                                                {editCommentContent.length}/2000
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <MentionText
+                                                content={comment.content}
+                                                mentions={comment.mentions}
+                                                mentionsEveryone={comment.mentionsEveryone}
+                                                members={memberUsers}
+                                                className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap"
+                                              />
+                                              {/* Comment reactions */}
+                                              <div className="mt-2 flex items-center space-x-2">
+                                                <ReactionPicker
+                                                  onReact={(reactionType, emoji) => handleCommentReaction(post._id, comment._id, reactionType, emoji)}
+                                                  currentReaction={commentReactions[comment._id]?.userReaction}
+                                                  position="bottom"
+                                                />
+                                                {commentReactions[comment._id]?.summary && commentReactions[comment._id].summary.length > 0 && (
+                                                  <ReactionBar
+                                                    reactions={commentReactions[comment._id].summary}
+                                                    userReaction={commentReactions[comment._id].userReaction}
+                                                    onShowDetails={() => console.log('Show comment reaction details')}
+                                                  />
+                                                )}
+                                              </div>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-4">
+                                    <p className="text-sm text-gray-500">No comments yet. Be the first to comment!</p>
+                                  </div>
+                                )}
+
+                                {/* Add comment form */}
+                                <div className="flex items-start space-x-2 mt-3">
+                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                    {user.avatar ? (
+                                      <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                                        <span className="text-white text-xs font-semibold">
+                                          {user.firstName?.[0]}{user.lastName?.[0]}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <MentionInput
+                                      value={newCommentContent[post._id] || ''}
+                                      onChange={(value) => setNewCommentContent({ ...newCommentContent, [post._id]: value })}
+                                      onMentionsChange={handleNewCommentMentionsChange(post._id)}
+                                      members={workspaceMembers}
+                                      placeholder="Write a comment..."
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                      rows={2}
+                                      maxLength={2000}
+                                    />
+                                    <div className="flex items-center justify-between mt-2">
+                                      <span className="text-xs text-gray-500">
+                                        {(newCommentContent[post._id] || '').length}/2000
+                                      </span>
+                                      <button
+                                        onClick={() => handleCreateComment(post._id)}
+                                        disabled={!newCommentContent[post._id]?.trim()}
+                                        className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                      >
+                                        Comment
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

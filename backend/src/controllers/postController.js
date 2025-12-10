@@ -1,12 +1,13 @@
 const postRepository = require('../repositories/postRepository');
 const workspaceRepository = require('../repositories/workspaceRepository');
+const { extractMentions } = require('../utils/mentionUtils');
 
 class PostController {
   // Create a new post
   async createPost(req, res) {
     try {
       const { workspaceId } = req.params;
-      const { content } = req.body;
+      const { content, mentions, mentionsEveryone } = req.body;
       const userId = req.user._id || req.user.id;
 
       // Validate content
@@ -40,11 +41,13 @@ class PostController {
         });
       }
 
-      // Create post
+      // Create post with mentions
       const postData = {
         workspace: workspaceId,
         author: userId,
-        content: content.trim()
+        content: content.trim(),
+        mentions: mentions || [],
+        mentionsEveryone: mentionsEveryone || false
       };
 
       const post = await postRepository.createPost(postData);
@@ -148,9 +151,20 @@ class PostController {
         });
       }
 
-      const updatedPost = await postRepository.updatePost(postId, {
+      // Update with mentions if provided
+      const updateData = {
         content: content.trim()
-      });
+      };
+      
+      if (req.body.mentions !== undefined) {
+        updateData.mentions = req.body.mentions;
+      }
+      
+      if (req.body.mentionsEveryone !== undefined) {
+        updateData.mentionsEveryone = req.body.mentionsEveryone;
+      }
+
+      const updatedPost = await postRepository.updatePost(postId, updateData);
 
       res.status(200).json({
         success: true,
