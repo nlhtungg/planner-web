@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import documentService from '../services/documentService';
 import { PlusIcon, DocumentTextIcon, TrashIcon, ArrowDownTrayIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { useToast } from '../context/ToastContext';
 
 const DocumentList = () => {
     const { workspaceId } = useParams();
+    const toast = useToast();
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -43,8 +45,9 @@ const DocumentList = () => {
 
             const newDoc = await documentService.uploadDocument(formData);
             setDocuments([newDoc, ...documents]);
+            toast.success('File uploaded successfully!');
         } catch (err) {
-            alert('Failed to upload file');
+            toast.error(err.response?.data?.message || 'Failed to upload file');
         } finally {
             setUploading(false);
         }
@@ -64,8 +67,9 @@ const DocumentList = () => {
                 folder: currentPath
             });
             setDocuments([newDoc, ...documents]);
+            toast.success('Document created successfully!');
         } catch (err) {
-            alert('Failed to create document');
+            toast.error(err.response?.data?.message || 'Failed to create document');
         }
     };
 
@@ -80,7 +84,7 @@ const DocumentList = () => {
             d.folder === currentPath
         );
         if (exists) {
-            alert('A folder with this name already exists');
+            toast.warning('A folder with this name already exists');
             return;
         }
 
@@ -92,13 +96,17 @@ const DocumentList = () => {
                 folder: currentPath
             });
             setDocuments([newFolder, ...documents]);
+            toast.success('Folder created successfully!');
         } catch (err) {
-            alert('Failed to create folder');
+            toast.error(err.response?.data?.message || 'Failed to create folder');
         }
     };
 
     const handleDownload = async (doc) => {
-        if (doc.fileType === 'folder') return; // Cannot download folders yet
+        if (doc.fileType === 'folder') {
+            await handleDownloadFolder(doc);
+            return;
+        }
 
         try {
             if (doc.fileUrl) {
@@ -113,6 +121,7 @@ const DocumentList = () => {
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
+                toast.success('File downloaded successfully!');
             } else {
                 // Download text content as file
                 const blob = new Blob([doc.content || ''], { type: 'text/plain' });
@@ -124,9 +133,62 @@ const DocumentList = () => {
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
+                toast.success('File downloaded successfully!');
             }
         } catch (err) {
-            alert('Failed to download file');
+            toast.error('Failed to download file');
+        }
+    };
+
+    const handleDownloadFolder = async (folder) => {
+        try {
+            toast.info('Preparing folder download...');
+
+            // Dynamic import of JSZip
+            const JSZip = (await import('jszip')).default;
+            const zip = new JSZip();
+
+            // Get folder path
+            const folderPath = currentPath ? `${currentPath}/${folder.title}` : folder.title;
+
+            // Get all documents in this folder recursively
+            const folderDocs = documents.filter(doc =>
+                doc.folder && doc.folder.startsWith(folderPath)
+            );
+
+            // Add files to zip
+            for (const doc of folderDocs) {
+                if (doc.fileType !== 'folder') {
+                    const relativePath = doc.folder.replace(folderPath + '/', '') || '';
+                    const fileName = relativePath ? `${relativePath}/${doc.title}` : doc.title;
+
+                    if (doc.fileUrl) {
+                        // Fetch file from URL
+                        const response = await fetch(doc.fileUrl);
+                        const blob = await response.blob();
+                        zip.file(fileName, blob);
+                    } else if (doc.content) {
+                        // Add text content
+                        zip.file(fileName, doc.content);
+                    }
+                }
+            }
+
+            // Generate and download zip
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = window.URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${folder.title}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast.success('Folder downloaded successfully!');
+        } catch (err) {
+            console.error('Folder download error:', err);
+            toast.error('Failed to download folder. Make sure jszip is installed.');
         }
     };
 
@@ -135,8 +197,9 @@ const DocumentList = () => {
         try {
             await documentService.deleteDocument(id);
             setDocuments(documents.filter(doc => doc._id !== id));
+            toast.success('Item deleted successfully!');
         } catch (err) {
-            alert('Failed to delete document');
+            toast.error(err.response?.data?.message || 'Failed to delete item');
         }
     };
 
@@ -318,15 +381,13 @@ const DocumentList = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {!isFolder && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
-                                            className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
-                                            title="Download"
-                                        >
-                                            <ArrowDownTrayIcon className="h-5 w-5" />
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
+                                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                                        title={isFolder ? "Download as ZIP" : "Download"}
+                                    >
+                                        <ArrowDownTrayIcon className="h-5 w-5" />
+                                    </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDelete(doc._id); }}
                                         className="p-2 text-gray-400 hover:text-red-500 transition-colors"
