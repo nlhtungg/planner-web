@@ -4,12 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import workspaceService from '../services/workspaceService';
 import postService from '../services/postService';
 import commentService from '../services/commentService';
+import reactionService from '../services/reactionService';
 import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
 import AddMemberModal from '../components/AddMemberModal';
 import RemoveMemberModal from '../components/RemoveMemberModal';
 import UserFuzzySelect from '../components/UserFuzzySelect';
+import ReactionPicker from '../components/ReactionPicker';
+import ReactionBar from '../components/ReactionBar';
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
@@ -58,6 +61,10 @@ const WorkspaceDetail = () => {
   const [editingComment, setEditingComment] = useState(null); // commentId
   const [editCommentContent, setEditCommentContent] = useState('');
   const [commentDropdownOpen, setCommentDropdownOpen] = useState(null);
+  
+  // Reactions state
+  const [postReactions, setPostReactions] = useState({}); // { [postId]: { summary: [...], userReaction: {...} } }
+  const [commentReactions, setCommentReactions] = useState({}); // { [commentId]: { summary: [...], userReaction: {...} } }
   
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [addMemberLoading, setAddMemberLoading] = useState(false);
@@ -345,20 +352,33 @@ const WorkspaceDetail = () => {
       if (response.success) {
         setPosts(response.data);
         
-        // Fetch comment counts for all posts
+        // Fetch comment counts and reactions for all posts
         const counts = {};
+        const reactions = {};
         for (const post of response.data) {
           try {
-            const commentsResponse = await commentService.getPostComments(workspaceId, post._id);
+            const [commentsResponse, reactionsResponse] = await Promise.all([
+              commentService.getPostComments(workspaceId, post._id),
+              reactionService.getPostReactionSummary(workspaceId, post._id)
+            ]);
+            
             if (commentsResponse.success) {
               counts[post._id] = commentsResponse.data.length;
             }
+            
+            if (reactionsResponse.success) {
+              reactions[post._id] = {
+                summary: reactionsResponse.data.summary,
+                userReaction: reactionsResponse.data.userReaction
+              };
+            }
           } catch (error) {
-            console.error(`Failed to fetch comments for post ${post._id}:`, error);
+            console.error(`Failed to fetch data for post ${post._id}:`, error);
             counts[post._id] = 0;
           }
         }
         setCommentCounts(counts);
+        setPostReactions(reactions);
       } else {
         setPostsError(response.message);
       }
@@ -456,6 +476,23 @@ const WorkspaceDetail = () => {
       if (response.success) {
         setPostComments({ ...postComments, [postId]: response.data });
         setCommentCounts({ ...commentCounts, [postId]: response.data.length });
+        
+        // Fetch reactions for each comment
+        const reactions = {};
+        for (const comment of response.data) {
+          try {
+            const reactionResponse = await reactionService.getCommentReactionSummary(workspaceId, postId, comment._id);
+            if (reactionResponse.success) {
+              reactions[comment._id] = {
+                summary: reactionResponse.data.summary,
+                userReaction: reactionResponse.data.userReaction
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch reactions for comment ${comment._id}:`, error);
+          }
+        }
+        setCommentReactions(prev => ({ ...prev, ...reactions }));
       }
     } catch (error) {
       console.error('Fetch comments error:', error);
@@ -523,6 +560,65 @@ const WorkspaceDetail = () => {
   const cancelEditingComment = () => {
     setEditingComment(null);
     setEditCommentContent('');
+  };
+
+  // Reaction handlers
+  const handlePostReaction = async (postId, reactionType, emoji) => {
+    try {
+      const response = await reactionService.togglePostReaction(workspaceId, postId, reactionType, emoji);
+      if (response.success) {
+        // Refresh reaction summary for this post
+        fetchPostReactions(postId);
+      }
+    } catch (error) {
+      console.error('Post reaction error:', error);
+    }
+  };
+
+  const handleCommentReaction = async (postId, commentId, reactionType, emoji) => {
+    try {
+      const response = await reactionService.toggleCommentReaction(workspaceId, postId, commentId, reactionType, emoji);
+      if (response.success) {
+        // Refresh reaction summary for this comment
+        fetchCommentReactions(postId, commentId);
+      }
+    } catch (error) {
+      console.error('Comment reaction error:', error);
+    }
+  };
+
+  const fetchPostReactions = async (postId) => {
+    try {
+      const response = await reactionService.getPostReactionSummary(workspaceId, postId);
+      if (response.success) {
+        setPostReactions(prev => ({
+          ...prev,
+          [postId]: {
+            summary: response.data.summary,
+            userReaction: response.data.userReaction
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Fetch post reactions error:', error);
+    }
+  };
+
+  const fetchCommentReactions = async (postId, commentId) => {
+    try {
+      const response = await reactionService.getCommentReactionSummary(workspaceId, postId, commentId);
+      if (response.success) {
+        setCommentReactions(prev => ({
+          ...prev,
+          [commentId]: {
+            summary: response.data.summary,
+            userReaction: response.data.userReaction
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Fetch comment reactions error:', error);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -1019,8 +1115,26 @@ const WorkspaceDetail = () => {
                         </div>
                       </div>
                       
-                      {/* Comment section */}
-                      <div className="mt-4 border-t border-gray-100 pt-3">
+                      {/* Reactions and interactions bar */}
+                      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          {/* Reaction Picker */}
+                          <ReactionPicker
+                            onReact={(reactionType, emoji) => handlePostReaction(post._id, reactionType, emoji)}
+                            currentReaction={postReactions[post._id]?.userReaction}
+                            position="top"
+                          />
+                          
+                          {/* Reaction Bar */}
+                          {postReactions[post._id]?.summary && postReactions[post._id].summary.length > 0 && (
+                            <ReactionBar
+                              reactions={postReactions[post._id].summary}
+                              userReaction={postReactions[post._id].userReaction}
+                              onShowDetails={() => console.log('Show reaction details')}
+                            />
+                          )}
+                        </div>
+                        
                         {/* Comment count button */}
                         <button
                           onClick={() => toggleComments(post._id)}
@@ -1034,7 +1148,10 @@ const WorkspaceDetail = () => {
                             {expandedComments[post._id] ? '▼' : '▶'}
                           </span>
                         </button>
-
+                      </div>
+                      
+                      {/* Comment section */}
+                      <div className="mt-3">
                         {/* Expanded comments section */}
                         {expandedComments[post._id] && (
                           <div className="mt-4 space-y-3">
@@ -1162,9 +1279,26 @@ const WorkspaceDetail = () => {
                                               </span>
                                             </div>
                                           ) : (
-                                            <p className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap">
-                                              {comment.content}
-                                            </p>
+                                            <>
+                                              <p className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap">
+                                                {comment.content}
+                                              </p>
+                                              {/* Comment reactions */}
+                                              <div className="mt-2 flex items-center space-x-2">
+                                                <ReactionPicker
+                                                  onReact={(reactionType, emoji) => handleCommentReaction(post._id, comment._id, reactionType, emoji)}
+                                                  currentReaction={commentReactions[comment._id]?.userReaction}
+                                                  position="bottom"
+                                                />
+                                                {commentReactions[comment._id]?.summary && commentReactions[comment._id].summary.length > 0 && (
+                                                  <ReactionBar
+                                                    reactions={commentReactions[comment._id].summary}
+                                                    userReaction={commentReactions[comment._id].userReaction}
+                                                    onShowDetails={() => console.log('Show comment reaction details')}
+                                                  />
+                                                )}
+                                              </div>
+                                            </>
                                           )}
                                         </div>
                                       </div>
