@@ -3,6 +3,7 @@ const authRoutes = require('./authRoutes');
 const workspaceRoutes = require('./workspaceRoutes');
 const postRoutes = require('./postRoutes');
 const taskRoutes = require('./taskRoutes');
+const calendarRoutes = require('./calendarRoutes');
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.use('/api/auth', authRoutes);
 router.use('/api/workspaces', workspaceRoutes);
 router.use('/api/workspaces', postRoutes);
 router.use('/api/tasks', taskRoutes);
+router.use('/api/calendar', calendarRoutes);
 router.use('/api/documents', require('./documentRoutes'));
 
 /**
