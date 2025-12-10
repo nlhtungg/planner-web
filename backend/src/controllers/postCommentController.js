@@ -62,7 +62,9 @@ class PostCommentController {
       const commentData = {
         post: postId,
         author: userId,
-        content: content.trim()
+        content: content.trim(),
+        mentions: req.body.mentions || [],
+        mentionsEveryone: req.body.mentionsEveryone || false
       };
 
       const comment = await postCommentRepository.createComment(commentData);
@@ -183,9 +185,20 @@ class PostCommentController {
         });
       }
 
-      const updatedComment = await postCommentRepository.updateComment(commentId, {
+      // Update with mentions if provided
+      const updateData = {
         content: content.trim()
-      });
+      };
+      
+      if (req.body.mentions !== undefined) {
+        updateData.mentions = req.body.mentions;
+      }
+      
+      if (req.body.mentionsEveryone !== undefined) {
+        updateData.mentionsEveryone = req.body.mentionsEveryone;
+      }
+
+      const updatedComment = await postCommentRepository.updateComment(commentId, updateData);
 
       res.status(200).json({
         success: true,

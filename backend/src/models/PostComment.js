@@ -17,6 +17,14 @@ const postCommentSchema = new mongoose.Schema({
     trim: true,
     maxlength: [2000, 'Comment content cannot exceed 2000 characters']
   },
+  mentions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  mentionsEveryone: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -29,6 +37,7 @@ const postCommentSchema = new mongoose.Schema({
 postCommentSchema.index({ post: 1, createdAt: -1 });
 postCommentSchema.index({ author: 1 });
 postCommentSchema.index({ post: 1, isActive: 1 });
+postCommentSchema.index({ mentions: 1 });
 
 // Static method to find comments by post
 postCommentSchema.statics.findByPost = function(postId) {

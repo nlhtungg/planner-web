@@ -2,9 +2,11 @@ import api from './api';
 
 const commentService = {
   // Create a new comment on a post
-  createComment: async (workspaceId, postId, content) => {
+  createComment: async (workspaceId, postId, content, mentions = [], mentionsEveryone = false) => {
     const response = await api.post(`/workspaces/${workspaceId}/posts/${postId}/comments`, {
-      content
+      content,
+      mentions,
+      mentionsEveryone
     });
     return response.data;
   },
@@ -16,9 +18,11 @@ const commentService = {
   },
 
   // Update a comment
-  updateComment: async (workspaceId, postId, commentId, content) => {
+  updateComment: async (workspaceId, postId, commentId, content, mentions = [], mentionsEveryone = false) => {
     const response = await api.put(`/workspaces/${workspaceId}/posts/${postId}/comments/${commentId}`, {
-      content
+      content,
+      mentions,
+      mentionsEveryone
     });
     return response.data;
   },

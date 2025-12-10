@@ -17,6 +17,14 @@ const postSchema = new mongoose.Schema({
     trim: true,
     maxlength: [5000, 'Post content cannot exceed 5000 characters']
   },
+  mentions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  mentionsEveryone: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -29,6 +37,7 @@ const postSchema = new mongoose.Schema({
 postSchema.index({ workspace: 1, createdAt: -1 });
 postSchema.index({ author: 1 });
 postSchema.index({ workspace: 1, isActive: 1 });
+postSchema.index({ mentions: 1 });
 
 // Static method to find posts by workspace
 postSchema.statics.findByWorkspace = function(workspaceId) {
