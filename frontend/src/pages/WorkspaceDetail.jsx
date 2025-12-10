@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import workspaceService from '../services/workspaceService';
+import postService from '../services/postService';
 import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
@@ -23,6 +24,7 @@ import {
   ExclamationCircleIcon,
   UserPlusIcon,
   PencilIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import DocumentList from '../components/DocumentList';
 
@@ -35,6 +37,16 @@ const WorkspaceDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Posts state
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState('');
+  const [newPostContent, setNewPostContent] = useState('');
+  const [createPostLoading, setCreatePostLoading] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editPostContent, setEditPostContent] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(null);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [addMemberLoading, setAddMemberLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState(null);
@@ -73,6 +85,12 @@ const WorkspaceDetail = () => {
   useEffect(() => {
     fetchWorkspace();
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (activeTab === 'posts') {
+      fetchPosts();
+    }
+  }, [activeTab, workspaceId]);
 
   useEffect(() => {
     if (activeTab === 'tasks') {
@@ -306,6 +324,88 @@ const WorkspaceDetail = () => {
     }
   };
 
+  // Post handlers
+  const fetchPosts = async () => {
+    setPostsLoading(true);
+    setPostsError('');
+    try {
+      const response = await postService.getWorkspacePosts(workspaceId);
+      if (response.success) {
+        setPosts(response.data);
+      } else {
+        setPostsError(response.message);
+      }
+    } catch (error) {
+      setPostsError(error.response?.data?.message || 'Failed to fetch posts');
+      console.error('Fetch posts error:', error);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  const handleCreatePost = async (e) => {
+    e.preventDefault();
+    if (!newPostContent.trim()) return;
+
+    setCreatePostLoading(true);
+    try {
+      const response = await postService.createPost(workspaceId, {
+        content: newPostContent.trim()
+      });
+      if (response.success) {
+        setPosts([response.data, ...posts]);
+        setNewPostContent('');
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to create post');
+      console.error('Create post error:', error);
+    } finally {
+      setCreatePostLoading(false);
+    }
+  };
+
+  const handleUpdatePost = async (postId) => {
+    if (!editPostContent.trim()) return;
+
+    try {
+      const response = await postService.updatePost(workspaceId, postId, {
+        content: editPostContent.trim()
+      });
+      if (response.success) {
+        setPosts(posts.map(p => p._id === postId ? response.data : p));
+        setEditingPost(null);
+        setEditPostContent('');
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update post');
+      console.error('Update post error:', error);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const response = await postService.deletePost(workspaceId, postId);
+      if (response.success) {
+        setPosts(posts.filter(p => p._id !== postId));
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to delete post');
+      console.error('Delete post error:', error);
+    }
+  };
+
+  const startEditingPost = (post) => {
+    setEditingPost(post._id);
+    setEditPostContent(post.content);
+  };
+
+  const cancelEditingPost = () => {
+    setEditingPost(null);
+    setEditPostContent('');
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'done': return 'bg-green-100 text-green-800';
@@ -449,6 +549,7 @@ const WorkspaceDetail = () => {
           <nav className="flex space-x-8 px-6">
             {[
               { id: 'overview', name: 'Overview', icon: BriefcaseIcon },
+              { id: 'posts', name: 'Posts', icon: ChatBubbleLeftRightIcon },
               { id: 'tasks', name: 'Tasks', icon: CheckCircleIcon },
               { id: 'documents', name: 'Documents', icon: DocumentTextIcon },
               { id: 'members', name: 'Members', icon: UserGroupIcon },
@@ -499,8 +600,10 @@ const WorkspaceDetail = () => {
                     const Icon = getActivityIcon(activity.type);
                     return (
                       <div key={activity.id} className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Icon className="w-4 h-4 text-gray-600" />
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-xs font-semibold">
+                            {activity.avatar}
+                          </span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-gray-900">
@@ -602,6 +705,208 @@ const WorkspaceDetail = () => {
           </div>
         )}
 
+        {activeTab === 'posts' && (
+          <div className="max-w-4xl mx-auto space-y-4">
+            {/* Create Post Form */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <form onSubmit={handleCreatePost}>
+                <div className="p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                      {user?.avatar ? (
+                        <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                          <span className="text-white text-sm font-semibold">
+                            {user?.firstName?.[0]}{user?.lastName?.[0]}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <textarea
+                        value={newPostContent}
+                        onChange={(e) => setNewPostContent(e.target.value)}
+                        placeholder="Start a conversation..."
+                        className="w-full px-0 py-0 border-0 focus:ring-0 resize-none text-gray-900 placeholder-gray-400"
+                        rows="3"
+                        disabled={createPostLoading}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between rounded-b-lg">
+                  <span className="text-xs text-gray-500">
+                    {newPostContent.length}/5000
+                  </span>
+                  <button
+                    type="submit"
+                    disabled={!newPostContent.trim() || createPostLoading}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {createPostLoading ? 'Posting...' : 'Post'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Posts List */}
+            {postsLoading && (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-3 text-sm text-gray-500">Loading posts...</p>
+              </div>
+            )}
+
+            {postsError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-700 text-sm">{postsError}</p>
+              </div>
+            )}
+
+            {!postsLoading && !postsError && posts.length === 0 && (
+              <div className="text-center py-16">
+                <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
+                <p className="text-gray-500">Be the first to share an update!</p>
+              </div>
+            )}
+
+            {!postsLoading && !postsError && posts.length > 0 && (
+              <div className="space-y-3">
+                {posts.map((post) => (
+                  <div 
+                    key={post._id} 
+                    className="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 hover:shadow-md transition-shadow"
+                  >
+                    <div className="p-5">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                          {post.author?.avatar ? (
+                            <img src={post.author.avatar} alt={`${post.author.firstName} ${post.author.lastName}`} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                              <span className="text-white text-sm font-semibold">
+                                {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 text-sm">
+                                {post.author?.firstName} {post.author?.lastName}
+                              </h4>
+                              <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                <span>
+                                  {new Date(post.createdAt).toLocaleDateString('en-US', { 
+                                    month: 'numeric', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  })}
+                                </span>
+                                <span>•</span>
+                                <span>
+                                  {new Date(post.createdAt).toLocaleTimeString('en-US', { 
+                                    hour: 'numeric', 
+                                    minute: '2-digit',
+                                    hour12: true 
+                                  })}
+                                </span>
+                                {post.updatedAt !== post.createdAt && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-blue-600">Edited</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {(post.author?._id === user._id || post.author?._id === user.id || 
+                              post.author?.email === user.email) && (
+                              <div className="relative">
+                                {editingPost === post._id ? (
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() => handleUpdatePost(post._id)}
+                                      className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={cancelEditingPost}
+                                      className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDropdownOpen(dropdownOpen === post._id ? null : post._id);
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                                  >
+                                    <EllipsisVerticalIcon className="w-5 h-5" />
+                                  </button>
+                                )}
+                                {dropdownOpen === post._id && (
+                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        startEditingPost(post);
+                                        setDropdownOpen(null);
+                                      }}
+                                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                                    >
+                                      <PencilIcon className="w-4 h-4" />
+                                      <span>Edit</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeletePost(post._id);
+                                        setDropdownOpen(null);
+                                      }}
+                                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                                    >
+                                      <TrashIcon className="w-4 h-4" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {editingPost === post._id ? (
+                            <div className="mt-3">
+                              <textarea
+                                value={editPostContent}
+                                onChange={(e) => setEditPostContent(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                rows="4"
+                              />
+                              <span className="text-xs text-gray-500 mt-1 block">
+                                {editPostContent.length}/5000
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="mt-3">
+                              <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'tasks' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -691,13 +996,21 @@ const WorkspaceDetail = () => {
                         <td className="py-3 px-4 text-gray-700">
                           {task.assignees && task.assignees.length > 0 ? (
                             <div className="flex -space-x-2">
-                              {task.assignees.slice(0, 3).map((a, idx) => (
-                                <div key={`${a._id || a}-${idx}`} className="w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border border-white" title={a.firstName ? `${a.firstName} ${a.lastName}` : ''}>
-                                  {(a.firstName?.[0] || '?')}{(a.lastName?.[0] || '')}
+                              {task.assignees.slice(0,3).map((a, idx) => (
+                                <div key={`${a._id || a}-${idx}`} className="w-7 h-7 rounded-full border-2 border-white overflow-hidden" title={a.firstName ? `${a.firstName} ${a.lastName}` : ''}>
+                                  {a.avatar ? (
+                                    <img src={a.avatar} alt={`${a.firstName} ${a.lastName}`} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                      <span className="text-white text-[10px] font-semibold">
+                                        {(a.firstName?.[0] || '?')}{(a.lastName?.[0] || '')}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                               {task.assignees.length > 3 && (
-                                <div className="w-6 h-6 rounded-full bg-gray-300 text-gray-700 text-[10px] flex items-center justify-center border border-white" title={`${task.assignees.length - 3} more`}>+{task.assignees.length - 3}</div>
+                                <div className="w-7 h-7 rounded-full bg-gray-300 text-gray-700 text-[10px] flex items-center justify-center border-2 border-white" title={`${task.assignees.length - 3} more`}>+{task.assignees.length - 3}</div>
                               )}
                             </div>
                           ) : <span className="text-xs text-gray-400">Unassigned</span>}
@@ -762,19 +1075,17 @@ const WorkspaceDetail = () => {
               <div className="space-y-4">
                 {workspace.members.map((member) => (
                   <div key={member._id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
-                    {member.user.avatar ? (
-                      <img
-                        src={member.user.avatar}
-                        alt={`${member.user.firstName} ${member.user.lastName}`}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-700">
-                          {member.user.firstName?.[0]}{member.user.lastName?.[0]}
-                        </span>
-                      </div>
-                    )}
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                      {member.user.avatar ? (
+                        <img src={member.user.avatar} alt={`${member.user.firstName} ${member.user.lastName}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                          <span className="text-white text-sm font-semibold">
+                            {member.user.firstName?.[0]}{member.user.lastName?.[0]}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-gray-900">
                         {member.user.firstName} {member.user.lastName}
