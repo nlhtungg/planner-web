@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import workspaceService from '../services/workspaceService';
 import postService from '../services/postService';
+import commentService from '../services/commentService';
 import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
@@ -47,6 +48,17 @@ const WorkspaceDetail = () => {
   const [editingPost, setEditingPost] = useState(null);
   const [editPostContent, setEditPostContent] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(null);
+  
+  // Comments state
+  const [expandedComments, setExpandedComments] = useState({}); // { [postId]: true/false }
+  const [postComments, setPostComments] = useState({}); // { [postId]: [...comments] }
+  const [commentsLoading, setCommentsLoading] = useState({}); // { [postId]: true/false }
+  const [newCommentContent, setNewCommentContent] = useState({}); // { [postId]: 'content' }
+  const [commentCounts, setCommentCounts] = useState({}); // { [postId]: count }
+  const [editingComment, setEditingComment] = useState(null); // commentId
+  const [editCommentContent, setEditCommentContent] = useState('');
+  const [commentDropdownOpen, setCommentDropdownOpen] = useState(null);
+  
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [addMemberLoading, setAddMemberLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState(null);
@@ -332,6 +344,21 @@ const WorkspaceDetail = () => {
       const response = await postService.getWorkspacePosts(workspaceId);
       if (response.success) {
         setPosts(response.data);
+        
+        // Fetch comment counts for all posts
+        const counts = {};
+        for (const post of response.data) {
+          try {
+            const commentsResponse = await commentService.getPostComments(workspaceId, post._id);
+            if (commentsResponse.success) {
+              counts[post._id] = commentsResponse.data.length;
+            }
+          } catch (error) {
+            console.error(`Failed to fetch comments for post ${post._id}:`, error);
+            counts[post._id] = 0;
+          }
+        }
+        setCommentCounts(counts);
       } else {
         setPostsError(response.message);
       }
@@ -404,6 +431,98 @@ const WorkspaceDetail = () => {
   const cancelEditingPost = () => {
     setEditingPost(null);
     setEditPostContent('');
+  };
+
+  // Comment handlers
+  const toggleComments = async (postId) => {
+    const isExpanded = expandedComments[postId];
+    
+    if (!isExpanded) {
+      // Expanding - fetch comments if not already loaded
+      if (!postComments[postId]) {
+        await fetchComments(postId);
+      }
+      setExpandedComments({ ...expandedComments, [postId]: true });
+    } else {
+      // Collapsing
+      setExpandedComments({ ...expandedComments, [postId]: false });
+    }
+  };
+
+  const fetchComments = async (postId) => {
+    setCommentsLoading({ ...commentsLoading, [postId]: true });
+    try {
+      const response = await commentService.getPostComments(workspaceId, postId);
+      if (response.success) {
+        setPostComments({ ...postComments, [postId]: response.data });
+        setCommentCounts({ ...commentCounts, [postId]: response.data.length });
+      }
+    } catch (error) {
+      console.error('Fetch comments error:', error);
+    } finally {
+      setCommentsLoading({ ...commentsLoading, [postId]: false });
+    }
+  };
+
+  const handleCreateComment = async (postId) => {
+    const content = newCommentContent[postId];
+    if (!content || !content.trim()) return;
+
+    try {
+      const response = await commentService.createComment(workspaceId, postId, content.trim());
+      if (response.success) {
+        const currentComments = postComments[postId] || [];
+        setPostComments({ ...postComments, [postId]: [...currentComments, response.data] });
+        setCommentCounts({ ...commentCounts, [postId]: (commentCounts[postId] || 0) + 1 });
+        setNewCommentContent({ ...newCommentContent, [postId]: '' });
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to create comment');
+      console.error('Create comment error:', error);
+    }
+  };
+
+  const handleUpdateComment = async (postId, commentId) => {
+    if (!editCommentContent.trim()) return;
+
+    try {
+      const response = await commentService.updateComment(workspaceId, postId, commentId, editCommentContent.trim());
+      if (response.success) {
+        const updatedComments = postComments[postId].map(c => c._id === commentId ? response.data : c);
+        setPostComments({ ...postComments, [postId]: updatedComments });
+        setEditingComment(null);
+        setEditCommentContent('');
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update comment');
+      console.error('Update comment error:', error);
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+
+    try {
+      const response = await commentService.deleteComment(workspaceId, postId, commentId);
+      if (response.success) {
+        const updatedComments = postComments[postId].filter(c => c._id !== commentId);
+        setPostComments({ ...postComments, [postId]: updatedComments });
+        setCommentCounts({ ...commentCounts, [postId]: (commentCounts[postId] || 1) - 1 });
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to delete comment');
+      console.error('Delete comment error:', error);
+    }
+  };
+
+  const startEditingComment = (comment) => {
+    setEditingComment(comment._id);
+    setEditCommentContent(comment.content);
+  };
+
+  const cancelEditingComment = () => {
+    setEditingComment(null);
+    setEditCommentContent('');
   };
 
   const getStatusColor = (status) => {
@@ -898,6 +1017,205 @@ const WorkspaceDetail = () => {
                             </div>
                           )}
                         </div>
+                      </div>
+                      
+                      {/* Comment section */}
+                      <div className="mt-4 border-t border-gray-100 pt-3">
+                        {/* Comment count button */}
+                        <button
+                          onClick={() => toggleComments(post._id)}
+                          className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                          <span>
+                            {commentCounts[post._id] || 0} {commentCounts[post._id] === 1 ? 'comment' : 'comments'}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {expandedComments[post._id] ? '▼' : '▶'}
+                          </span>
+                        </button>
+
+                        {/* Expanded comments section */}
+                        {expandedComments[post._id] && (
+                          <div className="mt-4 space-y-3">
+                            {commentsLoading[post._id] ? (
+                              <div className="text-center py-4">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                <p className="mt-2 text-xs text-gray-500">Loading comments...</p>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Comments list */}
+                                {postComments[post._id]?.length > 0 ? (
+                                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    {postComments[post._id].map((comment) => (
+                                      <div key={comment._id} className="flex items-start space-x-2 bg-gray-50 rounded-lg p-3">
+                                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                          {comment.author?.avatar ? (
+                                            <img src={comment.author.avatar} alt={`${comment.author.firstName} ${comment.author.lastName}`} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                              <span className="text-white text-xs font-semibold">
+                                                {comment.author?.firstName?.[0]}{comment.author?.lastName?.[0]}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                              <h5 className="font-semibold text-gray-900 text-xs">
+                                                {comment.author?.firstName} {comment.author?.lastName}
+                                              </h5>
+                                              <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                                <span>
+                                                  {new Date(comment.createdAt).toLocaleDateString('en-US', { 
+                                                    month: 'numeric', 
+                                                    day: 'numeric',
+                                                    year: 'numeric'
+                                                  })}
+                                                </span>
+                                                <span>•</span>
+                                                <span>
+                                                  {new Date(comment.createdAt).toLocaleTimeString('en-US', { 
+                                                    hour: 'numeric', 
+                                                    minute: '2-digit',
+                                                    hour12: true 
+                                                  })}
+                                                </span>
+                                                {comment.updatedAt !== comment.createdAt && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="text-blue-600">Edited</span>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {(comment.author?._id === user._id || comment.author?._id === user.id || 
+                                              comment.author?.email === user.email) && (
+                                              <div className="relative">
+                                                {editingComment === comment._id ? (
+                                                  <div className="flex items-center space-x-1">
+                                                    <button
+                                                      onClick={() => handleUpdateComment(post._id, comment._id)}
+                                                      className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                                    >
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      onClick={cancelEditingComment}
+                                                      className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                                                    >
+                                                      Cancel
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setCommentDropdownOpen(commentDropdownOpen === comment._id ? null : comment._id);
+                                                    }}
+                                                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
+                                                  >
+                                                    <EllipsisVerticalIcon className="w-4 h-4" />
+                                                  </button>
+                                                )}
+                                                {commentDropdownOpen === comment._id && (
+                                                  <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        startEditingComment(comment);
+                                                        setCommentDropdownOpen(null);
+                                                      }}
+                                                      className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                                                    >
+                                                      <PencilIcon className="w-3 h-3" />
+                                                      <span>Edit</span>
+                                                    </button>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteComment(post._id, comment._id);
+                                                        setCommentDropdownOpen(null);
+                                                      }}
+                                                      className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-b-lg"
+                                                    >
+                                                      <TrashIcon className="w-3 h-3" />
+                                                      <span>Delete</span>
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                          {editingComment === comment._id ? (
+                                            <div className="mt-2">
+                                              <textarea
+                                                value={editCommentContent}
+                                                onChange={(e) => setEditCommentContent(e.target.value)}
+                                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-xs"
+                                                rows="2"
+                                              />
+                                              <span className="text-xs text-gray-500 mt-0.5 block">
+                                                {editCommentContent.length}/2000
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <p className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap">
+                                              {comment.content}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-4">
+                                    <p className="text-sm text-gray-500">No comments yet. Be the first to comment!</p>
+                                  </div>
+                                )}
+
+                                {/* Add comment form */}
+                                <div className="flex items-start space-x-2 mt-3">
+                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                    {user.avatar ? (
+                                      <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                                        <span className="text-white text-xs font-semibold">
+                                          {user.firstName?.[0]}{user.lastName?.[0]}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <textarea
+                                      value={newCommentContent[post._id] || ''}
+                                      onChange={(e) => setNewCommentContent({ ...newCommentContent, [post._id]: e.target.value })}
+                                      placeholder="Write a comment..."
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                      rows="2"
+                                      maxLength="2000"
+                                    />
+                                    <div className="flex items-center justify-between mt-2">
+                                      <span className="text-xs text-gray-500">
+                                        {(newCommentContent[post._id] || '').length}/2000
+                                      </span>
+                                      <button
+                                        onClick={() => handleCreateComment(post._id)}
+                                        disabled={!newCommentContent[post._id]?.trim()}
+                                        className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                      >
+                                        Comment
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
