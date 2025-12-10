@@ -26,12 +26,13 @@ import {
   PencilIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
+import DocumentList from '../components/DocumentList';
 
 const WorkspaceDetail = () => {
   const { workspaceId } = useParams();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -207,7 +208,7 @@ const WorkspaceDetail = () => {
 
   const isOwnerOrAdmin = () => {
     if (!workspace) return false;
-    const userRole = workspace.members.find(member => 
+    const userRole = workspace.members.find(member =>
       member.user._id === user._id || member.user._id === user.id
     )?.role;
     return userRole === 'owner' || userRole === 'admin';
@@ -243,16 +244,26 @@ const WorkspaceDetail = () => {
   const handleRemoveMember = async (memberId, memberName) => {
     setRemovingMemberId(memberId);
     try {
-      const response = await workspaceService.removeMember(workspaceId, memberId);
+      // Check if user is removing themselves
+      const isCurrentUser = memberId === user.id || memberId === user._id?.toString();
+
+      const response = isCurrentUser
+        ? await workspaceService.leaveWorkspace(workspaceId)
+        : await workspaceService.removeMember(workspaceId, memberId);
+
       if (response.success) {
-        setWorkspace(response.data);
-        setIsRemoveMemberModalOpen(false);
-        setMemberToRemove(null);
-        // You could add a success toast here
+        if (isCurrentUser) {
+          // User left workspace, redirect to workspaces page
+          navigate('/workspaces');
+        } else {
+          setWorkspace(response.data);
+          setIsRemoveMemberModalOpen(false);
+          setMemberToRemove(null);
+        }
       }
     } catch (error) {
       console.error('Remove member error:', error);
-      alert('Failed to remove member. Please try again.');
+      alert(error.response?.data?.message || 'Failed to remove member. Please try again.');
     } finally {
       setRemovingMemberId(null);
     }
@@ -261,11 +272,11 @@ const WorkspaceDetail = () => {
   const canRemoveMember = (member) => {
     // Can't remove the owner
     if (member.role === 'owner') return false;
-    
+
     // User can remove themselves (leave workspace) - use email for reliable comparison
     const isCurrentUser = member.user.email === user.email;
     if (isCurrentUser) return true;
-    
+
     // Only owners and admins can remove other members
     return isOwnerOrAdmin();
   };
@@ -273,11 +284,11 @@ const WorkspaceDetail = () => {
   const canChangeRole = (member) => {
     // Can't change owner's role
     if (member.role === 'owner') return false;
-    
+
     // Can't change own role
     const isCurrentUser = member.user.email === user.email;
     if (isCurrentUser) return false;
-    
+
     // Only owners can change roles
     return isOwner();
   };
@@ -290,15 +301,15 @@ const WorkspaceDetail = () => {
 
   const handleChangeRole = async () => {
     if (!memberToChangeRole || !selectedRole) return;
-    
+
     setChangingRoleLoading(true);
     try {
       const response = await workspaceService.updateMemberRole(
-        workspaceId, 
-        memberToChangeRole.user._id || memberToChangeRole.user.id, 
+        workspaceId,
+        memberToChangeRole.user._id || memberToChangeRole.user.id,
         selectedRole
       );
-      
+
       if (response.success) {
         setWorkspace(response.data);
         setIsChangeRoleModalOpen(false);
@@ -469,7 +480,7 @@ const WorkspaceDetail = () => {
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
             <div className="flex items-center space-x-3">
-              <div 
+              <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: workspace.color }}
               >
@@ -490,7 +501,7 @@ const WorkspaceDetail = () => {
               </button>
             )}
             {isOwnerOrAdmin() && (
-              <button 
+              <button
                 onClick={() => setIsAddMemberModalOpen(true)}
                 className="btn-primary flex items-center space-x-2"
               >
@@ -499,15 +510,23 @@ const WorkspaceDetail = () => {
               </button>
             )}
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={() => navigate('/profile')}
                 className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"
               >
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </span>
-                </div>
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={`${user.firstName} ${user.lastName}`}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </span>
+                  </div>
+                )}
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-900">
                     {user?.firstName} {user?.lastName}
@@ -515,7 +534,7 @@ const WorkspaceDetail = () => {
                   <p className="text-xs text-gray-500">{user?.email}</p>
                 </div>
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded hover:bg-gray-100"
               >
@@ -540,11 +559,10 @@ const WorkspaceDetail = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{tab.name}</span>
@@ -602,7 +620,7 @@ const WorkspaceDetail = () => {
               </div>
 
               {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="card text-center">
                   <div className="text-2xl font-bold text-blue-600">{tasks.length}</div>
                   <div className="text-sm text-gray-600">Total Tasks</div>
@@ -638,11 +656,10 @@ const WorkspaceDetail = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Visibility:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      workspace.settings?.isPublic 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-xs ${workspace.settings?.isPublic
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}>
                       {workspace.settings?.isPublic ? 'Public' : 'Private'}
                     </span>
                   </div>
@@ -657,7 +674,15 @@ const WorkspaceDetail = () => {
                     <PlusIcon className="w-4 h-4" />
                     <span>Create Task</span>
                   </button>
-                  <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                  <button
+                    onClick={() => {
+                      setActiveTab('documents');
+                      setTimeout(() => {
+                        document.getElementById('document-upload')?.click();
+                      }, 100);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                  >
                     <DocumentTextIcon className="w-4 h-4" />
                     <span>Upload Document</span>
                   </button>
@@ -666,7 +691,7 @@ const WorkspaceDetail = () => {
                     <span>Schedule Meeting</span>
                   </button>
                   {isOwnerOrAdmin() && (
-                    <button 
+                    <button
                       onClick={() => setIsAddMemberModalOpen(true)}
                       className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
                     >
@@ -903,7 +928,7 @@ const WorkspaceDetail = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="card">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -1024,40 +1049,11 @@ const WorkspaceDetail = () => {
         )}
 
         {activeTab === 'documents' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Documents</h2>
-              <button className="btn-primary flex items-center space-x-2">
-                <PlusIcon className="w-4 h-4" />
-                <span>Upload Document</span>
-              </button>
-            </div>
-            
-            <div className="card">
-              <div className="space-y-4">
-                {documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <DocumentTextIcon className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900">{doc.name}</h4>
-                      <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
-                        <span>{doc.size}</span>
-                        <span>•</span>
-                        <span>Modified {doc.modified}</span>
-                        <span>•</span>
-                        <span>by {doc.author}</span>
-                      </div>
-                    </div>
-                    <button className="p-1 text-gray-400 hover:text-gray-600">
-                      <EllipsisVerticalIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <DocumentList />
+        )}
+
+        {activeTab === 'files' && (
+          <FileList />
         )}
 
         {activeTab === 'members' && (
@@ -1065,7 +1061,7 @@ const WorkspaceDetail = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">Members</h2>
               {isOwnerOrAdmin() && (
-                <button 
+                <button
                   onClick={() => setIsAddMemberModalOpen(true)}
                   className="btn-primary flex items-center space-x-2"
                 >
@@ -1074,7 +1070,7 @@ const WorkspaceDetail = () => {
                 </button>
               )}
             </div>
-            
+
             <div className="card">
               <div className="space-y-4">
                 {workspace.members.map((member) => (
@@ -1097,17 +1093,16 @@ const WorkspaceDetail = () => {
                       <p className="text-sm text-gray-500">{member.user.email}</p>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        member.role === 'owner' 
-                          ? 'bg-purple-100 text-purple-800'
-                          : member.role === 'admin'
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.role === 'owner'
+                        ? 'bg-purple-100 text-purple-800'
+                        : member.role === 'admin'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}>
+                        }`}>
                         {member.role.toUpperCase()}
                       </span>
                       {canChangeRole(member) && (
-                        <button 
+                        <button
                           onClick={() => openChangeRoleModal(member)}
                           className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200 hover:border-blue-300 transition-colors"
                         >
@@ -1115,7 +1110,7 @@ const WorkspaceDetail = () => {
                         </button>
                       )}
                       {canRemoveMember(member) && (
-                        <button 
+                        <button
                           onClick={() => openRemoveMemberModal(member)}
                           disabled={removingMemberId === (member.user._id || member.user.id)}
                           className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-200 hover:border-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

@@ -17,6 +17,7 @@ router.delete('/:workspaceId', workspaceController.deleteWorkspace);
 // Member management routes
 router.post('/:workspaceId/members', workspaceController.addMember);
 router.post('/:workspaceId/join', workspaceController.joinWorkspace);
+router.post('/:workspaceId/leave', workspaceController.leaveWorkspace);
 router.delete('/:workspaceId/members/:memberId', workspaceController.removeMember);
 router.put('/:workspaceId/members/:memberId/role', workspaceController.updateMemberRole);
 router.get('/:workspaceId/members/search', workspaceController.searchMembers);

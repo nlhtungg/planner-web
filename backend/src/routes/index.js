@@ -25,6 +25,7 @@ router.use('/api/auth', authRoutes);
 router.use('/api/workspaces', workspaceRoutes);
 router.use('/api/workspaces', postRoutes);
 router.use('/api/tasks', taskRoutes);
+router.use('/api/documents', require('./documentRoutes'));
 
 /**
  * 404 handler for undefined routes
