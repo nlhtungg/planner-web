@@ -21,8 +21,8 @@ const MentionText = ({ content, mentions = [], mentionsEveryone = false, members
   const renderContent = () => {
     if (!content) return null;
 
-    // Regular expression to match @mentions
-    const mentionRegex = /@(\w+)/g;
+    // Regular expression to match @mentions (including multi-word names like "Tung Nguyen")
+    const mentionRegex = /@(\w+(?:\s+\w+)*)/g;
     const parts = [];
     let lastIndex = 0;
     let match;
@@ -49,7 +49,7 @@ const MentionText = ({ content, mentions = [], mentionsEveryone = false, members
       } else {
         // Find the mentioned user
         const mentionedUser = members.find(m => {
-          const fullName = `${m.firstName}${m.lastName}`.toLowerCase();
+          const fullName = `${m.firstName} ${m.lastName}`.toLowerCase().trim();
           const email = m.email.split('@')[0].toLowerCase();
           return fullName === mentionText.toLowerCase() || email === mentionText.toLowerCase();
         });

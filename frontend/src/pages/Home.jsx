@@ -21,7 +21,7 @@ const Home = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeSection, setActiveSection] = useState('workspaces');
+  const [activeSection, setActiveSection] = useState('home');
 
   useEffect(() => {
     const timer = setInterval(() => {

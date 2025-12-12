@@ -17,7 +17,7 @@ import {
   ChatBubbleLeftRightIcon,
   CalendarDaysIcon,
   BellIcon,
-  Cog6ToothIcon,
+  MagnifyingGlassIcon,
   ArrowLeftIcon,
   FunnelIcon,
   PlusIcon,
@@ -308,48 +308,70 @@ const Calendar = () => {
     );
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="flex items-center justify-between px-6 py-4">
+          {/* Logo and Search */}
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">P</span>
               </div>
-              <h1 className="text-xl font-bold text-gray-900">Planner</h1>
+              <h1 className="text-xl font-semibold text-gray-900">Planner</h1>
+            </div>
+            <div className="relative">
+              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search workspaces, people, or content..."
+                className="pl-10 pr-4 py-2 w-96 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
             </div>
           </div>
 
+          {/* User Menu */}
           <div className="flex items-center space-x-4">
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-              <BellIcon className="w-6 h-6 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+              <BellIcon className="w-5 h-5" />
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Cog6ToothIcon className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="flex items-center space-x-3 pl-4 border-l border-gray-200">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
-              </div>
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt="Profile"
-                  className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </span>
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => navigate('/profile')}
+                className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"
+              >
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                  {user?.avatar ? (
+                    <img
+                      src={`${user.avatar}?t=${Date.now()}`}
+                      alt="Profile Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white text-sm font-medium">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </span>
+                  )}
                 </div>
-              )}
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded hover:bg-gray-100"
+              >
+                Sign out
+              </button>
             </div>
           </div>
         </div>
@@ -357,23 +379,62 @@ const Calendar = () => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen">
+        <aside className="w-64 bg-white shadow-sm h-screen sticky top-0 border-r border-gray-200">
           <nav className="p-4 space-y-2">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => item.path && navigate(item.path)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  item.active
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.name}</span>
-              </button>
-            ))}
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => item.path && navigate(item.path)}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                    item.active
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium">{item.name}</span>
+                </button>
+              );
+            })}
           </nav>
+
+          {/* Quick Actions */}
+          <div className="p-4 border-t border-gray-200 mt-8">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+            <div className="space-y-2">
+              <button 
+                onClick={() => navigate('/workspaces')}
+                className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <PlusIcon className="w-4 h-4" />
+                <span>New Workspace</span>
+              </button>
+              <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                <UserGroupIcon className="w-4 h-4" />
+                <span>Invite Member</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setModalMode('create');
+                  setSelectedEvent(null);
+                  setFormData({
+                    title: '',
+                    description: '',
+                    dueDate: '',
+                    priority: 'medium',
+                    status: 'todo'
+                  });
+                  setShowModal(true);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <CalendarDaysIcon className="w-4 h-4" />
+                <span>Add Event</span>
+              </button>
+            </div>
+          </div>
         </aside>
 
         {/* Main Content */}
@@ -382,17 +443,9 @@ const Calendar = () => {
             {/* Page Header */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => navigate(-1)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900">Calendar</h2>
-                    <p className="text-gray-600 text-sm mt-1">View and manage your tasks by date</p>
-                  </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900">Calendar</h2>
+                  <p className="text-gray-600 text-sm mt-1">View and manage your tasks by date</p>
                 </div>
                 <button
                   onClick={() => {
