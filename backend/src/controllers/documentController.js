@@ -1,6 +1,7 @@
 const Document = require('../models/Document');
 const Workspace = require('../models/Workspace');
 const { uploadFile } = require('../utils/storage');
+const { validateFileUpload, getFileCategory, isEditable } = require('../utils/fileTypes');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -29,6 +30,15 @@ exports.createDocument = async (req, res) => {
         }
         // Handle file upload
         else if (file) {
+            // Validate file against whitelist
+            const validation = validateFileUpload(file);
+            if (!validation.valid) {
+                return res.status(400).json({
+                    message: 'File upload rejected',
+                    error: validation.error
+                });
+            }
+
             const fileUrl = await uploadFile(
                 file.buffer,
                 file.originalname,
@@ -36,19 +46,20 @@ exports.createDocument = async (req, res) => {
                 workspaceId,
                 folder || null
             );
+
             documentData.fileUrl = fileUrl;
             documentData.fileType = file.mimetype;
             documentData.fileSize = file.size;
+            documentData.fileCategory = getFileCategory(file.mimetype, file.originalname);
+            documentData.isEditable = isEditable(file.mimetype, file.originalname);
 
-            // Determine if file is editable
-            const editableTypes = ['text/plain', 'text/markdown', 'text/md'];
-            documentData.isEditable = editableTypes.includes(file.mimetype) ||
-                file.originalname.match(/\.(txt|md|markdown)$/i);
-
-            // For editable files, read content
+            // For editable files, extract content before clearing buffer
             if (documentData.isEditable) {
                 documentData.content = file.buffer.toString('utf-8');
             }
+
+            // Security: Clear buffer from memory after successful upload
+            file.buffer = null;
         } else {
             // Text document
             documentData.content = content || '';
@@ -180,9 +191,9 @@ exports.deleteDocument = async (req, res) => {
 exports.addComment = async (req, res) => {
     try {
         const { content } = req.body;
-        const Comment = require('../models/Comment');
+        const DocumentComment = require('../models/DocumentComment');
 
-        const comment = new Comment({
+        const comment = new DocumentComment({
             content,
             document: req.params.id,
             author: req.user._id
@@ -200,8 +211,8 @@ exports.addComment = async (req, res) => {
 // Get comments for document
 exports.getComments = async (req, res) => {
     try {
-        const Comment = require('../models/Comment');
-        const comments = await Comment.find({ document: req.params.id })
+        const DocumentComment = require('../models/DocumentComment');
+        const comments = await DocumentComment.find({ document: req.params.id })
             .populate('author', 'firstName lastName email avatar')
             .sort({ createdAt: -1 });
 

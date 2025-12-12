@@ -212,12 +212,80 @@ const DocumentList = () => {
     };
 
     const getFileIcon = (doc) => {
-        if (doc.fileType === 'folder') return 'b'; // We'll use a string and replace with Heroicon in render
-        if (doc.isEditable) return '📝';
-        if (doc.fileType?.includes('pdf')) return '📄';
-        if (doc.fileType?.includes('image')) return '🖼️';
-        if (doc.fileType?.includes('video')) return '🎥';
+        if (doc.fileType === 'folder') return '📁';
+        if (doc.isEditable && !doc.fileUrl) return '📝'; // Text documents created in-app
+
+        const type = doc.fileType || '';
+        const category = doc.fileCategory;
+
+        // Use category if available (new documents)
+        if (category) {
+            const categoryIcons = {
+                document: '📄',
+                spreadsheet: '📊',
+                presentation: '📙',
+                text: '📝',
+                image: '🖼️',
+                video: '🎥',
+                audio: '🎵',
+                archive: '📦',
+                code: '💻',
+                other: '📎'
+            };
+            return categoryIcons[category] || '📎';
+        }
+
+        // Fallback to MIME type detection for existing documents
+        // Office documents - check for actual MIME type patterns
+        if (type.includes('wordprocessingml') || type.includes('msword')) return '📄';
+        if (type.includes('spreadsheetml') || type.includes('ms-excel')) return '📊';
+        if (type.includes('presentationml') || type.includes('ms-powerpoint')) return '📙';
+        if (type.includes('opendocument.text')) return '📄';
+        if (type.includes('opendocument.spreadsheet')) return '📊';
+        if (type.includes('opendocument.presentation')) return '📙';
+
+        // Media
+        if (type.includes('pdf')) return '📄';
+        if (type.includes('image')) return '🖼️';
+        if (type.includes('video')) return '🎥';
+        if (type.includes('audio')) return '🎵';
+
+        // Archives
+        if (type.includes('zip') || type.includes('rar') || type.includes('7z') || type.includes('tar') || type.includes('gzip')) return '📦';
+
+        // Code/Text
+        if (type.includes('javascript') || type.includes('json') || type.includes('html') || type.includes('css') || type.includes('xml') || type.includes('yaml')) return '💻';
+        if (type.includes('text')) return '📝';
+
         return '📎';
+    };
+
+    // Get human-readable file type label
+    const getFileTypeLabel = (doc) => {
+        if (doc.isEditable && !doc.fileUrl) return 'Document';
+
+        const type = doc.fileType || '';
+        const category = doc.fileCategory;
+
+        // Office documents
+        if (type.includes('wordprocessingml') || type.includes('msword') || category === 'document') return 'Word Document';
+        if (type.includes('spreadsheetml') || type.includes('ms-excel') || category === 'spreadsheet') return 'Spreadsheet';
+        if (type.includes('presentationml') || type.includes('ms-powerpoint') || category === 'presentation') return 'Presentation';
+
+        // Media
+        if (type.includes('pdf')) return 'PDF';
+        if (type.includes('image') || category === 'image') return 'Image';
+        if (type.includes('video') || category === 'video') return 'Video';
+        if (type.includes('audio') || category === 'audio') return 'Audio';
+
+        // Archives
+        if (type.includes('zip') || type.includes('rar') || type.includes('7z') || category === 'archive') return 'Archive';
+
+        // Code
+        if (category === 'code') return 'Code';
+        if (category === 'text') return 'Text File';
+
+        return 'File';
     };
 
     // Filter documents by current path
@@ -372,7 +440,7 @@ const DocumentList = () => {
                                         <div className="text-sm text-gray-500">
                                             {isFolder ? 'Folder' : (
                                                 <>
-                                                    {doc.isEditable ? 'Editable' : 'View only'}
+                                                    {getFileTypeLabel(doc)}
                                                     {doc.fileSize && ` • ${formatFileSize(doc.fileSize)}`}
                                                 </>
                                             )}
