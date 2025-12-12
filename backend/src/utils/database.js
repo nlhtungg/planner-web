@@ -10,7 +10,7 @@ const connectDB = async (retries = 5, delay = 5000) => {
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
         socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-        maxPoolSize: 10, // Maintain up to 10 socket connections
+        maxPoolSize: 50, // Maintain up to 50 socket connections
         minPoolSize: 2, // Maintain at least 2 socket connections
         maxIdleTimeMS: 10000, // Close idle connections after 10s
       });
