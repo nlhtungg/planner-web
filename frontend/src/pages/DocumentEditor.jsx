@@ -16,6 +16,8 @@ const DocumentEditor = () => {
     const [showShareModal, setShowShareModal] = useState(false);
     const [sharePermission, setSharePermission] = useState('view');
     const [canEdit, setCanEdit] = useState(false);
+    const [docxHtml, setDocxHtml] = useState(null);
+    const [docxLoading, setDocxLoading] = useState(false);
     const saveTimeoutRef = useRef(null);
 
     // Connect to Socket.io
@@ -80,6 +82,42 @@ const DocumentEditor = () => {
         };
         loadComments();
     }, [document?._id, id]);
+
+    // Load DOCX preview using mammoth.js
+    useEffect(() => {
+        const loadDocxPreview = async () => {
+            if (!document?.fileUrl) return;
+
+            // Check if it's a DOCX file
+            const isDocx = document.fileType?.includes('wordprocessingml') ||
+                document.fileType?.includes('msword') ||
+                document.title?.toLowerCase().endsWith('.docx') ||
+                document.title?.toLowerCase().endsWith('.doc');
+
+            if (!isDocx) return;
+
+            setDocxLoading(true);
+            try {
+                // Dynamic import mammoth
+                const mammoth = (await import('mammoth')).default;
+
+                // Fetch the DOCX file
+                const response = await fetch(document.fileUrl);
+                const arrayBuffer = await response.arrayBuffer();
+
+                // Convert to HTML
+                const result = await mammoth.convertToHtml({ arrayBuffer });
+                setDocxHtml(result.value);
+            } catch (err) {
+                console.error('Failed to load DOCX preview:', err);
+                setDocxHtml(null);
+            } finally {
+                setDocxLoading(false);
+            }
+        };
+
+        loadDocxPreview();
+    }, [document?.fileUrl, document?.fileType, document?.title]);
 
     // Join Room & Handle Real-time updates
     useEffect(() => {
@@ -254,34 +292,150 @@ const DocumentEditor = () => {
                                 placeholder={canEdit ? "Start typing..." : "You don't have permission to edit this document"}
                             />
                         ) : (
-                            <div className="bg-white shadow-lg rounded-lg p-8 h-full">
+                            <div className="bg-white shadow-lg rounded-lg p-8 h-full flex flex-col">
+                                {/* PDF Preview */}
                                 {document.fileType?.includes('pdf') ? (
                                     <iframe
                                         src={document.fileUrl}
-                                        className="w-full h-full border-0"
+                                        className="w-full flex-1 border-0 min-h-[600px]"
                                         title={document.title}
                                     />
                                 ) : document.fileType?.includes('image') ? (
-                                    <img
-                                        src={document.fileUrl}
-                                        alt={document.title}
-                                        className="max-w-full h-auto mx-auto"
-                                    />
+                                    /* Image Preview */
+                                    <div className="flex-1 flex items-center justify-center">
+                                        <img
+                                            src={document.fileUrl}
+                                            alt={document.title}
+                                            className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                                        />
+                                    </div>
                                 ) : document.fileType?.includes('video') ? (
-                                    <video
-                                        src={document.fileUrl}
-                                        controls
-                                        className="w-full h-auto"
-                                    />
-                                ) : (
-                                    <div className="text-center text-gray-500 py-8">
-                                        <p>Preview not available for this file type</p>
+                                    /* Video Preview */
+                                    <div className="flex-1 flex items-center justify-center">
+                                        <video
+                                            src={document.fileUrl}
+                                            controls
+                                            className="max-w-full max-h-[70vh] rounded-lg shadow-md"
+                                        />
+                                    </div>
+                                ) : (document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword')) ? (
+                                    /* DOCX Preview using mammoth.js */
+                                    <div className="flex-1 overflow-auto">
+                                        {docxLoading ? (
+                                            <div className="flex items-center justify-center h-full">
+                                                <div className="text-center space-y-4">
+                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                                                    <p className="text-gray-500">Loading document preview...</p>
+                                                </div>
+                                            </div>
+                                        ) : docxHtml ? (
+                                            <div className="bg-white p-8 rounded-lg shadow-sm">
+                                                <div
+                                                    className="prose prose-lg max-w-none"
+                                                    dangerouslySetInnerHTML={{ __html: docxHtml }}
+                                                />
+                                                <div className="mt-8 pt-4 border-t flex justify-center">
+                                                    <a
+                                                        href={document.fileUrl}
+                                                        download={document.title}
+                                                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
+                                                    >
+                                                        <span>⬇️</span>
+                                                        <span>Download Original</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full space-y-4">
+                                                <div className="text-6xl">📄</div>
+                                                <p className="text-gray-500">Unable to preview document</p>
+                                                <a
+                                                    href={document.fileUrl}
+                                                    download={document.title}
+                                                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                                >
+                                                    Download File
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : document.fileType?.includes('audio') ? (
+                                    /* Audio Preview */
+                                    <div className="flex-1 flex flex-col items-center justify-center space-y-6">
+                                        <div className="text-8xl">🎵</div>
+                                        <h3 className="text-xl font-semibold text-gray-800">{document.title}</h3>
+                                        <audio
+                                            src={document.fileUrl}
+                                            controls
+                                            className="w-full max-w-md"
+                                        />
                                         <a
                                             href={document.fileUrl}
                                             download={document.title}
-                                            className="text-blue-600 hover:underline mt-4 inline-block"
+                                            className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
                                         >
-                                            Download File
+                                            <span>⬇️</span>
+                                            <span>Download Audio</span>
+                                        </a>
+                                    </div>
+                                ) : (
+                                    /* Office Documents, Archives, and Other Files */
+                                    <div className="flex-1 flex flex-col items-center justify-center space-y-6 py-8">
+                                        {/* File Icon */}
+                                        <div className="text-8xl">
+                                            {document.fileCategory === 'document' || document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword') ? '📄' :
+                                                document.fileCategory === 'spreadsheet' || document.fileType?.includes('spreadsheetml') || document.fileType?.includes('ms-excel') ? '📊' :
+                                                    document.fileCategory === 'presentation' || document.fileType?.includes('presentationml') || document.fileType?.includes('ms-powerpoint') ? '📙' :
+                                                        document.fileCategory === 'archive' || document.fileType?.includes('zip') || document.fileType?.includes('rar') ? '📦' :
+                                                            document.fileCategory === 'code' ? '💻' : '📎'}
+                                        </div>
+
+                                        {/* File Info */}
+                                        <div className="text-center space-y-2">
+                                            <h3 className="text-2xl font-bold text-gray-800">{document.title}</h3>
+                                            <div className="text-gray-500 space-y-1">
+                                                {document.fileType && (
+                                                    <p className="text-sm">
+                                                        Type: <span className="font-medium">{
+                                                            document.fileType.includes('wordprocessingml') || document.fileType.includes('msword') ? 'Microsoft Word Document' :
+                                                                document.fileType.includes('spreadsheetml') || document.fileType.includes('ms-excel') ? 'Microsoft Excel Spreadsheet' :
+                                                                    document.fileType.includes('presentationml') || document.fileType.includes('ms-powerpoint') ? 'Microsoft PowerPoint Presentation' :
+                                                                        document.fileType.includes('zip') ? 'ZIP Archive' :
+                                                                            document.fileType.includes('rar') ? 'RAR Archive' :
+                                                                                document.fileType.includes('7z') ? '7-Zip Archive' :
+                                                                                    document.fileCategory === 'document' ? 'Document' :
+                                                                                        document.fileCategory === 'spreadsheet' ? 'Spreadsheet' :
+                                                                                            document.fileCategory === 'presentation' ? 'Presentation' :
+                                                                                                document.fileCategory || document.fileType
+                                                        }</span>
+                                                    </p>
+                                                )}
+                                                {document.fileSize && (
+                                                    <p className="text-sm">
+                                                        Size: <span className="font-medium">
+                                                            {document.fileSize < 1024 ? `${document.fileSize} B` :
+                                                                document.fileSize < 1024 * 1024 ? `${(document.fileSize / 1024).toFixed(1)} KB` :
+                                                                    `${(document.fileSize / 1024 / 1024).toFixed(2)} MB`}
+                                                        </span>
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Info Message */}
+                                        <p className="text-gray-400 text-sm max-w-md text-center">
+                                            Preview is not available for this file type in the browser.
+                                            Please download the file to view its contents.
+                                        </p>
+
+                                        {/* Download Button */}
+                                        <a
+                                            href={document.fileUrl}
+                                            download={document.title}
+                                            className="px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center space-x-3"
+                                        >
+                                            <span className="text-2xl">⬇️</span>
+                                            <span>Download File</span>
                                         </a>
                                     </div>
                                 )}

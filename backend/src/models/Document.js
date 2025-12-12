@@ -24,6 +24,10 @@ const documentSchema = new mongoose.Schema({
         type: Number, // Size in bytes
         default: null
     },
+    fileCategory: {
+        type: String, // Category: document, spreadsheet, presentation, image, video, audio, archive, code, text, other
+        default: null
+    },
     isEditable: {
         type: Boolean,
         default: true // false for PDFs, images, etc.
