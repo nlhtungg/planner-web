@@ -33,6 +33,22 @@ const io = require('socket.io')(server, {
 io.on('connection', (socket) => {
   console.log('👤 User connected:', socket.id);
 
+  // Join workspace room for real-time updates
+  socket.on('join-workspace', (workspaceId) => {
+    socket.join(`workspace-${workspaceId}`);
+    console.log(`✅ User ${socket.id} joined workspace-${workspaceId}`);
+    
+    // Log all clients in the room for debugging
+    const room = io.sockets.adapter.rooms.get(`workspace-${workspaceId}`);
+    console.log(`   Total clients in workspace-${workspaceId}:`, room ? room.size : 0);
+  });
+
+  socket.on('leave-workspace', (workspaceId) => {
+    socket.leave(`workspace-${workspaceId}`);
+    console.log(`❌ User ${socket.id} left workspace-${workspaceId}`);
+  });
+
+  // Document collaboration events
   socket.on('join-document', (documentId) => {
     socket.join(documentId);
     console.log(`User ${socket.id} joined document ${documentId}`);
@@ -59,6 +75,9 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
   });
 });
+
+// Make io instance available globally for controllers
+global.io = io;
 
 console.log('📡 Socket.io initialized');
 console.log('=================================');

@@ -24,6 +24,7 @@ services:
     restart: always
     depends_on:
       - mongodb
+      - minio
     ports:
       - "3001:3001"
     volumes:

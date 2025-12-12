@@ -5,6 +5,7 @@ import workspaceService from '../services/workspaceService';
 import postService from '../services/postService';
 import commentService from '../services/commentService';
 import reactionService from '../services/reactionService';
+import socketService from '../services/socketService';
 import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
@@ -149,6 +150,105 @@ const WorkspaceDetail = () => {
       fetchTasks();
     }
   }, [activeTab, workspaceId]);
+
+  // Socket.io real-time updates
+  useEffect(() => {
+    // Connect to socket and join workspace
+    socketService.connect();
+    socketService.joinWorkspace(workspaceId);
+
+    // Handle new post
+    const handleNewPost = (post) => {
+      setPosts((prevPosts) => {
+        // Prevent duplicates - check if post already exists
+        if (prevPosts.some(p => p._id === post._id)) {
+          return prevPosts;
+        }
+        return [post, ...prevPosts];
+      });
+    };
+
+    // Handle post update
+    const handleUpdatePost = (updatedPost) => {
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post._id === updatedPost._id ? updatedPost : post
+        )
+      );
+    };
+
+    // Handle post deletion
+    const handleDeletePost = (postId) => {
+      setPosts((prevPosts) => prevPosts.filter((post) => post._id !== postId));
+    };
+
+    // Handle new comment
+    const handleNewComment = ({ postId, comment }) => {
+      setPostComments((prevComments) => {
+        const existingComments = prevComments[postId] || [];
+        // Prevent duplicates - check if comment already exists
+        if (existingComments.some(c => c._id === comment._id)) {
+          return prevComments;
+        }
+        return {
+          ...prevComments,
+          [postId]: [comment, ...existingComments]
+        };
+      });
+      setCommentCounts((prevCounts) => {
+        const existingComments = postComments[postId] || [];
+        // Only increment if comment is new
+        if (existingComments.some(c => c._id === comment._id)) {
+          return prevCounts;
+        }
+        return {
+          ...prevCounts,
+          [postId]: (prevCounts[postId] || 0) + 1
+        };
+      });
+    };
+
+    // Handle comment update
+    const handleUpdateComment = ({ postId, comment }) => {
+      setPostComments((prevComments) => ({
+        ...prevComments,
+        [postId]: (prevComments[postId] || []).map((c) =>
+          c._id === comment._id ? comment : c
+        )
+      }));
+    };
+
+    // Handle comment deletion
+    const handleDeleteComment = ({ postId, commentId }) => {
+      setPostComments((prevComments) => ({
+        ...prevComments,
+        [postId]: (prevComments[postId] || []).filter((c) => c._id !== commentId)
+      }));
+      setCommentCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: Math.max((prevCounts[postId] || 0) - 1, 0)
+      }));
+    };
+
+    // Register event listeners
+    socketService.onNewPost(handleNewPost);
+    socketService.onUpdatePost(handleUpdatePost);
+    socketService.onDeletePost(handleDeletePost);
+    socketService.onNewComment(handleNewComment);
+    socketService.onUpdateComment(handleUpdateComment);
+    socketService.onDeleteComment(handleDeleteComment);
+
+    // Cleanup on unmount
+    return () => {
+      socketService.off('new-post', handleNewPost);
+      socketService.off('update-post', handleUpdatePost);
+      socketService.off('delete-post', handleDeletePost);
+      socketService.off('new-comment', handleNewComment);
+      socketService.off('update-comment', handleUpdateComment);
+      socketService.off('delete-comment', handleDeleteComment);
+      socketService.leaveWorkspace(workspaceId);
+    };
+  }, [workspaceId]);
   const fetchTasks = async () => {
     setTasksLoading(true);
     setTasksError('');
