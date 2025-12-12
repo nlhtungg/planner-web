@@ -12,7 +12,7 @@ const app = express();
  */
 app.use(configureHelmet());
 app.use(configureCors());
-app.use(configureRateLimit());
+//app.use(configureRateLimit());
 
 /**
  * Request Timeout Middleware
