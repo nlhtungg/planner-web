@@ -1226,7 +1226,7 @@ const WorkspaceDetail = () => {
                             {commentCounts[post._id] || 0} {commentCounts[post._id] === 1 ? 'comment' : 'comments'}
                           </span>
                           <span className="text-xs text-gray-400">
-                            {expandedComments[post._id] ? '▼' : '▶'}
+                            {expandedComments[post._id] ? '' : ''}
                           </span>
                         </button>
                       </div>

@@ -1,5 +1,13 @@
 const errorHandler = (err, req, res, next) => {
+  // Enhanced error logging with more context
+  console.error('='.repeat(50));
+  console.error('Error occurred:');
+  console.error('Time:', new Date().toISOString());
+  console.error('Method:', req.method);
+  console.error('Path:', req.path);
   console.error('Error:', err);
+  console.error('Stack:', err.stack);
+  console.error('='.repeat(50));
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {
@@ -41,6 +49,14 @@ const errorHandler = (err, req, res, next) => {
     return res.status(401).json({
       success: false,
       message: 'Token expired'
+    });
+  }
+
+  // Request timeout
+  if (err.statusCode === 408 || err.message === 'Request timeout') {
+    return res.status(408).json({
+      success: false,
+      message: 'Request timeout - the server took too long to respond'
     });
   }
 

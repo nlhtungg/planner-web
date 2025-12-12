@@ -1,6 +1,7 @@
 const express = require('express');
 const config = require('./config/app.config');
 const { configureHelmet, configureCors, configureRateLimit } = require('./middlewares/security');
+const requestTimeout = require('./middlewares/requestTimeout');
 const routes = require('./routes');
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -12,6 +13,12 @@ const app = express();
 app.use(configureHelmet());
 app.use(configureCors());
 app.use(configureRateLimit());
+
+/**
+ * Request Timeout Middleware
+ * Prevents hanging requests from blocking the server
+ */
+app.use(requestTimeout(30000)); // 30 second timeout
 
 /**
  * Body Parsing Middleware
