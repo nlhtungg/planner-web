@@ -52,6 +52,14 @@ class PostController {
 
       const post = await postRepository.createPost(postData);
 
+      // Emit socket event for real-time updates
+      if (global.io) {
+        console.log(`📡 Emitting new-post event to workspace-${workspaceId}`, post._id);
+        global.io.to(`workspace-${workspaceId}`).emit('new-post', post);
+      } else {
+        console.warn('⚠️ Socket.io not available, cannot emit new-post event');
+      }
+
       res.status(201).json({
         success: true,
         message: 'Post created successfully',
@@ -166,6 +174,11 @@ class PostController {
 
       const updatedPost = await postRepository.updatePost(postId, updateData);
 
+      // Emit socket event for real-time updates
+      if (global.io) {
+        global.io.to(`workspace-${workspaceId}`).emit('update-post', updatedPost);
+      }
+
       res.status(200).json({
         success: true,
         message: 'Post updated successfully',
@@ -222,6 +235,11 @@ class PostController {
       }
 
       await postRepository.deletePost(postId);
+
+      // Emit socket event for real-time updates
+      if (global.io) {
+        global.io.to(`workspace-${workspaceId}`).emit('delete-post', postId);
+      }
 
       res.status(200).json({
         success: true,

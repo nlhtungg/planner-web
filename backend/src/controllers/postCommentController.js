@@ -69,6 +69,17 @@ class PostCommentController {
 
       const comment = await postCommentRepository.createComment(commentData);
 
+      // Emit socket event for real-time updates
+      if (global.io) {
+        console.log(`📡 Emitting new-comment event to workspace-${workspaceId}`, comment._id);
+        global.io.to(`workspace-${workspaceId}`).emit('new-comment', {
+          postId,
+          comment
+        });
+      } else {
+        console.warn('⚠️ Socket.io not available, cannot emit new-comment event');
+      }
+
       res.status(201).json({
         success: true,
         message: 'Comment created successfully',
@@ -200,6 +211,14 @@ class PostCommentController {
 
       const updatedComment = await postCommentRepository.updateComment(commentId, updateData);
 
+      // Emit socket event for real-time updates
+      if (global.io) {
+        global.io.to(`workspace-${workspaceId}`).emit('update-comment', {
+          postId,
+          comment: updatedComment
+        });
+      }
+
       res.status(200).json({
         success: true,
         message: 'Comment updated successfully',
@@ -256,6 +275,14 @@ class PostCommentController {
       }
 
       await postCommentRepository.deleteComment(commentId);
+
+      // Emit socket event for real-time updates
+      if (global.io) {
+        global.io.to(`workspace-${workspaceId}`).emit('delete-comment', {
+          postId,
+          commentId
+        });
+      }
 
       res.status(200).json({
         success: true,
