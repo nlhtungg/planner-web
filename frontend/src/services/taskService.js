@@ -9,6 +9,7 @@ export const getTasksByWorkspace = (workspaceId) => api.get(`/tasks/workspace/${
 
 // Generic task operations
 export const assignTask = (taskId, userId) => api.post('/tasks/assign', { taskId, userId });
+export const unassignTask = (taskId, userId) => api.post('/tasks/unassign', { taskId, userId });
 export const assignTaskByIdentifier = (taskId, identifier) => api.post('/tasks/assign', { taskId, identifier });
 export const setDueDate = (taskId, dueDate) => api.post('/tasks/due-date', { taskId, dueDate });
 export const setPriority = (taskId, priority) => api.post('/tasks/priority', { taskId, priority });

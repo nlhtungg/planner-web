@@ -6,7 +6,7 @@ import postService from '../services/postService';
 import commentService from '../services/commentService';
 import reactionService from '../services/reactionService';
 import socketService from '../services/socketService';
-import { getTasksByWorkspace, createTask, assignTaskByIdentifier, assignTask, deleteTask } from '../services/taskService';
+import { getTasksByWorkspace, createTask, assignTask, unassignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
 import AddMemberModal from '../components/AddMemberModal';
@@ -16,6 +16,7 @@ import ReactionPicker from '../components/ReactionPicker';
 import ReactionBar from '../components/ReactionBar';
 import MentionInput from '../components/MentionInput';
 import MentionText from '../components/MentionText';
+import TaskAssigneeCell from '../components/TaskAssigneeCell';
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
@@ -32,6 +33,7 @@ import {
   UserPlusIcon,
   PencilIcon,
   TrashIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import DocumentList from '../components/DocumentList';
 
@@ -100,10 +102,9 @@ const WorkspaceDetail = () => {
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState('');
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', priority: 'medium', assignees: [] });
+  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', priority: 'medium' });
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskFilters, setTaskFilters] = useState({ status: 'all', assignee: 'all' });
-  const [quickAssign, setQuickAssign] = useState({}); // { [taskId]: identifier }
 
   const documents = [
     { id: 1, name: 'Project Requirements.docx', type: 'document', size: '2.4 MB', modified: '2 hours ago', author: 'Alice Johnson' },
@@ -264,7 +265,7 @@ const WorkspaceDetail = () => {
   };
 
   const openTaskModal = () => {
-    setNewTask({ title: '', description: '', dueDate: '', priority: 'medium', assignees: [] });
+    setNewTask({ title: '', description: '', dueDate: '', priority: 'medium' });
     setIsTaskModalOpen(true);
   };
 
@@ -279,7 +280,7 @@ const WorkspaceDetail = () => {
         dueDate: newTask.dueDate || undefined,
         priority: newTask.priority,
         workspace: workspaceId,
-        assignees: (newTask.assignees || []).map(a => a?._id || a).filter(Boolean)
+        assignees: [user._id || user.id] // Auto-assign creator
       };
       const res = await createTask(payload);
       setTasks(prev => [res.data, ...prev]);
@@ -296,32 +297,6 @@ const WorkspaceDetail = () => {
     if (taskFilters.assignee !== 'all' && !t.assignees?.some(a => (a._id || a) === taskFilters.assignee)) return false;
     return true;
   });
-
-  const handleQuickAssign = async (taskId) => {
-    const identifier = (quickAssign[taskId] || '').trim();
-    if (!identifier) return;
-    try {
-      const res = await assignTaskByIdentifier(taskId, identifier);
-      setTasks(prev => prev.map(t => t._id === taskId ? res.data : t));
-      setQuickAssign(q => ({ ...q, [taskId]: '' }));
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to assign');
-    }
-  };
-
-  const handleAssignToMe = async (taskId) => {
-    try {
-      const meId = user._id || user.id;
-      const task = tasks.find(t => t._id === taskId);
-      if (task && task.assignees?.some(a => (a._id || a) === meId)) {
-        return; // already assigned; avoid duplicate UI action
-      }
-      const res = await assignTask(taskId, user._id || user.id);
-      setTasks(prev => prev.map(t => t._id === taskId ? res.data : t));
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to assign to me');
-    }
-  };
 
   const handleDeleteTask = async (taskId) => {
     if (!confirm('Delete this task?')) return;
@@ -1636,44 +1611,11 @@ const WorkspaceDetail = () => {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-gray-700">
-                          {task.assignees && task.assignees.length > 0 ? (
-                            <div className="flex -space-x-2">
-                              {task.assignees.slice(0,3).map((a, idx) => (
-                                <div key={`${a._id || a}-${idx}`} className="w-7 h-7 rounded-full border-2 border-white overflow-hidden" title={a.firstName ? `${a.firstName} ${a.lastName}` : ''}>
-                                  {a.avatar ? (
-                                    <img src={a.avatar} alt={`${a.firstName} ${a.lastName}`} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                      <span className="text-white text-[10px] font-semibold">
-                                        {(a.firstName?.[0] || '?')}{(a.lastName?.[0] || '')}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                              {task.assignees.length > 3 && (
-                                <div className="w-7 h-7 rounded-full bg-gray-300 text-gray-700 text-[10px] flex items-center justify-center border-2 border-white" title={`${task.assignees.length - 3} more`}>+{task.assignees.length - 3}</div>
-                              )}
-                            </div>
-                          ) : <span className="text-xs text-gray-400">Unassigned</span>}
-                          <div className="mt-2 flex items-center gap-2">
-                            <input
-                              type="text"
-                              placeholder="email or username"
-                              value={quickAssign[task._id] || ''}
-                              onChange={(e) => setQuickAssign(q => ({ ...q, [task._id]: e.target.value }))}
-                              className="border rounded px-2 py-1 text-xs"
-                              style={{ width: '180px' }}
-                            />
-                            <button
-                              className="text-xs btn-secondary"
-                              onClick={() => handleQuickAssign(task._id)}
-                            >Assign</button>
-                            <button
-                              className="text-xs btn-secondary"
-                              onClick={() => handleAssignToMe(task._id)}
-                            >Assign to me</button>
-                          </div>
+                          <TaskAssigneeCell 
+                            task={task} 
+                            members={workspaceMembers} 
+                            onUpdate={fetchTasks} 
+                          />
                         </td>
                         <td className="py-3 px-4 text-gray-700">
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : <span className="text-xs text-gray-400">No due date</span>}
@@ -1940,35 +1882,6 @@ const WorkspaceDetail = () => {
                       <option value="high">High</option>
                     </select>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assignees</label>
-                  <UserFuzzySelect
-                    workspaceId={workspaceId}
-                    onSelect={(u) => setNewTask(t => ({
-                      ...t,
-                      assignees: (t.assignees || []).some(x => (x._id || x) === u._id)
-                        ? t.assignees
-                        : [...(t.assignees || []), u]
-                    }))}
-                  />
-                  {newTask.assignees && newTask.assignees.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {newTask.assignees.map((a, idx) => (
-                        <span key={`${a._id || a}-${idx}`} className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">
-                          <span>{a.displayName || a.email || a}</span>
-                          <button
-                            type="button"
-                            className="text-gray-500 hover:text-gray-700"
-                            onClick={() => setNewTask(t => ({
-                              ...t,
-                              assignees: t.assignees.filter(x => (x._id || x) !== (a._id || a))
-                            }))}
-                          >×</button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">

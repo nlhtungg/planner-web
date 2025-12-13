@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import workspaceService from '../services/workspaceService';
+import WorkspaceListItem from '../components/WorkspaceListItem';
 import {
   HomeIcon,
   BriefcaseIcon,
@@ -450,13 +451,9 @@ const Workspaces = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {myWorkspaces.map((workspace) => (
-                    <div 
-                      key={workspace._id} 
-                      className="card hover:shadow-lg transition-shadow cursor-pointer relative"
-                      onClick={() => navigate(`/workspace/${workspace._id}`)}
-                    >
+                    <div key={workspace._id} className="relative">
                       {/* Dropdown Menu */}
-                      <div className="absolute top-4 right-4">
+                      <div className="absolute top-4 right-4 z-10">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -468,7 +465,7 @@ const Workspaces = () => {
                         </button>
 
                         {dropdownOpen === workspace._id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -495,41 +492,7 @@ const Workspaces = () => {
                         )}
                       </div>
 
-                      <div className="flex items-start space-x-4">
-                        <div 
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: workspace.color }}
-                        >
-                          <BriefcaseIcon className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="font-semibold text-gray-900 truncate pr-8">
-                              {workspace.name}
-                            </h3>
-                            {workspace.settings?.isPublic && (
-                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                                Public
-                              </span>
-                            )}
-                          </div>
-                          {workspace.description && (
-                            <p className="text-gray-600 text-sm mb-2 line-clamp-2">
-                              {workspace.description}
-                            </p>
-                          )}
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <UserGroupIcon className="w-4 h-4" />
-                              <span>{workspace.memberCount} member{workspace.memberCount !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <ClockIcon className="w-4 h-4" />
-                              <span>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <WorkspaceListItem workspace={workspace} onMenuClick={() => setDropdownOpen(workspace._id)} />
                     </div>
                   ))}
                 </div>

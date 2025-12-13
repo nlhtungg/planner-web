@@ -85,6 +85,38 @@ class TaskService {
     return task;
   }
 
+  async unassignTask(taskId, assigneeId, requesterId) {
+    const task = await taskRepository.findById(taskId);
+    if (!task) throw new Error('Task not found');
+    
+    const workspaceId = task.workspace._id || task.workspace;
+    const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+    
+    if (!workspace.isMember(requesterId)) {
+      throw new Error('You are not a member of this workspace');
+    }
+
+    // Check permissions
+    const isSelf = assigneeId === requesterId;
+    const creatorId = (task.createdBy._id || task.createdBy).toString();
+    const isCreator = creatorId === requesterId;
+    const role = workspace.getUserRole(requesterId);
+    const isAdmin = role === 'owner' || role === 'admin';
+
+    if (!isSelf && !isCreator && !isAdmin) {
+      throw new Error('You do not have permission to unassign this user');
+    }
+    
+    // Handle populated assignees
+    task.assignees = task.assignees.filter(a => {
+        const id = a._id ? a._id.toString() : a.toString();
+        return id !== assigneeId;
+    });
+    
+    await task.save();
+    return task;
+  }
+
   async setDueDate(taskId, dueDate) {
     return await taskRepository.update(taskId, { dueDate });
   }
