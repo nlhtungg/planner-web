@@ -1,10 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { assignTask, unassignTask } from '../services/taskService';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { assignTask, assignTaskByIdentifier, unassignTask } from '../services/taskService';
+import { searchMembers } from '../services/workspace';
 import { UserPlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-const TaskAssigneeCell = ({ task, members, onUpdate }) => {
+const TaskAssigneeCell = ({
+  task,
+  members = [],
+  onUpdate,
+  enableSearch = false,
+  workspaceId,
+  currentUserId,
+  searchLimit = 10,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchItems, setSearchItems] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -21,10 +33,28 @@ const TaskAssigneeCell = ({ task, members, onUpdate }) => {
     try {
       setLoading(true);
       await assignTask(task._id, userId);
-      onUpdate();
+      onUpdate?.();
       setIsOpen(false);
     } catch (error) {
       console.error('Failed to assign task:', error);
+      alert(error.response?.data?.message || 'Failed to assign task');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAssignByIdentifier = async (identifier) => {
+    const val = (identifier || '').trim();
+    if (!val) return;
+    try {
+      setLoading(true);
+      await assignTaskByIdentifier(task._id, val);
+      onUpdate?.();
+      setIsOpen(false);
+      setSearchQuery('');
+      setSearchItems([]);
+    } catch (error) {
+      console.error('Failed to assign task by identifier:', error);
       alert(error.response?.data?.message || 'Failed to assign task');
     } finally {
       setLoading(false);
@@ -35,7 +65,7 @@ const TaskAssigneeCell = ({ task, members, onUpdate }) => {
     try {
       setLoading(true);
       await unassignTask(task._id, userId);
-      onUpdate();
+      onUpdate?.();
     } catch (error) {
       console.error('Failed to unassign task:', error);
       alert(error.response?.data?.message || 'Failed to unassign task');
@@ -44,9 +74,48 @@ const TaskAssigneeCell = ({ task, members, onUpdate }) => {
     }
   };
 
+  const handleAssignToMe = async () => {
+    if (!currentUserId) return;
+    if (isAssigned(currentUserId)) return;
+    await handleAssign(currentUserId);
+  };
+
   const isAssigned = (userId) => {
     return task.assignees.some(a => (a._id || a) === userId);
   };
+
+  const canSearch = enableSearch && Boolean(workspaceId);
+
+  useEffect(() => {
+    if (!canSearch || !isOpen) return;
+    const handler = setTimeout(async () => {
+      const q = searchQuery.trim();
+      if (q.length > 0 && q.length < 2) {
+        setSearchItems([]);
+        return;
+      }
+      setSearchLoading(true);
+      try {
+        const results = await searchMembers(workspaceId, q, searchLimit);
+        setSearchItems(Array.isArray(results) ? results : []);
+      } catch (e) {
+        setSearchItems([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [canSearch, isOpen, searchQuery, workspaceId, searchLimit]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+      setSearchItems([]);
+      setSearchLoading(false);
+    }
+  }, [isOpen]);
+
+  const displayedMembers = useMemo(() => members || [], [members]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -98,8 +167,105 @@ const TaskAssigneeCell = ({ task, members, onUpdate }) => {
           <div className="p-2 border-b border-gray-100 bg-gray-50">
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Assign to</h4>
           </div>
+
+          {canSearch && (
+            <div className="p-2 border-b border-gray-100 bg-white space-y-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchItems.length > 0) {
+                      const first = searchItems[0];
+                      const uid = first?._id || first?.id;
+                      if (uid) handleAssign(uid);
+                    } else {
+                      handleAssignByIdentifier(searchQuery);
+                    }
+                  }
+                }}
+                placeholder="Assign by name, email, or username..."
+                className="w-full border rounded px-2 py-1 text-sm"
+                disabled={loading}
+              />
+
+              <div className="space-y-1">
+                {currentUserId && (
+                  <button
+                    type="button"
+                    onClick={handleAssignToMe}
+                    disabled={loading || isAssigned(currentUserId)}
+                    className={`w-full flex items-center px-2 py-2 text-sm text-left transition-colors rounded ${
+                      isAssigned(currentUserId)
+                        ? 'opacity-50 cursor-default bg-gray-50'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="font-medium text-gray-900">Assign to me</span>
+                    {isAssigned(currentUserId) && (
+                      <span className="text-xs text-green-600 font-medium ml-2">Assigned</span>
+                    )}
+                  </button>
+                )}
+
+                {searchQuery.trim().length >= 2 && (
+                  <div className="max-h-44 overflow-y-auto">
+                    {searchLoading ? (
+                      <div className="px-2 py-2 text-sm text-gray-500">Searching...</div>
+                    ) : searchItems.length > 0 ? (
+                      searchItems.map((u) => {
+                        const userId = u._id || u.id;
+                        const assigned = isAssigned(userId);
+                        return (
+                          <button
+                            key={userId}
+                            type="button"
+                            onClick={() => !assigned && userId && handleAssign(userId)}
+                            disabled={assigned || loading}
+                            className={`w-full flex items-center px-2 py-2 text-sm text-left transition-colors rounded ${
+                              assigned ? 'opacity-50 cursor-default bg-gray-50' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="w-7 h-7 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                              {u.avatar ? (
+                                <img src={u.avatar} alt={u.displayName || u.firstName} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
+                                  {(u.displayName || u.firstName || '?').slice(0, 1)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim()}</p>
+                              <p className="text-xs text-gray-500 truncate">{u.email || u.username || ''}</p>
+                            </div>
+                            {assigned && (
+                              <span className="text-xs text-green-600 font-medium ml-2">Assigned</span>
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <button
+                        type="button"
+                        className="w-full text-left px-2 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded"
+                        disabled={loading}
+                        onClick={() => handleAssignByIdentifier(searchQuery)}
+                        title="Assign by identifier (email/username)"
+                      >
+                        No matches. Press Enter to assign “{searchQuery.trim()}”.
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="max-h-60 overflow-y-auto">
-            {members.map((member) => {
+            {displayedMembers.map((member) => {
               const assigned = isAssigned(member.user._id);
               return (
                 <button

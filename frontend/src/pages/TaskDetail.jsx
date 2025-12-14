@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getTask, updateTask, setEstimate, logTime, assignTask, assignTaskByIdentifier } from '../services/taskService';
-import UserFuzzySelect from '../components/UserFuzzySelect';
+import { getTask, updateTask, setEstimate, logTime } from '../services/taskService';
+import workspaceService from '../services/workspaceService';
 import ProgressBars from '../components/ProgressBars';
+import TaskAssigneeCell from '../components/TaskAssigneeCell';
 
 const TaskDetail = () => {
   const { id: taskId } = useParams();
@@ -12,6 +13,7 @@ const TaskDetail = () => {
   const { user } = useAuth();
 
   const [task, setTask] = useState(null);
+  const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editData, setEditData] = useState({ title: '', description: '', status: 'todo', priority: 'medium', dueDate: '' });
@@ -21,7 +23,6 @@ const TaskDetail = () => {
   const [logHours, setLogHours] = useState('');
   const [logDescription, setLogDescription] = useState('');
   const [loggingTime, setLoggingTime] = useState(false);
-  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => { fetchTask(); }, [taskId]);
 
@@ -39,6 +40,18 @@ const TaskDetail = () => {
         dueDate: res.data.dueDate ? res.data.dueDate.substring(0,10) : ''
       });
       setEstimateValue(res.data.estimatedHours || '');
+      
+      // Fetch full workspace data with members
+      if (res.data.workspace) {
+        const workspaceId = res.data.workspace._id || res.data.workspace;
+        try {
+          const wsRes = await workspaceService.getWorkspace(workspaceId);
+          setWorkspace(wsRes.data);
+        } catch (wsErr) {
+          console.error('Failed to load workspace:', wsErr);
+          // Don't fail the whole page if workspace fetch fails
+        }
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load task');
     } finally {
@@ -48,14 +61,14 @@ const TaskDetail = () => {
 
   const canEdit = () => {
     if (!task || !user) return false;
-    const role = task.workspace?.members?.find(m => (m.user._id || m.user.id) === (user._id || user.id))?.role;
+    const role = workspace?.members?.find(m => (m.user._id || m.user.id) === (user._id || user.id))?.role;
     const isCreator = task.createdBy && (task.createdBy._id || task.createdBy) === (user._id || user.id);
     return isCreator || role === 'owner' || role === 'admin';
   };
 
   const isOwner = () => {
-    if (!task || !user || !task.workspace?.owner) return false;
-    return (task.workspace.owner._id || task.workspace.owner) === (user._id || user.id);
+    if (!task || !user || !workspace?.owner) return false;
+    return (workspace.owner._id || workspace.owner) === (user._id || user.id);
   };
 
   const canLogTime = () => {
@@ -119,36 +132,8 @@ const TaskDetail = () => {
     }
   };
 
-  const handleAssign = async (identifierOrUser) => {
-    if (!identifierOrUser) return;
-    setAssigning(true);
-    try {
-      let res;
-      if (typeof identifierOrUser === 'string') {
-        res = await assignTaskByIdentifier(task._id, identifierOrUser);
-      } else {
-        const userId = identifierOrUser._id || identifierOrUser.id;
-        // avoid duplicate assignment
-        if (task.assignees?.some(a => (a._id || a) === userId)) { setAssigning(false); return; }
-        res = await assignTask(task._id, userId);
-      }
-      setTask(res.data);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to assign');
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  const handleAssignToMe = async () => {
-    try {
-      const meId = user._id || user.id;
-      if (task.assignees?.some(a => (a._id || a) === meId)) return;
-      const res = await assignTask(task._id, meId);
-      setTask(res.data);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to assign to me');
-    }
+  const refreshTask = async () => {
+    await fetchTask();
   };
 
   if (loading) return <div className="p-6">Loading task...</div>;
@@ -224,18 +209,14 @@ const TaskDetail = () => {
             )}
             <div className="pt-2 border-t mt-4 space-y-2">
               <h3 className="text-sm font-medium">Assign</h3>
-              <p className="text-xs text-gray-500">Assign by fuzzy search or identifier (email/username).</p>
-              <div className="flex items-center gap-2">
-                <UserFuzzySelect
-                  workspaceId={task.workspace?._id || task.workspace}
-                  onSelect={(u) => handleAssign(u)}
-                  className="flex-1"
-                />
-                <button className="btn-secondary" onClick={handleAssignToMe} disabled={assigning}>Assign to me</button>
-              </div>
-              {task.assignees && task.assignees.length>0 && (
-                <div className="mt-1 text-xs text-gray-600">Assignees: {task.assignees.map(a=> (a.firstName? `${a.firstName} ${a.lastName||''}` : (a._id||a))).join(', ')}</div>
-              )}
+              <TaskAssigneeCell
+                task={task}
+                members={workspace?.members || []}
+                onUpdate={refreshTask}
+                enableSearch
+                workspaceId={task.workspace?._id || task.workspace}
+                currentUserId={user?._id || user?.id}
+              />
             </div>
           </div>
           <div className="border rounded p-4">
