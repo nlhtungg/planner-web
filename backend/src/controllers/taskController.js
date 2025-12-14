@@ -27,6 +27,15 @@ const taskController = {
       next(err);
     }
   },
+  async unassignTask(req, res, next) {
+    try {
+      const { taskId, userId } = req.body;
+      const task = await taskService.unassignTask(taskId, userId, req.user._id);
+      res.json(task);
+    } catch (err) {
+      next(err);
+    }
+  },
   async setDueDate(req, res, next) {
     try {
       const { taskId, dueDate } = req.body;

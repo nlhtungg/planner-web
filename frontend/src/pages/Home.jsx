@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import workspaceService from '../services/workspaceService';
+import WorkspaceListItem from '../components/WorkspaceListItem';
 import {
   HomeIcon,
   BriefcaseIcon,
@@ -43,11 +45,24 @@ const Home = () => {
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, active: false },
   ];
 
-  const recentWorkspaces = [
-    { id: 1, name: 'Project Alpha', description: 'Main development project', lastActivity: '2 hours ago', members: 5, color: 'bg-blue-500' },
-    { id: 2, name: 'Marketing Campaign', description: 'Q4 marketing initiatives', lastActivity: '5 hours ago', members: 8, color: 'bg-green-500' },
-    { id: 3, name: 'Product Design', description: 'UI/UX design workflows', lastActivity: '1 day ago', members: 3, color: 'bg-purple-500' },
-  ];
+  const [recentWorkspaces, setRecentWorkspaces] = useState([]);
+
+  useEffect(() => {
+    const loadRecent = async () => {
+      try {
+        const resp = await workspaceService.getMyWorkspaces(true);
+        if (resp?.success && Array.isArray(resp.data)) {
+          const all = resp.data;
+          // Sort by updatedAt desc as a proxy for "recent"
+          const sorted = [...all].sort((a,b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+          setRecentWorkspaces(sorted.slice(0, 6));
+        }
+      } catch (e) {
+        console.error('Failed to load recent workspaces', e);
+      }
+    };
+    loadRecent();
+  }, []);
 
   const upcomingEvents = [
     { id: 1, title: 'Team Standup', time: '9:00 AM', date: 'Today', type: 'meeting' },
@@ -248,28 +263,7 @@ const Home = () => {
                 </div>
                 <div className="space-y-4">
                   {recentWorkspaces.map((workspace) => (
-                    <div key={workspace.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                      <div className={`w-10 h-10 ${workspace.color} rounded-lg flex items-center justify-center`}>
-                        <BriefcaseIcon className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{workspace.name}</h4>
-                        <p className="text-sm text-gray-600">{workspace.description}</p>
-                        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                          <span className="flex items-center space-x-1">
-                            <ClockIcon className="w-3 h-3" />
-                            <span>{workspace.lastActivity}</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <UserGroupIcon className="w-3 h-3" />
-                            <span>{workspace.members} members</span>
-                          </span>
-                        </div>
-                      </div>
-                      <button className="p-1 text-gray-400 hover:text-gray-600">
-                        <EllipsisVerticalIcon className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <WorkspaceListItem key={workspace._id || workspace.id} workspace={workspace} />
                   ))}
                 </div>
               </div>
@@ -277,7 +271,7 @@ const Home = () => {
               {/* Messages Section */}
               <div className="card">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Workspaces</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Recent Messages</h3>
                   <button 
                     onClick={() => navigate('/workspaces')}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"

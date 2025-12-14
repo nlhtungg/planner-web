@@ -10,6 +10,7 @@ import {
   updateCalendarEvent, 
   deleteCalendarEvent 
 } from '../services/calendarService';
+import workspaceService from '../services/workspaceService';
 import {
   HomeIcon,
   BriefcaseIcon,
@@ -35,6 +36,8 @@ const Calendar = () => {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('month');
   const [date, setDate] = useState(new Date());
+  const [workspaces, setWorkspaces] = useState([]);
+  const [workspaceFilter, setWorkspaceFilter] = useState('');
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -61,21 +64,36 @@ const Calendar = () => {
   ];
 
   useEffect(() => {
+    fetchWorkspaces();
     fetchData();
   }, []);
+
+  useEffect(() => {
+    // Refetch events when filter changes
+    fetchData();
+  }, [workspaceFilter]);
+
+  const fetchWorkspaces = async () => {
+    try {
+      const resp = await workspaceService.getMyWorkspaces(true);
+      if (resp?.success && Array.isArray(resp.data)) {
+        // Only keep workspaces user is a member/owner
+        setWorkspaces(resp.data);
+      }
+    } catch (e) {
+      console.error('Error fetching workspaces for calendar filter', e);
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(''); // Clear previous errors
 
-      // Fetch personal calendar events only (no workspace filter)
-      console.log('Fetching personal calendar events');
-      const eventsResponse = await getCalendarEvents({});
-      console.log('Calendar events response:', eventsResponse);
-      
+      const params = {};
+      if (workspaceFilter) params.workspaceId = workspaceFilter;
+      const eventsResponse = await getCalendarEvents(params);
       setEvents(eventsResponse.data.events || []);
-      console.log('Events set:', eventsResponse.data.events?.length || 0, 'events');
     } catch (error) {
       console.error('Error fetching calendar data:', error);
       console.error('Error details:', error.response?.data || error.message);
@@ -287,6 +305,24 @@ const Calendar = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
+
+          {/* Workspace Filter */}
+          <div className="flex items-center space-x-2">
+            <FunnelIcon className="w-4 h-4 text-gray-500" />
+            <select
+              className="border px-2 py-1 rounded text-sm"
+              value={workspaceFilter}
+              onChange={(e) => setWorkspaceFilter(e.target.value)}
+            >
+              <option value="">All (personal + workspaces)</option>
+              {workspaces.map(ws => (
+                <option key={ws._id} value={ws._id}>{ws.name}</option>
+              ))}
+            </select>
+            {workspaceFilter && (
+              <button className="text-xs text-blue-600" onClick={() => setWorkspaceFilter('')}>Clear</button>
+            )}
+          </div>
           <button
             onClick={goToToday}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"

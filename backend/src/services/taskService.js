@@ -3,6 +3,7 @@ const taskRepository = require('../repositories/taskRepository');
 const workspaceRepository = require('../repositories/workspaceRepository');
 const userRepository = require('../repositories/userRepository');
 const { computeAutoProgress } = require('../utils/taskUtils');
+const AppError = require('../utils/AppError');
 
 class TaskService {
   async createTask(data, userId) {
@@ -10,17 +11,17 @@ class TaskService {
     if (data.workspace) {
       const workspace = await workspaceRepository.getWorkspaceById(data.workspace);
       if (!workspace) {
-        throw new Error('Workspace not found');
+        throw new AppError('Workspace not found', 404);
       }
       if (!workspace.isMember(userId)) {
-        throw new Error('You are not a member of this workspace');
+        throw new AppError('You are not a member of this workspace', 403);
       }
       
       // Validate assignees are members of the workspace
       if (data.assignees && data.assignees.length > 0) {
         for (const assigneeId of data.assignees) {
           if (!workspace.isMember(assigneeId)) {
-            throw new Error('All assignees must be members of the workspace');
+            throw new AppError('All assignees must be members of the workspace', 400);
           }
         }
       }
@@ -36,17 +37,17 @@ class TaskService {
 
   async assignTask(taskId, assigneeId, requesterId) {
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
     
     // Verify requester is a member of the workspace
     const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
     if (!workspace.isMember(requesterId)) {
-      throw new Error('You are not a member of this workspace');
+      throw new AppError('You are not a member of this workspace', 403);
     }
     
     // Verify assignee is a member of the workspace
     if (!workspace.isMember(assigneeId)) {
-      throw new Error('Assignee must be a member of the workspace');
+      throw new AppError('Assignee must be a member of the workspace', 400);
     }
     
     if (!task.assignees.includes(assigneeId)) {
@@ -58,30 +59,62 @@ class TaskService {
 
   async assignTaskByIdentifier(taskId, identifier, requesterId) {
     if (!identifier || typeof identifier !== 'string' || identifier.trim().length === 0) {
-      throw new Error('Identifier is required');
+      throw new AppError('Identifier is required', 400);
     }
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
 
     const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
     if (!workspace || !workspace.isMember(requesterId)) {
-      throw new Error('You are not a member of this workspace');
+      throw new AppError('You are not a member of this workspace', 403);
     }
 
     const user = await userRepository.findByEmailOrUsername(identifier.trim().toLowerCase());
     if (!user) {
-      throw new Error('User not found');
+      throw new AppError('User not found', 404);
     }
 
     const assigneeId = user._id.toString();
     if (!workspace.isMember(assigneeId)) {
-      throw new Error('Assignee must be a member of the workspace');
+      throw new AppError('Assignee must be a member of the workspace', 400);
     }
 
     if (!task.assignees.map(a => a.toString()).includes(assigneeId)) {
       task.assignees.push(assigneeId);
       await task.save();
     }
+    return task;
+  }
+
+  async unassignTask(taskId, assigneeId, requesterId) {
+    const task = await taskRepository.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404);
+    
+    const workspaceId = task.workspace._id || task.workspace;
+    const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+    
+    if (!workspace.isMember(requesterId)) {
+      throw new AppError('You are not a member of this workspace', 403);
+    }
+
+    // Check permissions
+    const isSelf = assigneeId === requesterId;
+    const creatorId = (task.createdBy._id || task.createdBy).toString();
+    const isCreator = creatorId === requesterId;
+    const role = workspace.getUserRole(requesterId);
+    const isAdmin = role === 'owner' || role === 'admin';
+
+    if (!isSelf && !isCreator && !isAdmin) {
+      throw new AppError('You do not have permission to unassign this user', 403);
+    }
+    
+    // Handle populated assignees
+    task.assignees = task.assignees.filter(a => {
+        const id = a._id ? a._id.toString() : a.toString();
+        return id !== assigneeId;
+    });
+    
+    await task.save();
     return task;
   }
 
@@ -99,26 +132,26 @@ class TaskService {
 
   async updateTask(taskId, updates, userId) {
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
     
     // For personal tasks, only creator can edit
     if (task.isPersonal || !task.workspace) {
       const isCreator = task.createdBy.toString() === userId.toString();
-      if (!isCreator) throw new Error('You do not have permission to edit this personal task');
+      if (!isCreator) throw new AppError('You do not have permission to edit this personal task', 403);
     } else {
       // For workspace tasks, check membership and permissions
       const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
-      if (!workspace) throw new Error('Workspace not found');
-      if (!workspace.isMember(userId)) throw new Error('You do not have access to this task');
+      if (!workspace) throw new AppError('Workspace not found', 404);
+      if (!workspace.isMember(userId)) throw new AppError('You do not have access to this task', 403);
       const role = workspace.getUserRole(userId);
       const isCreator = task.createdBy.toString() === userId.toString();
       const canEdit = isCreator || role === 'owner' || role === 'admin';
-      if (!canEdit) throw new Error('You do not have permission to edit this task');
+      if (!canEdit) throw new AppError('You do not have permission to edit this task', 403);
 
       // If assignees changed, validate membership
       if (updates.assignees) {
         for (const a of updates.assignees) {
-          if (!workspace.isMember(a)) throw new Error('All assignees must be members of the workspace');
+          if (!workspace.isMember(a)) throw new AppError('All assignees must be members of the workspace', 400);
         }
       }
     }
@@ -131,40 +164,40 @@ class TaskService {
   }
 
   async setEstimate(taskId, estimatedHours, userId) {
-    if (estimatedHours <= 0) throw new Error('Estimated hours must be greater than zero');
+    if (estimatedHours <= 0) throw new AppError('Estimated hours must be greater than zero', 400);
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
     
     // For personal tasks, only creator can set estimate
     if (task.isPersonal || !task.workspace) {
       const isCreator = task.createdBy.toString() === userId.toString();
-      if (!isCreator) throw new Error('You do not have permission to set estimate for this personal task');
+      if (!isCreator) throw new AppError('You do not have permission to set estimate for this personal task', 403);
     } else {
       const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
-      if (!workspace.isMember(userId)) throw new Error('You do not have access to this task');
+      if (!workspace.isMember(userId)) throw new AppError('You do not have access to this task', 403);
       const role = workspace.getUserRole(userId);
       const isCreator = task.createdBy.toString() === userId.toString();
-      if (!(isCreator || role === 'owner' || role === 'admin')) throw new Error('You do not have permission to set estimate');
+      if (!(isCreator || role === 'owner' || role === 'admin')) throw new AppError('You do not have permission to set estimate', 403);
     }
     return await taskRepository.update(taskId, { estimatedHours });
   }
 
   async logTime(taskId, hours, description, userId) {
-    if (hours <= 0) throw new Error('Logged hours must be greater than zero');
+    if (hours <= 0) throw new AppError('Logged hours must be greater than zero', 400);
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
     
     // For personal tasks, only creator can log time
     if (task.isPersonal || !task.workspace) {
       const isCreator = task.createdBy.toString() === userId.toString();
-      if (!isCreator) throw new Error('Only the creator can log time for personal tasks');
+      if (!isCreator) throw new AppError('Only the creator can log time for personal tasks', 403);
     } else {
       const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
-      if (!workspace.isMember(userId)) throw new Error('You are not a member of this workspace');
+      if (!workspace.isMember(userId)) throw new AppError('You are not a member of this workspace', 403);
       const role = workspace.getUserRole(userId);
       const isOwner = role === 'owner';
       const isAssignee = task.assignees.map(a => a.toString()).includes(userId.toString());
-      if (!(isOwner || isAssignee)) throw new Error('Only assignees or workspace owner can log time');
+      if (!(isOwner || isAssignee)) throw new AppError('Only assignees or workspace owner can log time', 403);
     }
 
     const updatedTask = await taskRepository.pushTimeEntry(taskId, { user: userId, hours, description });
@@ -177,18 +210,18 @@ class TaskService {
 
   async getTask(taskId, userId) {
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
     
     // For personal tasks, only creator can view
     if (task.isPersonal || !task.workspace) {
       if (task.createdBy.toString() !== userId.toString()) {
-        throw new Error('You do not have access to this personal task');
+        throw new AppError('You do not have access to this personal task', 403);
       }
     } else {
       // Verify user is a member of the workspace
       const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
       if (!workspace.isMember(userId)) {
-        throw new Error('You do not have access to this task');
+        throw new AppError('You do not have access to this task', 403);
       }
     }
     
@@ -217,10 +250,10 @@ class TaskService {
     // Verify user is a member of the workspace
     const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
     if (!workspace) {
-      throw new Error('Workspace not found');
+      throw new AppError('Workspace not found', 404);
     }
     if (!workspace.isMember(userId)) {
-      throw new Error('You are not a member of this workspace');
+      throw new AppError('You are not a member of this workspace', 403);
     }
     
     return await taskRepository.findByWorkspace(workspaceId);
@@ -228,25 +261,25 @@ class TaskService {
 
   async deleteTask(taskId, userId) {
     const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new AppError('Task not found', 404);
     
     // For personal tasks, only creator can delete
     if (task.isPersonal || !task.workspace) {
       if (task.createdBy.toString() !== userId.toString()) {
-        throw new Error('You do not have permission to delete this personal task');
+        throw new AppError('You do not have permission to delete this personal task', 403);
       }
     } else {
       // Verify user is a member of the workspace and has permission
       const workspace = await workspaceRepository.getWorkspaceById(task.workspace);
       if (!workspace.isMember(userId)) {
-        throw new Error('You do not have access to this task');
+        throw new AppError('You do not have access to this task', 403);
       }
       
       // Only task creator or workspace admins/owners can delete
       const userRole = workspace.getUserRole(userId);
       if (task.createdBy.toString() !== userId.toString() && 
           userRole !== 'owner' && userRole !== 'admin') {
-        throw new Error('You do not have permission to delete this task');
+        throw new AppError('You do not have permission to delete this task', 403);
       }
     }
     

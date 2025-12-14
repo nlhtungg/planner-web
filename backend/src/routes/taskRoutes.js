@@ -7,6 +7,7 @@ const { authenticateToken } = require('../middlewares/auth');
 // Secure all task routes with JWT authentication
 router.post('/', authenticateToken, taskController.createTask);
 router.post('/assign', authenticateToken, taskController.assignTask);
+router.post('/unassign', authenticateToken, taskController.unassignTask);
 router.post('/due-date', authenticateToken, taskController.setDueDate);
 router.post('/priority', authenticateToken, taskController.setPriority);
 router.post('/progress', authenticateToken, taskController.updateProgress);
