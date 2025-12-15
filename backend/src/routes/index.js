@@ -4,6 +4,7 @@ const workspaceRoutes = require('./workspaceRoutes');
 const postRoutes = require('./postRoutes');
 const taskRoutes = require('./taskRoutes');
 const calendarRoutes = require('./calendarRoutes');
+const messageRoutes = require('./messageRoutes');
 
 const router = express.Router();
 
@@ -28,6 +29,7 @@ router.use('/api/workspaces', postRoutes);
 router.use('/api/tasks', taskRoutes);
 router.use('/api/calendar', calendarRoutes);
 router.use('/api/documents', require('./documentRoutes'));
+router.use('/api/messages', messageRoutes);
 
 /**
  * 404 handler for undefined routes

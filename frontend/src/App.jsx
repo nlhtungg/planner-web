@@ -13,6 +13,8 @@ import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import DocumentEditor from './pages/DocumentEditor';
+import Messages from './pages/Messages';
+import ChatRoom from './pages/ChatRoom';
 
 function App() {
   return (
@@ -84,6 +86,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DocumentEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages/:userId"
+              element={
+                <ProtectedRoute>
+                  <ChatRoom />
                 </ProtectedRoute>
               }
             />

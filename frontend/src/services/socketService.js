@@ -140,7 +140,24 @@ class SocketService {
       this.socket.on('delete-comment', wrappedCallback);
       console.log('Listening for delete-comment events');
     }
-  }  // Remove listeners
+  }
+
+  // Chat methods
+  joinChat(userId) {
+    if (this.socket && userId) {
+      this.socket.emit('join-chat', userId);
+      console.log('🔵 Socket: Joined chat room for user:', userId);
+    }
+  }
+
+  leaveChat(userId) {
+    if (this.socket && userId) {
+      this.socket.emit('leave-chat', userId);
+      console.log('🔴 Socket: Left chat room for user:', userId);
+    }
+  }
+
+  // Remove listeners
   off(event, callback) {
     if (this.socket) {
       this.socket.off(event, callback);

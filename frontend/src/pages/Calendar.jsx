@@ -59,7 +59,7 @@ const Calendar = () => {
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
     { id: 'connections', name: 'Connections', icon: UserGroupIcon },
-    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon },
+    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: true },
   ];
 

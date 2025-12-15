@@ -48,6 +48,25 @@ io.on('connection', (socket) => {
     console.log(`❌ User ${socket.id} left workspace-${workspaceId}`);
   });
 
+  // Chat events
+  socket.on('join-chat', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`💬 User ${socket.id} joined chat room user-${userId}`);
+  });
+
+  socket.on('leave-chat', (userId) => {
+    socket.leave(`user-${userId}`);
+    console.log(`💬 User ${socket.id} left chat room user-${userId}`);
+  });
+
+  socket.on('typing', ({ senderId, receiverId }) => {
+    socket.to(`user-${receiverId}`).emit('user-typing', { userId: senderId });
+  });
+
+  socket.on('stop-typing', ({ senderId, receiverId }) => {
+    socket.to(`user-${receiverId}`).emit('user-stop-typing', { userId: senderId });
+  });
+
   // Document collaboration events
   socket.on('join-document', (documentId) => {
     socket.join(documentId);
