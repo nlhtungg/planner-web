@@ -107,6 +107,18 @@ const authService = {
     const response = await api.post('/refresh-token', { refreshToken });
     return response.data;
   },
+
+  // Activate account
+  activateAccount: async (userId, code) => {
+    const response = await api.post('/activate', { userId, code });
+    return response.data;
+  },
+
+  // Resend activation code
+  resendActivationCode: async (userId) => {
+    const response = await api.post('/resend-activation', { userId });
+    return response.data;
+  },
 };
 
 export default authService;

@@ -22,6 +22,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.register(userData);
       if (response.success) {
+        // Check if activation is required
+        if (response.data.requiresActivation) {
+          return {
+            success: true,
+            requiresActivation: true,
+            userId: response.data.userId,
+            email: response.data.email,
+            message: response.message,
+          };
+        }
+        
+        // If no activation required (e.g., Google users)
         const { user, accessToken, refreshToken } = response.data;
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('accessToken', accessToken);
@@ -49,6 +61,16 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       }
     } catch (error) {
+      // Check if account needs activation
+      if (error.response?.data?.requiresActivation) {
+        return {
+          success: false,
+          requiresActivation: true,
+          userId: error.response.data.userId,
+          email: error.response.data.email,
+          message: error.response.data.message,
+        };
+      }
       return {
         success: false,
         message: error.response?.data?.message || 'Login failed',
@@ -60,6 +82,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.googleLogin(idToken);
       if (response.success) {
+        // Check if activation is required
+        if (response.data.requiresActivation) {
+          return {
+            success: true,
+            requiresActivation: true,
+            userId: response.data.userId,
+            email: response.data.email,
+            message: response.message,
+          };
+        }
+        
+        // If no activation required, proceed with login
         const { user, accessToken, refreshToken } = response.data;
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('accessToken', accessToken);
@@ -68,6 +102,16 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       }
     } catch (error) {
+      // Check if account needs activation
+      if (error.response?.data?.requiresActivation) {
+        return {
+          success: false,
+          requiresActivation: true,
+          userId: error.response.data.userId,
+          email: error.response.data.email,
+          message: error.response.data.message,
+        };
+      }
       return {
         success: false,
         message: error.response?.data?.message || 'Google login failed',

@@ -52,6 +52,19 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Account activation fields
+  isActivated: {
+    type: Boolean,
+    default: false
+  },
+  activationCode: {
+    type: String,
+    select: false
+  },
+  activationCodeExpiry: {
+    type: Date,
+    select: false
+  },
   // Authentication method tracking
   authMethod: {
     type: String,
