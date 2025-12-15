@@ -71,6 +71,50 @@ const messageService = {
       params: { q: query }
     });
     return response.data;
+  },
+
+  /**
+   * Add reaction to message
+   */
+  async addReaction(messageId, emoji) {
+    const response = await api.post(`/messages/message/${messageId}/reaction`, {
+      emoji
+    });
+    return response.data;
+  },
+
+  /**
+   * Remove reaction from message
+   */
+  async removeReaction(messageId) {
+    const response = await api.delete(`/messages/message/${messageId}/reaction`);
+    return response.data;
+  },
+
+  /**
+   * Toggle pin message
+   */
+  async togglePinMessage(messageId) {
+    const response = await api.patch(`/messages/message/${messageId}/pin`);
+    return response.data;
+  },
+
+  /**
+   * Update conversation settings (nickname, theme color)
+   */
+  async updateConversationSettings(otherUserId, settings) {
+    const response = await api.patch(`/messages/${otherUserId}/settings`, settings);
+    return response.data;
+  },
+
+  /**
+   * Search messages in conversation
+   */
+  async searchMessages(otherUserId, query) {
+    const response = await api.get(`/messages/${otherUserId}/search`, {
+      params: { q: query }
+    });
+    return response.data;
   }
 };
 

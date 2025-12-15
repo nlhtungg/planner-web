@@ -24,6 +24,15 @@ const conversationSchema = new mongoose.Schema({
     type: Map,
     of: Number,
     default: {}
+  },
+  nicknames: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+  themeColor: {
+    type: String,
+    default: '#3B82F6' // blue-600
   }
 }, {
   timestamps: true

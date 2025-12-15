@@ -30,4 +30,19 @@ router.patch('/message/:messageId/read', messageController.markAsRead);
 // Delete a message
 router.delete('/:messageId', messageController.deleteMessage);
 
+// Add reaction to message
+router.post('/message/:messageId/reaction', messageController.addReaction);
+
+// Remove reaction from message
+router.delete('/message/:messageId/reaction', messageController.removeReaction);
+
+// Toggle pin message
+router.patch('/message/:messageId/pin', messageController.togglePinMessage);
+
+// Update conversation settings (nickname, theme color)
+router.patch('/:otherUserId/settings', messageController.updateConversationSettings);
+
+// Search messages in conversation
+router.get('/:otherUserId/search', messageController.searchMessages);
+
 module.exports = router;

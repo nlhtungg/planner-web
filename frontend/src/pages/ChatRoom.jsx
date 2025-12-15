@@ -7,12 +7,20 @@ import {
   ArrowLeftIcon,
   PaperAirplaneIcon,
   EllipsisVerticalIcon,
+  HomeIcon,
+  BriefcaseIcon,
+  UserGroupIcon,
+  ChatBubbleLeftRightIcon,
+  CalendarDaysIcon,
+  BellIcon,
+  Cog6ToothIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 import moment from 'moment';
 
 const ChatRoom = () => {
   const { userId: otherUserId } = useParams();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [otherUser, setOtherUser] = useState(null);
@@ -25,6 +33,19 @@ const ChatRoom = () => {
   const messagesEndRef = useRef(null);
   const messagesTopRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  const sidebarItems = [
+    { id: 'home', name: 'Home', icon: HomeIcon, path: '/' },
+    { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
+    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '#' },
+    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
+    { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar' },
+  ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   useEffect(() => {
     fetchMessages();
@@ -219,8 +240,104 @@ const ChatRoom = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">P</span>
+              </div>
+              <h1 className="text-xl font-semibold text-gray-900">Planner</h1>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+              <BellIcon className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => navigate('/profile')}
+                className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"
+              >
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white text-sm font-medium">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </span>
+                  )}
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded hover:bg-gray-100"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex" style={{ height: 'calc(100vh - 73px)' }}>
+        {/* Sidebar */}
+        <aside className="w-64 bg-white shadow-sm border-r border-gray-200">
+          <nav className="p-4 space-y-2">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.id === 'messages';
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => navigate(item.path)}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium">{item.name}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="p-4 border-t border-gray-200 mt-8">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+            <div className="space-y-2">
+              <button 
+                onClick={() => navigate('/workspaces')}
+                className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <PlusIcon className="w-4 h-4" />
+                <span>New Workspace</span>
+              </button>
+              <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                <UserGroupIcon className="w-4 h-4" />
+                <span>Invite Members</span>
+              </button>
+              <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                <Cog6ToothIcon className="w-4 h-4" />
+                <span>Settings</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Chat Room */}
+        <div className="flex-1 flex flex-col bg-white">
+      {/* Chat Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -393,6 +510,8 @@ const ChatRoom = () => {
             <PaperAirplaneIcon className="w-5 h-5" />
           </button>
         </form>
+      </div>
+        </div>
       </div>
     </div>
   );

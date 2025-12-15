@@ -65,6 +65,8 @@ class MessageRepository {
     const { sender, receiver, content, attachments } = messageData;
     const conversationId = Message.generateConversationId(sender, receiver);
     
+    console.log('💾 Creating message:', { sender, receiver, conversationId });
+    
     const message = await Message.create({
       sender,
       receiver,
@@ -73,16 +75,58 @@ class MessageRepository {
       conversationId
     });
 
-    // Update conversation
-    await Conversation.findOneAndUpdate(
-      { conversationId },
-      {
-        lastMessage: content.substring(0, 100),
-        lastMessageAt: new Date(),
-        $inc: { [`unreadCount.${receiver}`]: 1 }
-      },
-      { upsert: true }
-    );
+    console.log('✅ Message created:', message._id);
+
+    // Check if conversation exists
+    let conversation = await Conversation.findOne({ conversationId });
+    
+    console.log('🔍 Conversation exists?', !!conversation);
+    
+    if (!conversation) {
+      // Create new conversation
+      console.log('📝 Creating new conversation...');
+      try {
+        conversation = await Conversation.create({
+          conversationId,
+          participants: [sender, receiver],
+          lastMessage: content.substring(0, 100),
+          lastMessageAt: new Date(),
+          unreadCount: {
+            [sender]: 0,
+            [receiver]: 1
+          }
+        });
+        console.log('✅ Conversation created:', conversation._id);
+      } catch (error) {
+        console.error('❌ Error creating conversation:', error);
+        throw error;
+      }
+    } else {
+      // Update existing conversation
+      console.log('🔄 Updating existing conversation...');
+      try {
+        // Ensure participants exist (for old conversations)
+        if (!conversation.participants || conversation.participants.length === 0) {
+          console.log('⚠️ Participants missing, adding them...');
+          conversation.participants = [sender, receiver];
+        }
+        
+        conversation.lastMessage = content.substring(0, 100);
+        conversation.lastMessageAt = new Date();
+        
+        // Increment unread count for receiver
+        const currentUnread = conversation.unreadCount.get(receiver.toString()) || 0;
+        conversation.unreadCount.set(receiver.toString(), currentUnread + 1);
+        
+        conversation.markModified('unreadCount'); // Important for Map type
+        conversation.markModified('participants'); // Important for array type
+        await conversation.save();
+        console.log('✅ Conversation updated, participants:', conversation.participants.length, 'unreadCount:', conversation.unreadCount);
+      } catch (error) {
+        console.error('❌ Error updating conversation:', error);
+        throw error;
+      }
+    }
 
     return await Message.findById(message._id)
       .populate('sender', 'firstName lastName email avatar')
@@ -196,6 +240,122 @@ class MessageRepository {
     })
       .select('firstName lastName email avatar')
       .limit(limit);
+  }
+
+  /**
+   * Add reaction to message
+   */
+  async addReaction(messageId, userId, emoji) {
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    // Remove existing reaction from this user
+    message.reactions = message.reactions.filter(
+      r => r.user.toString() !== userId.toString()
+    );
+
+    // Add new reaction
+    message.reactions.push({
+      user: userId,
+      emoji,
+      createdAt: new Date()
+    });
+
+    await message.save();
+
+    return await Message.findById(messageId)
+      .populate('sender', 'firstName lastName email avatar')
+      .populate('receiver', 'firstName lastName email avatar')
+      .populate('reactions.user', 'firstName lastName avatar');
+  }
+
+  /**
+   * Remove reaction from message
+   */
+  async removeReaction(messageId, userId) {
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    message.reactions = message.reactions.filter(
+      r => r.user.toString() !== userId.toString()
+    );
+
+    await message.save();
+
+    return await Message.findById(messageId)
+      .populate('sender', 'firstName lastName email avatar')
+      .populate('receiver', 'firstName lastName email avatar')
+      .populate('reactions.user', 'firstName lastName avatar');
+  }
+
+  /**
+   * Toggle pin message
+   */
+  async togglePinMessage(messageId) {
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    message.isPinned = !message.isPinned;
+    await message.save();
+
+    return await Message.findById(messageId)
+      .populate('sender', 'firstName lastName email avatar')
+      .populate('receiver', 'firstName lastName email avatar');
+  }
+
+  /**
+   * Update conversation settings
+   */
+  async updateConversationSettings(userId1, userId2, settings) {
+    const conversationId = Message.generateConversationId(userId1, userId2);
+    
+    const conversation = await Conversation.findOne({ conversationId });
+    
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Update nickname for userId2 as seen by userId1
+    if (settings.nickname !== undefined) {
+      conversation.nicknames.set(userId2.toString(), settings.nickname);
+      conversation.markModified('nicknames');
+    }
+
+    // Update theme color
+    if (settings.themeColor) {
+      conversation.themeColor = settings.themeColor;
+    }
+
+    await conversation.save();
+
+    return await Conversation.findById(conversation._id)
+      .populate('participants', 'firstName lastName email avatar');
+  }
+
+  /**
+   * Search messages in conversation
+   */
+  async searchMessages(userId1, userId2, query) {
+    const conversationId = Message.generateConversationId(userId1, userId2);
+    
+    return await Message.find({
+      conversationId,
+      deletedBy: { $ne: userId1 },
+      content: { $regex: query, $options: 'i' }
+    })
+      .populate('sender', 'firstName lastName email avatar')
+      .populate('receiver', 'firstName lastName email avatar')
+      .sort({ createdAt: -1 })
+      .limit(50);
   }
 }
 

@@ -7,7 +7,9 @@ class MessageController {
   async getConversations(req, res) {
     try {
       const userId = req.user._id;
+      console.log('📋 Getting conversations for user:', userId);
       const conversations = await messageRepository.getConversations(userId);
+      console.log('📋 Found conversations:', conversations.length);
       
       res.json({
         success: true,
@@ -234,6 +236,173 @@ class MessageController {
       });
     } catch (error) {
       console.error('Error searching users:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Add reaction to message
+   */
+  async addReaction(req, res) {
+    try {
+      const userId = req.user._id;
+      const { messageId } = req.params;
+      const { emoji } = req.body;
+
+      if (!emoji) {
+        return res.status(400).json({
+          success: false,
+          message: 'Emoji is required'
+        });
+      }
+
+      const message = await messageRepository.addReaction(messageId, userId, emoji);
+
+      // Emit socket event
+      if (global.io) {
+        const receiverId = message.sender._id.toString() === userId.toString() 
+          ? message.receiver._id 
+          : message.sender._id;
+        global.io.to(`user-${receiverId}`).emit('message-reaction', message);
+        global.io.to(`user-${userId}`).emit('message-reaction', message);
+      }
+
+      res.json({
+        success: true,
+        data: message
+      });
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Remove reaction from message
+   */
+  async removeReaction(req, res) {
+    try {
+      const userId = req.user._id;
+      const { messageId } = req.params;
+
+      const message = await messageRepository.removeReaction(messageId, userId);
+
+      // Emit socket event
+      if (global.io) {
+        const receiverId = message.sender._id.toString() === userId.toString() 
+          ? message.receiver._id 
+          : message.sender._id;
+        global.io.to(`user-${receiverId}`).emit('message-reaction', message);
+        global.io.to(`user-${userId}`).emit('message-reaction', message);
+      }
+
+      res.json({
+        success: true,
+        data: message
+      });
+    } catch (error) {
+      console.error('Error removing reaction:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Pin/Unpin message
+   */
+  async togglePinMessage(req, res) {
+    try {
+      const { messageId } = req.params;
+
+      const message = await messageRepository.togglePinMessage(messageId);
+
+      // Emit socket event
+      if (global.io) {
+        const senderId = message.sender._id;
+        const receiverId = message.receiver._id;
+        global.io.to(`user-${senderId}`).emit('message-pinned', message);
+        global.io.to(`user-${receiverId}`).emit('message-pinned', message);
+      }
+
+      res.json({
+        success: true,
+        data: message
+      });
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Update conversation settings (nickname, theme color)
+   */
+  async updateConversationSettings(req, res) {
+    try {
+      const userId = req.user._id;
+      const { otherUserId } = req.params;
+      const { nickname, themeColor } = req.body;
+
+      const conversation = await messageRepository.updateConversationSettings(
+        userId,
+        otherUserId,
+        { nickname, themeColor }
+      );
+
+      // Emit socket event
+      if (global.io) {
+        global.io.to(`user-${userId}`).emit('conversation-updated', conversation);
+        global.io.to(`user-${otherUserId}`).emit('conversation-updated', conversation);
+      }
+
+      res.json({
+        success: true,
+        data: conversation
+      });
+    } catch (error) {
+      console.error('Error updating conversation settings:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Search messages in conversation
+   */
+  async searchMessages(req, res) {
+    try {
+      const userId = req.user._id;
+      const { otherUserId } = req.params;
+      const { q } = req.query;
+
+      if (!q || q.trim().length < 2) {
+        return res.status(400).json({
+          success: false,
+          message: 'Search query must be at least 2 characters'
+        });
+      }
+
+      const messages = await messageRepository.searchMessages(userId, otherUserId, q);
+
+      res.json({
+        success: true,
+        data: messages
+      });
+    } catch (error) {
+      console.error('Error searching messages:', error);
       res.status(500).json({
         success: false,
         message: error.message
