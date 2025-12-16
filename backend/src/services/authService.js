@@ -210,6 +210,72 @@ class AuthService {
       throw new Error('Invalid or expired email verification token');
     }
   }
+
+  // Generate 6-digit activation code
+  generateActivationCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  // Calculate activation code expiry (30 minutes from now)
+  getActivationCodeExpiry() {
+    return new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+  }
+
+  // Verify activation code
+  async verifyActivationCode(userId, code) {
+    try {
+      const user = await User.findById(userId).select('+activationCode +activationCodeExpiry');
+      
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found'
+        };
+      }
+
+      if (user.isActivated) {
+        return {
+          success: false,
+          message: 'Account is already activated'
+        };
+      }
+
+      if (!user.activationCode || !user.activationCodeExpiry) {
+        return {
+          success: false,
+          message: 'No activation code found'
+        };
+      }
+
+      if (new Date() > user.activationCodeExpiry) {
+        return {
+          success: false,
+          message: 'Activation code has expired'
+        };
+      }
+
+      if (user.activationCode !== code) {
+        return {
+          success: false,
+          message: 'Invalid activation code'
+        };
+      }
+
+      // Activate account
+      user.isActivated = true;
+      user.activationCode = undefined;
+      user.activationCodeExpiry = undefined;
+      await user.save();
+
+      return {
+        success: true,
+        message: 'Account activated successfully',
+        data: { user: user.toJSON() }
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = new AuthService();

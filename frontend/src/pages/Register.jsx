@@ -44,7 +44,18 @@ const Register = () => {
     const result = await register(userData);
 
     if (result.success) {
-      navigate('/home');
+      if (result.requiresActivation) {
+        // Navigate to activation page
+        navigate('/activate', {
+          state: {
+            userId: result.userId,
+            email: result.email,
+          },
+        });
+      } else {
+        // Direct login for users that don't need activation
+        navigate('/home');
+      }
     } else {
       setError(result.message);
     }
@@ -59,9 +70,30 @@ const Register = () => {
     const result = await googleLogin(idToken);
 
     if (result.success) {
-      navigate('/home');
+      if (result.requiresActivation) {
+        // Navigate to activation page
+        navigate('/activate', {
+          state: {
+            userId: result.userId,
+            email: result.email,
+          },
+        });
+      } else {
+        // Direct login for users that don't need activation
+        navigate('/home');
+      }
     } else {
-      setError(result.message);
+      if (result.requiresActivation) {
+        // Navigate to activation page for existing unactivated accounts
+        navigate('/activate', {
+          state: {
+            userId: result.userId,
+            email: result.email,
+          },
+        });
+      } else {
+        setError(result.message);
+      }
     }
 
     setLoading(false);

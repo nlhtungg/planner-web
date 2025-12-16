@@ -8,6 +8,8 @@ const { uploadSingle } = require('../middlewares/upload');
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/refresh-token', validateRefreshToken, authController.refreshToken);
+router.post('/activate', authController.activateAccount);
+router.post('/resend-activation', authController.resendActivationCode);
 
 // Public routes - Google OAuth
 router.post('/google', authController.googleAuth); // Client-side flow (ID token)

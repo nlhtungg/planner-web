@@ -63,19 +63,35 @@ class AuthController {
 
       const user = await userRepository.createUser(userData);
       
-      // Generate tokens
-      const { accessToken, refreshToken } = authService.generateTokens(user._id);
+      // Generate activation code
+      const activationCode = authService.generateActivationCode();
+      const activationCodeExpiry = authService.getActivationCodeExpiry();
       
-      // Save refresh token
-      await authService.saveRefreshToken(user._id, refreshToken);
+      // Log activation code for development (remove in production)
+      console.log(`🔐 Activation code for ${user.email}: ${activationCode}`);
+      
+      // Save activation code to user
+      await User.findByIdAndUpdate(user._id, {
+        activationCode,
+        activationCodeExpiry
+      });
+
+      // Send activation code via email
+      const emailService = require('../services/emailService');
+      try {
+        await emailService.sendActivationCode(user.email, activationCode, user.firstName);
+      } catch (emailError) {
+        console.error('Error sending activation email:', emailError);
+        // Continue with registration even if email fails
+      }
 
       res.status(201).json({
         success: true,
-        message: 'User registered successfully',
+        message: 'User registered successfully. Please check your email for the activation code.',
         data: {
-          user,
-          accessToken,
-          refreshToken
+          userId: user._id,
+          email: user.email,
+          requiresActivation: true
         }
       });
     } catch (error) {
@@ -131,6 +147,17 @@ class AuthController {
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
+        });
+      }
+
+      // Check if account is activated
+      if (!user.isActivated) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not activated. Please activate your account.',
+          requiresActivation: true,
+          userId: user._id,
+          email: user.email
         });
       }
 
@@ -263,10 +290,50 @@ class AuthController {
 
           user = await userRepository.createUser(userData);
           isNewUser = true;
+          
+          // Generate activation code for new Google users
+          const activationCode = authService.generateActivationCode();
+          const activationCodeExpiry = authService.getActivationCodeExpiry();
+          
+          console.log(`🔐 Activation code for ${user.email}: ${activationCode}`);
+          
+          await User.findByIdAndUpdate(user._id, {
+            activationCode,
+            activationCodeExpiry
+          });
+          
+          // Send activation code via email
+          const emailService = require('../services/emailService');
+          try {
+            await emailService.sendActivationCode(user.email, activationCode, user.firstName);
+          } catch (emailError) {
+            console.error('Error sending activation email:', emailError);
+          }
+          
+          return res.status(201).json({
+            success: true,
+            message: 'Account created successfully. Please check your email for the activation code.',
+            data: {
+              userId: user._id,
+              email: user.email,
+              requiresActivation: true
+            }
+          });
         }
       }
 
-      // Generate tokens
+      // Check if existing user is activated
+      if (!user.isActivated) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not activated. Please activate your account.',
+          requiresActivation: true,
+          userId: user._id,
+          email: user.email
+        });
+      }
+
+      // Generate tokens for activated existing users
       const { accessToken, refreshToken } = authService.generateTokens(user._id);
       
       // Save refresh token
@@ -274,7 +341,7 @@ class AuthController {
 
       res.status(200).json({
         success: true,
-        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        message: 'Login successful',
         data: {
           user,
           accessToken,
@@ -381,10 +448,50 @@ class AuthController {
 
           user = await userRepository.createUser(userData);
           isNewUser = true;
+          
+          // Generate activation code for new Google users
+          const activationCode = authService.generateActivationCode();
+          const activationCodeExpiry = authService.getActivationCodeExpiry();
+          
+          console.log(`🔐 Activation code for ${user.email}: ${activationCode}`);
+          
+          await User.findByIdAndUpdate(user._id, {
+            activationCode,
+            activationCodeExpiry
+          });
+          
+          // Send activation code via email
+          const emailService = require('../services/emailService');
+          try {
+            await emailService.sendActivationCode(user.email, activationCode, user.firstName);
+          } catch (emailError) {
+            console.error('Error sending activation email:', emailError);
+          }
+          
+          return res.status(201).json({
+            success: true,
+            message: 'Account created successfully. Please check your email for the activation code.',
+            data: {
+              userId: user._id,
+              email: user.email,
+              requiresActivation: true
+            }
+          });
         }
       }
 
-      // Generate tokens
+      // Check if existing user is activated
+      if (!user.isActivated) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not activated. Please activate your account.',
+          requiresActivation: true,
+          userId: user._id,
+          email: user.email
+        });
+      }
+
+      // Generate tokens for activated existing users
       const { accessToken, refreshToken } = authService.generateTokens(user._id);
       
       // Save refresh token
@@ -392,7 +499,7 @@ class AuthController {
 
       res.status(200).json({
         success: true,
-        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        message: 'Login successful',
         data: {
           user,
           accessToken,
@@ -667,6 +774,117 @@ class AuthController {
       });
     } catch (error) {
       console.error('Delete avatar error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Activate account with code
+  async activateAccount(req, res) {
+    try {
+      const { userId, code } = req.body;
+
+      if (!userId || !code) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID and activation code are required'
+        });
+      }
+
+      // Verify activation code
+      const result = await authService.verifyActivationCode(userId, code);
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      // Generate tokens for the activated user
+      const { accessToken, refreshToken } = authService.generateTokens(userId);
+      
+      // Save refresh token
+      await authService.saveRefreshToken(userId, refreshToken);
+
+      // Update last login
+      await User.findByIdAndUpdate(userId, { lastLogin: new Date() });
+
+      res.status(200).json({
+        success: true,
+        message: 'Account activated successfully',
+        data: {
+          user: result.data.user,
+          accessToken,
+          refreshToken
+        }
+      });
+    } catch (error) {
+      console.error('Activation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Resend activation code
+  async resendActivationCode(req, res) {
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      // Find user
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Check if already activated
+      if (user.isActivated) {
+        return res.status(400).json({
+          success: false,
+          message: 'Account is already activated'
+        });
+      }
+
+      // Generate new activation code
+      const activationCode = authService.generateActivationCode();
+      const activationCodeExpiry = authService.getActivationCodeExpiry();
+      
+      // Log activation code for development (remove in production)
+      console.log(`🔐 Resent activation code for ${user.email}: ${activationCode}`);
+      
+      // Save new activation code
+      user.activationCode = activationCode;
+      user.activationCodeExpiry = activationCodeExpiry;
+      await user.save();
+
+      // Send activation code via email
+      const emailService = require('../services/emailService');
+      try {
+        await emailService.sendActivationCode(user.email, activationCode, user.firstName);
+        res.status(200).json({
+          success: true,
+          message: 'Activation code resent successfully'
+        });
+      } catch (emailError) {
+        console.error('Error sending activation email:', emailError);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to send activation email'
+        });
+      }
+    } catch (error) {
+      console.error('Resend activation code error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error'

@@ -29,7 +29,7 @@ services:
       - "3001:3001"
     volumes:
       - ./backend/src:/app/src
-      - .env:/app/.env
+      - ./backend/.env:/app/.env
     networks:
       - backend
 

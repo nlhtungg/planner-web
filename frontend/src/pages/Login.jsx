@@ -31,6 +31,14 @@ const Login = () => {
 
     if (result.success) {
       navigate('/home');
+    } else if (result.requiresActivation) {
+      // Redirect to activation page
+      navigate('/activate', {
+        state: {
+          userId: result.userId,
+          email: result.email,
+        },
+      });
     } else {
       setError(result.message);
     }
@@ -45,9 +53,29 @@ const Login = () => {
     const result = await googleLogin(idToken);
 
     if (result.success) {
-      navigate('/home');
+      if (result.requiresActivation) {
+        // Navigate to activation page
+        navigate('/activate', {
+          state: {
+            userId: result.userId,
+            email: result.email,
+          },
+        });
+      } else {
+        navigate('/home');
+      }
     } else {
-      setError(result.message);
+      if (result.requiresActivation) {
+        // Navigate to activation page for unactivated accounts
+        navigate('/activate', {
+          state: {
+            userId: result.userId,
+            email: result.email,
+          },
+        });
+      } else {
+        setError(result.message);
+      }
     }
 
     setLoading(false);
