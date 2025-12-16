@@ -53,6 +53,7 @@ const Messages = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // messageId or null
   const [showSettings, setShowSettings] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [searchedMessages, setSearchedMessages] = useState([]);
   const [conversationSettings, setConversationSettings] = useState({
@@ -116,19 +117,32 @@ const Messages = () => {
       });
       
       // Update chat messages if this conversation is open
-      if (
+      // For system messages or regular messages, check if it belongs to current conversation
+      const belongsToCurrentConversation = 
         (message.sender._id === selectedUserId && message.receiver._id === user._id) ||
-        (message.sender._id === user._id && message.receiver._id === selectedUserId)
-      ) {
+        (message.sender._id === user._id && message.receiver._id === selectedUserId) ||
+        (message.receiver._id === selectedUserId && message.sender._id === user._id) ||
+        (message.receiver._id === user._id && message.sender._id === selectedUserId);
+      
+      if (belongsToCurrentConversation) {
+        console.log('📨 Adding message to chat:', message.isSystemMessage ? 'SYSTEM' : 'REGULAR', message.content);
+        console.log('   sender:', message.sender._id, 'receiver:', message.receiver._id);
+        console.log('   currentUser:', user._id, 'selectedUser:', selectedUserId);
         setMessages(prev => {
           // Check if message already exists
           const exists = prev.some(m => m._id === message._id);
-          if (exists) return prev;
+          if (exists) {
+            console.log('   ⚠️ Message already exists, skipping');
+            return prev;
+          }
+          console.log('   ✅ Adding message to list');
           return [...prev, message];
         });
-        if (message.receiver._id === user._id) {
+        if (message.receiver._id === user._id && !message.isSystemMessage) {
           messageService.markConversationAsRead(selectedUserId);
         }
+      } else {
+        console.log('   ❌ Message does not belong to current conversation, skipping');
       }
     };
 
@@ -159,9 +173,37 @@ const Messages = () => {
     };
 
     const onMessageReaction = (message) => {
+      console.log('👍 Reaction event received:', message._id);
+      
+      // Update message in chat if conversation is open
       setMessages(prev => prev.map(msg => 
         msg._id === message._id ? message : msg
       ));
+      
+      // Update conversation list to show latest reaction activity
+      setConversations(prev => {
+        const conversationId = message.conversationId;
+        const existingIndex = prev.findIndex(conv => conv.conversationId === conversationId);
+        
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          // Find who reacted
+          const latestReaction = message.reactions?.[message.reactions.length - 1];
+          const reactorName = latestReaction?.user?.firstName || 'Someone';
+          const emoji = latestReaction?.emoji || '👍';
+          
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            lastMessage: `${reactorName} reacted ${emoji}`,
+            lastMessageAt: new Date()
+          };
+          
+          // Move to top
+          const [conversation] = updated.splice(existingIndex, 1);
+          return [conversation, ...updated];
+        }
+        return prev;
+      });
     };
 
     const onMessagePinned = (message) => {
@@ -248,6 +290,11 @@ const Messages = () => {
       const limit = 30;
       const response = await messageService.getMessages(selectedUserId, limit, skip);
       const newMessages = response.data || [];
+      
+      console.log('📬 Fetched messages:', newMessages.length, 'messages');
+      const systemMessages = newMessages.filter(m => m.isSystemMessage);
+      console.log('🔔 System messages found:', systemMessages.length);
+      systemMessages.forEach(sm => console.log('   -', sm.content));
       
       if (loadMore) {
         setMessages(prev => [...newMessages, ...prev]);
@@ -493,12 +540,14 @@ const Messages = () => {
     const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      messageElement.classList.add('bg-yellow-100');
+      // Add highlight effect with ring
+      messageElement.classList.add('ring-4', 'ring-yellow-300', 'bg-yellow-50');
       setTimeout(() => {
-        messageElement.classList.remove('bg-yellow-100');
+        messageElement.classList.remove('ring-4', 'ring-yellow-300', 'bg-yellow-50');
       }, 2000);
     }
     setShowMessageSearch(false);
+    setShowPinnedMessages(false);
   };
 
   return (
@@ -724,6 +773,19 @@ const Messages = () => {
                   )}
                 </div>
                 <div className="flex items-center space-x-2">
+                  {/* Pinned Messages Button */}
+                  <button
+                    onClick={() => setShowPinnedMessages(true)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+                    title="Pinned messages"
+                  >
+                    <BookmarkIcon className="w-5 h-5 text-gray-600" />
+                    {messages.filter(m => m.isPinned).length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {messages.filter(m => m.isPinned).length}
+                      </span>
+                    )}
+                  </button>
                   <button
                     onClick={() => setShowMessageSearch(true)}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -773,6 +835,44 @@ const Messages = () => {
                 </div>
               ) : (
                 messages.map((message, index) => {
+                  // System notification messages
+                  if (message.isSystemMessage) {
+                    console.log('🔔 Rendering system message:', message.content);
+                    
+                    // Handler to jump to related message
+                    const handleNotificationClick = () => {
+                      if (message.relatedMessage) {
+                        const messageElement = document.getElementById(`message-${message.relatedMessage}`);
+                        if (messageElement) {
+                          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          // Add highlight effect
+                          messageElement.classList.add('ring-4', 'ring-yellow-300', 'bg-yellow-50');
+                          setTimeout(() => {
+                            messageElement.classList.remove('ring-4', 'ring-yellow-300', 'bg-yellow-50');
+                          }, 2000);
+                        }
+                      }
+                    };
+                    
+                    return (
+                      <div
+                        key={message._id}
+                        id={`message-${message._id}`}
+                        className="flex items-center justify-center py-3 px-4"
+                      >
+                        <button
+                          onClick={handleNotificationClick}
+                          className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-full shadow-sm hover:bg-blue-100 hover:shadow-md transition-all cursor-pointer"
+                        >
+                          <p className="text-sm text-blue-700 font-medium text-center">
+                            {message.content}
+                          </p>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // Regular messages
                   const isOwn = message.sender._id === user._id;
                   const showAvatar = index === 0 || messages[index - 1].sender._id !== message.sender._id;
                   const userReaction = message.reactions?.find(r => r.user._id === user._id);
@@ -781,7 +881,7 @@ const Messages = () => {
                     <div
                       key={message._id}
                       id={`message-${message._id}`}
-                      className={`flex items-end space-x-2 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} group`}
+                      className={`flex items-end space-x-2 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} group transition-all duration-300 rounded-lg px-2 py-1`}
                     >
                       <div className="flex-shrink-0">
                         {showAvatar ? (
@@ -1147,6 +1247,119 @@ const Messages = () => {
                       </button>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pinned Messages Modal */}
+      {showPinnedMessages && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-end z-50">
+          <div className="bg-white h-full w-full max-w-md shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-yellow-50">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+                <BookmarkIconSolid className="w-6 h-6 text-yellow-600" />
+                <span>Pinned Messages</span>
+              </h3>
+              <button
+                onClick={() => setShowPinnedMessages(false)}
+                className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Pinned Messages List */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {messages.filter(m => m.isPinned).length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <BookmarkIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium mb-2">No pinned messages</p>
+                  <p className="text-sm">Pin important messages to find them easily later</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages
+                    .filter(m => m.isPinned)
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .map((message) => {
+                      const isOwn = message.sender._id === user._id;
+                      return (
+                        <button
+                          key={message._id}
+                          onClick={() => {
+                            handleJumpToMessage(message._id);
+                            setShowPinnedMessages(false);
+                          }}
+                          className="w-full p-4 hover:bg-yellow-50 rounded-xl border-2 border-yellow-200 text-left transition-all hover:shadow-md group relative"
+                        >
+                          {/* Pin indicator */}
+                          <div className="absolute top-3 right-3">
+                            <BookmarkIconSolid className="w-5 h-5 text-yellow-500" />
+                          </div>
+
+                          <div className="flex items-start space-x-3">
+                            {isOwn ? (
+                              user.avatar ? (
+                                <img src={user.avatar} alt="You" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                                  {user.firstName?.[0]}{user.lastName?.[0]}
+                                </div>
+                              )
+                            ) : (
+                              selectedUser?.avatar ? (
+                                <img src={selectedUser.avatar} alt={selectedUser.firstName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                                  {selectedUser?.firstName?.[0]}{selectedUser?.lastName?.[0]}
+                                </div>
+                              )
+                            )}
+                            <div className="flex-1 min-w-0 pr-6">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-gray-900">
+                                  {isOwn ? 'You' : `${selectedUser.firstName} ${selectedUser.lastName}`}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatTime(message.createdAt)}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">
+                                {message.content}
+                              </p>
+                              
+                              {/* Reactions if any */}
+                              {message.reactions && message.reactions.length > 0 && (
+                                <div className="flex items-center space-x-1 mt-2">
+                                  {Object.entries(
+                                    message.reactions.reduce((acc, r) => {
+                                      acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                      return acc;
+                                    }, {})
+                                  ).map(([emoji, count]) => (
+                                    <span
+                                      key={emoji}
+                                      className="px-2 py-0.5 rounded-full text-xs bg-gray-100 border border-gray-300"
+                                    >
+                                      {emoji} {count}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Click to view hint */}
+                              <div className="mt-2 text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                Click to view in conversation →
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
               )}
             </div>
