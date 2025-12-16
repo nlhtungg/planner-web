@@ -51,6 +51,22 @@ const messageSchema = new mongoose.Schema({
   isPinned: {
     type: Boolean,
     default: false
+  },
+  // System notification message
+  isSystemMessage: {
+    type: Boolean,
+    default: false
+  },
+  systemMessageType: {
+    type: String,
+    enum: ['reaction_added', 'message_pinned', 'message_unpinned', null],
+    default: null
+  },
+  // Related message for system notifications
+  relatedMessage: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message',
+    default: null
   }
 }, {
   timestamps: true

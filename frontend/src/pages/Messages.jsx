@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import messageService from '../services/messageService';
@@ -22,6 +22,7 @@ import {
   UserCircleIcon,
   MagnifyingGlassPlusIcon,
   BookmarkIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid';
 import moment from 'moment';
@@ -56,12 +57,71 @@ const Messages = () => {
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [searchedMessages, setSearchedMessages] = useState([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [conversationSettings, setConversationSettings] = useState({
     nickname: '',
     themeColor: '#3B82F6'
   });
 
   const emojiList = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎', '🎉', '🔥', '💯'];
+
+  const handleFileSelect = (e) => {
+    try {
+      const fileList = e.target.files;
+      console.log('📁 File input changed, files:', fileList?.length || 0);
+      
+      if (!fileList || fileList.length === 0) {
+        console.log('   No files selected');
+        return;
+      }
+      
+      const input = e.target;
+      const files = Array.from(fileList);
+      console.log('   Files array:', files.map(f => `${f.name} (${f.size} bytes)`));
+      
+      // Reset input immediately
+      input.value = '';
+      
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxFiles = 5;
+      
+      setSelectedFiles(prev => {
+        console.log('   Current files count:', prev.length);
+        const validFiles = [];
+        let error = null;
+        
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          
+          if (prev.length + validFiles.length >= maxFiles) {
+            error = 'Maximum 5 files allowed';
+            console.log('   ❌ Max files reached');
+            break;
+          }
+          
+          if (file.size > maxSize) {
+            error = `${file.name} exceeds 10MB limit`;
+            console.log('   ❌ File too large:', file.name);
+            continue;
+          }
+          
+          validFiles.push(file);
+          console.log('   ✅ Valid file:', file.name);
+        }
+        
+        if (error) {
+          alert(error);
+        }
+        
+        const newFiles = validFiles.length > 0 ? [...prev, ...validFiles] : prev;
+        console.log('   Total files after update:', newFiles.length);
+        return newFiles;
+      });
+    } catch (error) {
+      console.error('❌ Error in handleFileSelect:', error);
+      alert('Error selecting files: ' + error.message);
+    }
+  };
 
   const sidebarItems = [
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/' },
@@ -393,11 +453,19 @@ const Messages = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || sending || !selectedUserId) return;
+    if ((!newMessage.trim() && selectedFiles.length === 0) || sending || !selectedUserId) return;
 
     try {
       setSending(true);
-      const response = await messageService.sendMessage(selectedUserId, newMessage.trim());
+      console.log('📤 Sending message with files:', selectedFiles.length);
+      
+      const response = await messageService.sendMessage(
+        selectedUserId, 
+        newMessage.trim() || '📎 Attachment', 
+        selectedFiles
+      );
+      
+      console.log('✅ Message sent:', response);
       
       if (response.data) {
         setMessages(prev => {
@@ -431,11 +499,13 @@ const Messages = () => {
       }
       
       setNewMessage('');
+      setSelectedFiles([]);
       
       const socket = socketService.connect();
       socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ Error sending message:', error);
+      alert('Failed to send message: ' + error.message);
     } finally {
       setSending(false);
     }
@@ -944,6 +1014,81 @@ const Messages = () => {
                             style={isOwn ? { backgroundColor: conversationSettings.themeColor || '#3B82F6' } : {}}
                           >
                             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            
+                            {/* Attachments */}
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {message.attachments.map((attachment, idx) => {
+                                  const isImage = attachment.mimetype?.startsWith('image/');
+                                  const isVideo = attachment.mimetype?.startsWith('video/');
+                                  
+                                  if (isImage) {
+                                    return (
+                                      <div key={idx} className="mt-2">
+                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                          <img 
+                                            src={attachment.url} 
+                                            alt={attachment.filename}
+                                            className="max-w-xs rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                            style={{ maxHeight: '300px' }}
+                                          />
+                                        </a>
+                                        <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                                          {attachment.filename}
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  if (isVideo) {
+                                    return (
+                                      <div key={idx} className="mt-2">
+                                        <video 
+                                          controls 
+                                          className="max-w-xs rounded-lg"
+                                          style={{ maxHeight: '300px' }}
+                                        >
+                                          <source src={attachment.url} type={attachment.mimetype} />
+                                          Your browser does not support the video tag.
+                                        </video>
+                                        <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                                          {attachment.filename}
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  // Default file display
+                                  return (
+                                    <a
+                                      key={idx}
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center space-x-2 p-2 rounded-lg ${
+                                        isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'
+                                      } transition-colors`}
+                                    >
+                                      <DocumentTextIcon className={`w-5 h-5 flex-shrink-0 ${
+                                        isOwn ? 'text-white' : 'text-gray-600'
+                                      }`} />
+                                      <div className="flex-1 min-w-0">
+                                        <p className={`text-xs font-medium truncate ${
+                                          isOwn ? 'text-white' : 'text-gray-900'
+                                        }`}>
+                                          {attachment.filename}
+                                        </p>
+                                        <p className={`text-xs ${
+                                          isOwn ? 'text-white/70' : 'text-gray-500'
+                                        }`}>
+                                          {(attachment.size / 1024).toFixed(1)} KB
+                                        </p>
+                                      </div>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
 
                           {/* Emoji picker popup */}
@@ -1030,7 +1175,59 @@ const Messages = () => {
 
             {/* Input Form - Fixed */}
             <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
-              <form onSubmit={handleSendMessage} className="flex items-center space-x-4">
+              {/* File Preview */}
+              {selectedFiles.length > 0 && (
+                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      📎 {selectedFiles.length} file(s) • {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / 1024).toFixed(1)} KB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFiles([])}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Remove all
+                    </button>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {selectedFiles.map((file, idx) => (
+                      <div key={`${file.name}-${idx}`} className="flex items-center justify-between text-xs bg-white p-2 rounded shadow-sm">
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          <DocumentTextIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                          <span className="truncate font-medium">{file.name}</span>
+                          <span className="text-gray-400 text-xs">•</span>
+                          <span className="text-gray-500 whitespace-nowrap">{(file.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                          className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+                {/* File Upload Button */}
+                <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Attach files">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                    disabled={sending || selectedFiles.length >= 5}
+                  />
+                  <PlusIcon className={`w-5 h-5 ${
+                    selectedFiles.length >= 5 ? 'text-gray-300' : 'text-gray-600'
+                  }`} />
+                </label>
+                
                 <input
                   type="text"
                   value={newMessage}
@@ -1043,10 +1240,14 @@ const Messages = () => {
                 />
                 <button
                   type="submit"
-                  disabled={!newMessage.trim() || sending}
+                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending}
                   className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <PaperAirplaneIcon className="w-5 h-5" />
+                  {sending ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <PaperAirplaneIcon className="w-5 h-5" />
+                  )}
                 </button>
               </form>
             </div>

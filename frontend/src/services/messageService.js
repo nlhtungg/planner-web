@@ -20,13 +20,24 @@ const messageService = {
   },
 
   /**
-   * Send a message
+   * Send a message with optional file attachments
    */
-  async sendMessage(receiverId, content, attachments = []) {
-    const response = await api.post('/messages/send', {
-      receiverId,
-      content,
-      attachments
+  async sendMessage(receiverId, content, files = []) {
+    const formData = new FormData();
+    formData.append('receiverId', receiverId);
+    formData.append('content', content);
+    
+    // Add files if any
+    if (files && files.length > 0) {
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+    }
+    
+    const response = await api.post('/messages/send', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
     });
     return response.data;
   },

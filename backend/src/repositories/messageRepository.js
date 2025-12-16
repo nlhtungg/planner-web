@@ -47,7 +47,7 @@ class MessageRepository {
   async getMessages(userId1, userId2, limit = 50, skip = 0) {
     const conversationId = Message.generateConversationId(userId1, userId2);
     
-    return await Message.find({
+    const messages = await Message.find({
       conversationId,
       deletedBy: { $ne: userId1 } // Exclude messages deleted by current user
     })
@@ -56,6 +56,11 @@ class MessageRepository {
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip);
+    
+    const systemCount = messages.filter(m => m.isSystemMessage).length;
+    console.log(`📬 Fetched ${messages.length} messages (${systemCount} system messages) for conversation ${conversationId}`);
+    
+    return messages;
   }
 
   /**
@@ -356,6 +361,43 @@ class MessageRepository {
       .populate('receiver', 'firstName lastName email avatar')
       .sort({ createdAt: -1 })
       .limit(50);
+  }
+
+  /**
+   * Create a system notification message
+   */
+  async createSystemNotification(notificationData) {
+    const { sender, receiver, content, systemMessageType, relatedMessage } = notificationData;
+    const conversationId = Message.generateConversationId(sender, receiver);
+    
+    console.log('📢 Creating system notification:', { content, systemMessageType, conversationId });
+    
+    const message = await Message.create({
+      sender,
+      receiver,
+      content,
+      conversationId,
+      isSystemMessage: true,
+      systemMessageType,
+      relatedMessage,
+      readAt: new Date() // System messages are auto-read
+    });
+
+    // Update conversation
+    const conversation = await Conversation.findOne({ conversationId });
+    if (conversation) {
+      conversation.lastMessage = content.substring(0, 100);
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+    }
+
+    const populatedMessage = await Message.findById(message._id)
+      .populate('sender', 'firstName lastName email avatar')
+      .populate('receiver', 'firstName lastName email avatar');
+    
+    console.log('✅ System notification created and populated:', populatedMessage._id, populatedMessage.isSystemMessage);
+    
+    return populatedMessage;
   }
 }
 

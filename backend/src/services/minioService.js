@@ -7,6 +7,7 @@ dns.setDefaultResultOrder('ipv4first');
 class MinioService {
   constructor() {
     this.userMediaBucket = 'user-media';
+    this.messageMediaBucket = 'message-media';
     this.client = new Client({
       endPoint: process.env.MINIO_ENDPOINT || 'minio',
       port: parseInt(process.env.MINIO_PORT) || 9000,
@@ -21,13 +22,20 @@ class MinioService {
 
   async initializeBuckets() {
     try {
-      // Simply verify that the bucket exists (created by minio-init)
-      const bucketExists = await this.client.bucketExists(this.userMediaBucket);
+      // Verify that buckets exist
+      const userBucketExists = await this.client.bucketExists(this.userMediaBucket);
+      const messageBucketExists = await this.client.bucketExists(this.messageMediaBucket);
       
-      if (bucketExists) {
+      if (userBucketExists) {
         console.log(`✅ MinIO connected successfully - ${this.userMediaBucket} bucket is ready`);
       } else {
-        console.log(`⚠️  MinIO bucket ${this.userMediaBucket} not found - avatar upload may not work`);
+        console.log(`⚠️  MinIO bucket ${this.userMediaBucket} not found`);
+      }
+      
+      if (messageBucketExists) {
+        console.log(`✅ MinIO ${this.messageMediaBucket} bucket is ready`);
+      } else {
+        console.log(`⚠️  MinIO bucket ${this.messageMediaBucket} not found`);
       }
     } catch (error) {
       console.error('❌ MinIO connection failed:', error.message);
@@ -108,6 +116,57 @@ class MinioService {
     } catch (error) {
       console.error('Error getting avatar URL:', error);
       return null;
+    }
+  }
+
+  /**
+   * Upload message attachment (file, image, document, etc.)
+   */
+  async uploadMessageMedia(userId, fileBuffer, fileName, mimeType) {
+    try {
+      console.log('📤 [MinIO] Starting upload to bucket:', this.messageMediaBucket);
+      console.log('   User:', userId);
+      console.log('   File:', fileName);
+      console.log('   Type:', mimeType);
+      console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
+      console.log('   Object:', objectName);
+      
+      const metaData = {
+        'Content-Type': mimeType,
+        'Content-Disposition': `inline; filename="${fileName}"`
+      };
+
+      // Upload the file
+      console.log('   ⬆️ Uploading to MinIO...');
+      await this.client.putObject(
+        this.messageMediaBucket,
+        objectName,
+        fileBuffer,
+        fileBuffer.length,
+        metaData
+      );
+
+      // Generate the public URL
+      const publicUrl = `http://localhost:${process.env.MINIO_PORT || 9000}/${this.messageMediaBucket}/${objectName}`;
+      console.log('   ✅ Upload complete!');
+      console.log('   🔗 URL:', publicUrl);
+      
+      return {
+        success: true,
+        url: publicUrl,
+        objectName: objectName,
+        fileName: fileName,
+        mimeType: mimeType,
+        size: fileBuffer.length
+      };
+    } catch (error) {
+      console.error('❌ Error uploading message media:', error);
+      throw new Error('Failed to upload message media');
     }
   }
 }

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const messageController = require('../controllers/messageController');
 const { authenticateToken } = require('../middlewares/auth');
+const messageUpload = require('../middlewares/messageUpload');
 
 // All routes require authentication
 router.use(authenticateToken);
@@ -18,8 +19,8 @@ router.get('/unread-count', messageController.getUnreadCount);
 // Get messages with a specific user
 router.get('/:otherUserId', messageController.getMessages);
 
-// Send a message
-router.post('/send', messageController.sendMessage);
+// Send a message (with optional file attachments)
+router.post('/send', messageUpload.array('files', 5), messageController.sendMessage);
 
 // Mark conversation as read
 router.patch('/:otherUserId/read', messageController.markConversationAsRead);

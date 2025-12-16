@@ -1,4 +1,5 @@
 const messageRepository = require('../repositories/messageRepository');
+const minioService = require('../services/minioService');
 
 class MessageController {
   /**
@@ -59,13 +60,47 @@ class MessageController {
   async sendMessage(req, res) {
     try {
       const senderId = req.user._id;
-      const { receiverId, content, attachments } = req.body;
+      const { receiverId, content } = req.body;
 
       if (!receiverId || !content) {
         return res.status(400).json({
           success: false,
           message: 'Receiver and content are required'
         });
+      }
+
+      // Handle file attachments if any
+      let attachments = [];
+      if (req.files && req.files.length > 0) {
+        console.log(`📎 Processing ${req.files.length} file(s) for user ${senderId}`);
+        
+        for (let i = 0; i < req.files.length; i++) {
+          const file = req.files[i];
+          try {
+            console.log(`  [${i+1}/${req.files.length}] Uploading: ${file.originalname} (${(file.size/1024).toFixed(2)}KB, ${file.mimetype})`);
+            
+            const uploadResult = await minioService.uploadMessageMedia(
+              senderId,
+              file.buffer,
+              file.originalname,
+              file.mimetype
+            );
+            
+            console.log(`  ✅ Uploaded successfully to: ${uploadResult.url}`);
+            
+            attachments.push({
+              url: uploadResult.url,
+              filename: uploadResult.fileName,
+              mimetype: uploadResult.mimeType,
+              size: uploadResult.size
+            });
+          } catch (error) {
+            console.error(`  ❌ Error uploading file ${file.originalname}:`, error.message);
+            // Continue with other files
+          }
+        }
+        
+        console.log(`📦 Total attachments uploaded: ${attachments.length}/${req.files.length}`);
       }
 
       const message = await messageRepository.createMessage({
@@ -261,11 +296,13 @@ class MessageController {
 
       const message = await messageRepository.addReaction(messageId, userId, emoji);
 
-      // Emit socket event
+      // Get both users in the conversation
+      const senderId = message.sender._id;
+      const receiverId = message.receiver._id;
+
+      // Emit socket events - only emit reaction update, no system notification for reactions
       if (global.io) {
-        const receiverId = message.sender._id.toString() === userId.toString() 
-          ? message.receiver._id 
-          : message.sender._id;
+        console.log('📤 Emitting reaction update to both users');
         global.io.to(`user-${receiverId}`).emit('message-reaction', message);
         global.io.to(`user-${userId}`).emit('message-reaction', message);
       }
@@ -320,16 +357,38 @@ class MessageController {
    */
   async togglePinMessage(req, res) {
     try {
+      const userId = req.user._id;
       const { messageId } = req.params;
 
       const message = await messageRepository.togglePinMessage(messageId);
 
-      // Emit socket event
+      // Get both users in the conversation
+      const senderId = message.sender._id;
+      const receiverId = message.receiver._id;
+
+      // Create system notification - Use same sender/receiver pattern as original message for consistency
+      const action = message.isPinned ? 'pinned' : 'unpinned';
+      const notificationContent = `${req.user.firstName} ${req.user.lastName} ${action} a message`;
+      console.log('📢 Creating pin notification:', notificationContent);
+      console.log('   For conversation between:', senderId.toString(), 'and', receiverId.toString());
+      const systemNotification = await messageRepository.createSystemNotification({
+        sender: senderId,  // Use original message sender
+        receiver: receiverId,  // Use original message receiver
+        content: notificationContent,
+        systemMessageType: message.isPinned ? 'message_pinned' : 'message_unpinned',
+        relatedMessage: messageId
+      });
+      console.log('✅ System notification created:', systemNotification._id, 'isSystemMessage:', systemNotification.isSystemMessage);
+
+      // Emit socket events
       if (global.io) {
-        const senderId = message.sender._id;
-        const receiverId = message.receiver._id;
         global.io.to(`user-${senderId}`).emit('message-pinned', message);
         global.io.to(`user-${receiverId}`).emit('message-pinned', message);
+        
+        // Emit the system notification message
+        console.log('📤 Emitting pin notification to:', `user-${senderId}`, `user-${receiverId}`);
+        global.io.to(`user-${senderId}`).emit('new-message', systemNotification);
+        global.io.to(`user-${receiverId}`).emit('new-message', systemNotification);
       }
 
       res.json({
