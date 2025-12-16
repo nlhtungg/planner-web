@@ -56,7 +56,7 @@ const Profile = () => {
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
     { id: 'connections', name: 'Connections', icon: UserGroupIcon, active: false },
-    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, active: false },
+    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages', active: false },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: false },
   ];
 

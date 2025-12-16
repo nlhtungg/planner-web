@@ -156,6 +156,7 @@ const Home = () => {
               const handleClick = () => {
                 if (item.id === 'workspaces') navigate('/workspaces');
                 else if (item.id === 'calendar') navigate('/calendar');
+                else if (item.id === 'messages') navigate('/messages');
                 else setActiveSection(item.id);
               };
               return (

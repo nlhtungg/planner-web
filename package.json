@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "socket.io-client": "^4.8.1"
+  }
+}
