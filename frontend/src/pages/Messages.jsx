@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import messageService from '../services/messageService';
+import groupService from '../services/groupService';
 import socketService from '../services/socketService';
 import {
   MagnifyingGlassIcon,
@@ -31,8 +32,11 @@ const Messages = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [conversations, setConversations] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [allConversations, setAllConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -40,6 +44,8 @@ const Messages = () => {
   // Chat states
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -152,7 +158,36 @@ const Messages = () => {
     const onNewMessage = (message) => {
       console.log('📨 Messages: Received new message, updating conversation list');
       
-      // Update conversation list
+      // Update allConversations list
+      updateAllConversations(prev => {
+        const conversationId = message.conversationId;
+        const existingIndex = prev.findIndex(conv => 
+          conv.type === 'direct' && conv.conversationId === conversationId
+        );
+        
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          const isReceiver = message.receiver._id === user._id;
+          const currentUnreadCount = updated[existingIndex].unreadCount || {};
+          
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            lastMessage: message.content,
+            lastMessageSender: message.sender,
+            lastMessageAt: message.createdAt,
+            unreadCount: isReceiver
+              ? { ...currentUnreadCount, [user._id]: (currentUnreadCount[user._id] || 0) + 1 }
+              : currentUnreadCount
+          };
+          
+          return updated;
+        } else {
+          fetchConversations();
+          return prev;
+        }
+      });
+      
+      // Also update separate conversations state for compatibility
       setConversations(prev => {
         const conversationId = message.conversationId;
         const existingIndex = prev.findIndex(conv => conv.conversationId === conversationId);
@@ -162,18 +197,12 @@ const Messages = () => {
           updated[existingIndex] = {
             ...updated[existingIndex],
             lastMessage: message.content,
-            lastMessageAt: message.createdAt,
-            unreadCount: message.receiver._id === user._id 
-              ? (updated[existingIndex].unreadCount || 0) + 1 
-              : updated[existingIndex].unreadCount
+            lastMessageSender: message.sender,
+            lastMessageAt: message.createdAt
           };
-          
-          const [conversation] = updated.splice(existingIndex, 1);
-          return [conversation, ...updated];
-        } else {
-          fetchConversations();
-          return prev;
+          return updated;
         }
+        return prev;
       });
       
       // Update chat messages if this conversation is open
@@ -218,9 +247,9 @@ const Messages = () => {
       }
     };
 
-    const onMessageRead = ({ messageId }) => {
+    const onMessageRead = ({ messageId, readAt, readBy }) => {
       setMessages(prev => prev.map(msg => 
-        msg._id === messageId ? { ...msg, readAt: new Date() } : msg
+        msg._id === messageId ? { ...msg, readAt: readAt || new Date(), readBy: readBy || msg.readBy } : msg
       ));
     };
 
@@ -284,26 +313,128 @@ const Messages = () => {
       fetchConversations();
     };
 
+    const onNewGroupMessage = (message) => {
+      console.log('📨 New group message received:', message);
+      
+      // Update allConversations list
+      updateAllConversations(prev => {
+        const groupId = message.group?._id;
+        const existingIndex = prev.findIndex(conv => 
+          conv.type === 'group' && conv._id === groupId
+        );
+        
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          const isNotSender = message.sender._id !== user._id;
+          const currentUnreadCount = updated[existingIndex].unreadCount || {};
+          
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            lastMessage: message.content,
+            lastMessageSender: message.sender,
+            lastMessageAt: message.createdAt || new Date(),
+            unreadCount: isNotSender
+              ? { ...currentUnreadCount, [user._id]: (currentUnreadCount[user._id] || 0) + 1 }
+              : currentUnreadCount
+          };
+          
+          return updated;
+        }
+        return prev;
+      });
+      
+      // Also update separate groups state
+      setGroups(prev => {
+        const groupId = message.group?._id;
+        const existingIndex = prev.findIndex(g => g._id === groupId);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            lastMessage: message.content,
+            lastMessageSender: message.sender,
+            lastMessageAt: message.createdAt || new Date()
+          };
+          return updated;
+        }
+        return prev;
+      });
+      
+      if (selectedGroupId === message.group?._id) {
+        setMessages(prev => {
+          const exists = prev.some(m => m._id === message._id);
+          if (exists) return prev;
+          return [...prev, message];
+        });
+        // Mark as read if message is from another user
+        if (message.sender._id !== user._id && !message.isSystemMessage) {
+          groupService.markMessageAsRead(message._id);
+        }
+      }
+    };
+
+    const onGroupUpdated = (group) => {
+      console.log('📝 Group updated:', group);
+      fetchConversations();
+      if (selectedGroupId === group._id) {
+        setSelectedGroup(group);
+      }
+    };
+
+    const onGroupMessageReaction = (message) => {
+      console.log('👍 Group message reaction updated:', message);
+      if (selectedGroupId === message.group?._id) {
+        setMessages(prev =>
+          prev.map(m => m._id === message._id ? message : m)
+        );
+      }
+    };
+
+    const onGroupMessagePinned = (data) => {
+      console.log('📌 Group message pinned:', data);
+      if (selectedGroupId === data.groupId) {
+        setMessages(prev =>
+          prev.map(m => m._id === data.messageId ? { ...m, isPinned: data.isPinned } : m)
+        );
+      }
+    };
+
+    const onGroupMessageRead = ({ messageId, readBy }) => {
+      setMessages(prev => prev.map(msg => 
+        msg._id === messageId ? { ...msg, readBy: readBy || msg.readBy } : msg
+      ));
+    };
+
     socket.on('new-message', onNewMessage);
+    socket.on('new-group-message', onNewGroupMessage);
     socket.on('user-typing', onUserTyping);
     socket.on('user-stop-typing', onUserStopTyping);
     socket.on('message-read', onMessageRead);
+    socket.on('group-message-read', onGroupMessageRead);
     socket.on('conversation-read', onConversationRead);
     socket.on('message-reaction', onMessageReaction);
+    socket.on('group-message-reaction', onGroupMessageReaction);
     socket.on('message-pinned', onMessagePinned);
+    socket.on('group-message-pinned', onGroupMessagePinned);
     socket.on('conversation-updated', onConversationUpdated);
+    socket.on('group-updated', onGroupUpdated);
 
     return () => {
       socket.off('new-message', onNewMessage);
+      socket.off('new-group-message', onNewGroupMessage);
       socket.off('user-typing', onUserTyping);
       socket.off('user-stop-typing', onUserStopTyping);
       socket.off('message-read', onMessageRead);
+      socket.off('group-message-read', onGroupMessageRead);
       socket.off('conversation-read', onConversationRead);
       socket.off('message-reaction', onMessageReaction);
+      socket.off('group-message-reaction', onGroupMessageReaction);
       socket.off('message-pinned', onMessagePinned);
+      socket.off('group-message-pinned', onGroupMessagePinned);
       socket.off('conversation-updated', onConversationUpdated);
+      socket.off('group-updated', onGroupUpdated);
     };
-  }, [user, selectedUserId]);
+  }, [user, selectedUserId, selectedGroupId]);
 
   useEffect(() => {
     if (selectedUserId) {
@@ -389,13 +520,34 @@ const Messages = () => {
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching conversations...');
-      const response = await messageService.getConversations();
-      console.log('🔍 Conversations response:', response);
-      console.log('🔍 Conversations data:', response.data);
-      setConversations(response.data || []);
+      console.log('🔍 Fetching conversations and groups...');
+      
+      // Fetch both conversations and groups in parallel
+      const [conversationsRes, groupsRes] = await Promise.all([
+        messageService.getConversations(),
+        groupService.getUserGroups()
+      ]);
+      
+      console.log('🔍 Conversations:', conversationsRes.data);
+      console.log('🔍 Groups:', groupsRes.data);
+      
+      // Combine conversations and groups, then sort by last message time
+      const combined = [
+        ...(conversationsRes.data || []).map(conv => ({ ...conv, type: 'direct' })),
+        ...(groupsRes.data || []).map(group => ({ ...group, type: 'group' }))
+      ].sort((a, b) => {
+        const timeA = new Date(a.lastMessageAt || 0);
+        const timeB = new Date(b.lastMessageAt || 0);
+        return timeB - timeA;
+      });
+      
+      // Set the combined sorted list
+      setAllConversations(combined);
+      // Also keep separate for compatibility
+      setConversations(conversationsRes.data || []);
+      setGroups(groupsRes.data || []);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      console.error('Error fetching conversations/groups:', error);
     } finally {
       setLoading(false);
     }
@@ -429,11 +581,100 @@ const Messages = () => {
   };
 
   const handleSelectConversation = async (otherUser) => {
+    console.log('🔵 Selecting conversation, resetting unread count for:', otherUser.firstName);
     setSelectedUserId(otherUser._id);
     setSelectedUser(otherUser);
+    setSelectedGroupId(null);
+    setSelectedGroup(null);
     setMessages([]);
     setHasMore(true);
+    
+    // Reset unread count in allConversations immediately
+    updateAllConversations(prev => {
+      console.log('📝 Updating allConversations, current state:', prev);
+      return prev.map(conv => {
+        if (conv.type === 'direct' && conv.participants) {
+          const hasUser = conv.participants.some(p => p._id === otherUser._id);
+          if (hasUser) {
+            console.log('✅ Found conversation, resetting unread count. Old:', conv.unreadCount);
+            const currentUnreadCount = conv.unreadCount || {};
+            return {
+              ...conv,
+              unreadCount: { ...currentUnreadCount, [user._id]: 0 }
+            };
+          }
+        }
+        return conv;
+      });
+    });
+    
+    // Also reset in separate conversations state
+    setConversations(prev => {
+      return prev.map(conv => {
+        if (conv.participants) {
+          const hasUser = conv.participants.some(p => p._id === otherUser._id);
+          if (hasUser) {
+            const currentUnreadCount = conv.unreadCount || {};
+            return {
+              ...conv,
+              unreadCount: { ...currentUnreadCount, [user._id]: 0 }
+            };
+          }
+        }
+        return conv;
+      });
+    });
     // fetchMessages will be called by useEffect when selectedUserId changes
+  };
+
+  const handleSelectGroup = async (group) => {
+    setSelectedGroupId(group._id);
+    setSelectedGroup(group);
+    setSelectedUserId(null);
+    setSelectedUser(null);
+    setMessages([]);
+    setHasMore(true);
+    
+    // Reset unread count in allConversations immediately
+    updateAllConversations(prev => {
+      return prev.map(conv => {
+        if (conv.type === 'group' && conv._id === group._id) {
+          const currentUnreadCount = conv.unreadCount || {};
+          return {
+            ...conv,
+            unreadCount: { ...currentUnreadCount, [user._id]: 0 }
+          };
+        }
+        return conv;
+      });
+    });
+    
+    // Also reset in separate groups state
+    setGroups(prev => {
+      return prev.map(g => {
+        if (g._id === group._id) {
+          const currentUnreadCount = g.unreadCount || {};
+          return {
+            ...g,
+            unreadCount: { ...currentUnreadCount, [user._id]: 0 }
+          };
+        }
+        return g;
+      });
+    });
+    
+    try {
+      setLoadingMessages(true);
+      const response = await groupService.getGroupMessages(group._id);
+      setMessages(response.data || []);
+      
+      // Mark all messages as read
+      await groupService.markGroupMessagesAsRead(group._id);
+    } catch (error) {
+      console.error('Error fetching group messages:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
   };
 
   const getOtherUser = (conversation) => {
@@ -450,20 +691,44 @@ const Messages = () => {
     return conversation.unreadCount[user._id] || 0;
   };
 
+  // Helper function to update and re-sort allConversations
+  const updateAllConversations = (updateFn) => {
+    setAllConversations(prev => {
+      const updated = updateFn(prev);
+      // Re-sort by lastMessageAt
+      return updated.sort((a, b) => {
+        const timeA = new Date(a.lastMessageAt || 0);
+        const timeB = new Date(b.lastMessageAt || 0);
+        return timeB - timeA;
+      });
+    });
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if ((!newMessage.trim() && selectedFiles.length === 0) || sending || !selectedUserId) return;
+    if ((!newMessage.trim() && selectedFiles.length === 0) || sending || (!selectedUserId && !selectedGroupId)) return;
 
     try {
       setSending(true);
       console.log('📤 Sending message with files:', selectedFiles.length);
       
-      const response = await messageService.sendMessage(
-        selectedUserId, 
-        newMessage.trim() || '📎 Attachment', 
-        selectedFiles
-      );
+      let response;
+      if (selectedGroupId) {
+        // Send group message
+        response = await groupService.sendGroupMessage(
+          selectedGroupId,
+          newMessage.trim() || '📎 Attachment',
+          selectedFiles
+        );
+      } else {
+        // Send direct message
+        response = await messageService.sendMessage(
+          selectedUserId, 
+          newMessage.trim() || '📎 Attachment', 
+          selectedFiles
+        );
+      }
       
       console.log('✅ Message sent:', response);
       
@@ -476,33 +741,91 @@ const Messages = () => {
         });
         
         // Update conversation list
-        setConversations(prev => {
-          const conversationId = response.data.conversationId;
-          const existingIndex = prev.findIndex(conv => conv.conversationId === conversationId);
-          
-          if (existingIndex >= 0) {
-            const updated = [...prev];
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              lastMessage: response.data.content,
-              lastMessageAt: response.data.createdAt,
-            };
+        if (selectedUserId) {
+          // Direct message - update allConversations
+          updateAllConversations(prev => {
+            const conversationId = response.data.conversationId;
+            const existingIndex = prev.findIndex(conv => 
+              conv.type === 'direct' && conv.conversationId === conversationId
+            );
             
-            const [conversation] = updated.splice(existingIndex, 1);
-            return [conversation, ...updated];
-          } else {
-            // New conversation, fetch all conversations
-            fetchConversations();
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                lastMessage: response.data.content,
+                lastMessageSender: response.data.sender,
+                lastMessageAt: response.data.createdAt
+              };
+              return updated;
+            } else {
+              // New conversation, fetch all conversations
+              fetchConversations();
+              return prev;
+            }
+          });
+          
+          // Also update separate state
+          setConversations(prev => {
+            const conversationId = response.data.conversationId;
+            const existingIndex = prev.findIndex(conv => conv.conversationId === conversationId);
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                lastMessage: response.data.content,
+                lastMessageSender: response.data.sender,
+                lastMessageAt: response.data.createdAt
+              };
+              return updated;
+            }
             return prev;
-          }
-        });
+          });
+        } else if (selectedGroupId) {
+          // Group message - update allConversations
+          updateAllConversations(prev => {
+            const existingIndex = prev.findIndex(conv => 
+              conv.type === 'group' && conv._id === selectedGroupId
+            );
+            
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                lastMessage: response.data.content,
+                lastMessageSender: response.data.sender,
+                lastMessageAt: response.data.createdAt || new Date()
+              };
+              return updated;
+            }
+            return prev;
+          });
+          
+          // Also update separate state
+          setGroups(prev => {
+            const existingIndex = prev.findIndex(g => g._id === selectedGroupId);
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                lastMessage: response.data.content,
+                lastMessageSender: response.data.sender,
+                lastMessageAt: response.data.createdAt || new Date()
+              };
+              return updated;
+            }
+            return prev;
+          });
+        }
       }
       
       setNewMessage('');
       setSelectedFiles([]);
       
-      const socket = socketService.connect();
-      socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
+      if (selectedUserId) {
+        const socket = socketService.connect();
+        socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
+      }
     } catch (error) {
       console.error('❌ Error sending message:', error);
       alert('Failed to send message: ' + error.message);
@@ -545,7 +868,13 @@ const Messages = () => {
   // Emoji reaction handlers
   const handleAddReaction = async (messageId, emoji) => {
     try {
-      const response = await messageService.addReaction(messageId, emoji);
+      let response;
+      if (selectedGroupId) {
+        response = await groupService.addReaction(messageId, emoji);
+      } else {
+        response = await messageService.addReaction(messageId, emoji);
+      }
+      
       if (response.data) {
         setMessages(prev => prev.map(msg => 
           msg._id === messageId ? response.data : msg
@@ -559,7 +888,13 @@ const Messages = () => {
 
   const handleRemoveReaction = async (messageId) => {
     try {
-      const response = await messageService.removeReaction(messageId);
+      let response;
+      if (selectedGroupId) {
+        response = await groupService.removeReaction(messageId);
+      } else {
+        response = await messageService.removeReaction(messageId);
+      }
+      
       if (response.data) {
         setMessages(prev => prev.map(msg => 
           msg._id === messageId ? response.data : msg
@@ -573,7 +908,13 @@ const Messages = () => {
   // Pin message handler
   const handleTogglePin = async (messageId) => {
     try {
-      const response = await messageService.togglePinMessage(messageId);
+      let response;
+      if (selectedGroupId) {
+        response = await groupService.togglePinMessage(messageId);
+      } else {
+        response = await messageService.togglePinMessage(messageId);
+      }
+      
       if (response.data) {
         setMessages(prev => prev.map(msg => 
           msg._id === messageId ? response.data : msg
@@ -724,12 +1065,22 @@ const Messages = () => {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-            <button
-              onClick={() => setShowSearchModal(true)}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <PlusIcon className="w-5 h-5" />
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCreateGroupModal(true)}
+                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                title="Create Group"
+              >
+                <UserGroupIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                title="Start Chat"
+              >
+                <PlusIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -739,86 +1090,187 @@ const Messages = () => {
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-          ) : conversations.length === 0 ? (
+          ) : allConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
               <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mb-4" />
               <p className="text-gray-500">No conversations yet</p>
-              <button
-                onClick={() => setShowSearchModal(true)}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Start a conversation
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => setShowSearchModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Start a chat
+                </button>
+                <button
+                  onClick={() => setShowCreateGroupModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <UserGroupIcon className="w-5 h-5" />
+                  Create Group
+                </button>
+              </div>
             </div>
           ) : (
-            conversations.map((conversation) => {
-              const otherUser = getOtherUser(conversation);
-              const unreadCount = getUnreadCount(conversation);
-              
-              return (
-                <button
-                  key={conversation._id}
-                  onClick={() => handleSelectConversation(otherUser)}
-                  className={`w-full p-4 hover:bg-gray-50 border-b border-gray-100 flex items-start space-x-3 transition-colors ${
-                    selectedUserId === otherUser._id ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    {otherUser.avatar ? (
-                      <img
-                        src={otherUser.avatar}
-                        alt={`${otherUser.firstName} ${otherUser.lastName}`}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                        {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
+            <>
+              {/* Combined list - Groups and Direct Messages sorted by last message */}
+              {allConversations.map((item) => {
+                const isGroup = item.type === 'group';
+                
+                if (isGroup) {
+                  // Group item
+                  const group = item;
+                  
+                  // Get unread count for group
+                  const groupUnreadCount = group.unreadCount ? (group.unreadCount[user._id] || 0) : 0;
+                  
+                  // Format last message with sender name for groups
+                  const formatGroupLastMessage = () => {
+                    if (!group.lastMessage) return `${group.members?.length || 0} members`;
+                    
+                    if (group.lastMessageSender) {
+                      const isMe = group.lastMessageSender._id === user._id;
+                      const senderName = isMe ? 'Me' : group.lastMessageSender.firstName;
+                      return `${senderName}: ${group.lastMessage}`;
+                    }
+                    return group.lastMessage;
+                  };
+                  
+                  return (
+                    <button
+                      key={`group-${group._id}`}
+                      onClick={() => handleSelectGroup(group)}
+                      className={`w-full p-4 hover:bg-gray-50 border-b border-gray-100 flex items-start space-x-3 transition-colors ${
+                        selectedGroupId === group._id ? 'bg-green-50' : ''
+                      }`}
+                    >
+                      {/* Group Icon */}
+                      <div className="flex-shrink-0 relative">
+                        <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white">
+                          <UserGroupIcon className="w-6 h-6" />
+                        </div>
+                        {groupUnreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                            {groupUnreadCount > 9 ? '9+' : groupUnreadCount}
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className={`font-semibold ${unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
-                        {otherUser.firstName} {otherUser.lastName}
-                      </p>
-                      <span className="text-xs text-gray-500">
-                        {moment(conversation.lastMessageAt).fromNow()}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className={`text-sm truncate ${unreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
-                        {conversation.lastMessage || 'No messages yet'}
-                      </p>
-                      {unreadCount > 0 && (
-                        <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded-full">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className={`font-semibold ${groupUnreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                            {group.name}
+                          </p>
+                          <span className="text-xs text-gray-500">
+                            {group.lastMessageAt && moment(group.lastMessageAt).fromNow()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-sm truncate ${groupUnreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                            {formatGroupLastMessage()}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                } else {
+                  // Direct Message item
+                  const conversation = item;
+                  const otherUser = getOtherUser(conversation);
+                  const unreadCount = getUnreadCount(conversation);
+                  
+                  // Format last message with sender name
+                  const formatLastMessage = () => {
+                    if (!conversation.lastMessage) return 'No messages yet';
+                    
+                    if (conversation.lastMessageSender) {
+                      const isMe = conversation.lastMessageSender._id === user._id;
+                      const senderName = isMe ? 'Me' : conversation.lastMessageSender.firstName;
+                      return `${senderName}: ${conversation.lastMessage}`;
+                    }
+                    return conversation.lastMessage;
+                  };
+                  
+                  return (
+                    <button
+                      key={conversation._id}
+                      onClick={() => handleSelectConversation(otherUser)}
+                      className={`w-full p-4 hover:bg-gray-50 border-b border-gray-100 flex items-start space-x-3 transition-colors ${
+                        selectedUserId === otherUser._id ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      {/* Avatar */}
+                      <div className="flex-shrink-0 relative">
+                        {otherUser.avatar ? (
+                          <img
+                            src={otherUser.avatar}
+                            alt={`${otherUser.firstName} ${otherUser.lastName}`}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                            {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
+                          </div>
+                        )}
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className={`font-semibold ${unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                            {otherUser.firstName} {otherUser.lastName}
+                          </p>
+                          <span className="text-xs text-gray-500">
+                            {moment(conversation.lastMessageAt).fromNow()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-sm truncate ${unreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                            {formatLastMessage()}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+              })}
+            </>
           )}
         </div>
       </div>
 
       {/* Chat Room - Right Side */}
       <div className="flex-1 flex flex-col bg-gray-50 h-screen">
-        {!selectedUserId ? (
+        {!selectedUserId && !selectedGroupId ? (
           <div className="flex items-center justify-center h-full">
             {/* Empty when no conversation selected */}
           </div>
         ) : (
           <>
             {/* Chat Header - Fixed */}
-            <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4" style={{ backgroundColor: conversationSettings.themeColor + '10' }}>
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4" style={{ backgroundColor: (selectedGroup ? '#10b981' : conversationSettings.themeColor) + '10' }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  {selectedUser && (
+                  {selectedGroup ? (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white">
+                        <UserGroupIcon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          {selectedGroup.name}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          {selectedGroup.members?.length || 0} members
+                        </p>
+                      </div>
+                    </>
+                  ) : selectedUser && (
                     <>
                       {selectedUser.avatar ? (
                         <img
@@ -863,13 +1315,15 @@ const Messages = () => {
                   >
                     <MagnifyingGlassIcon className="w-5 h-5 text-gray-600" />
                   </button>
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    title="Settings"
-                  >
-                    <Cog6ToothIcon className="w-5 h-5 text-gray-600" />
-                  </button>
+                  {!selectedGroup && (
+                    <button
+                      onClick={() => setShowSettings(true)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      title="Settings"
+                    >
+                      <Cog6ToothIcon className="w-5 h-5 text-gray-600" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -945,7 +1399,11 @@ const Messages = () => {
                   // Regular messages
                   const isOwn = message.sender._id === user._id;
                   const showAvatar = index === 0 || messages[index - 1].sender._id !== message.sender._id;
-                  const userReaction = message.reactions?.find(r => r.user._id === user._id);
+                  const showSenderName = !isOwn; // Show sender name for all messages from others
+                  const userReaction = message.reactions?.find(r => {
+                    const reactionUserId = typeof r.user === 'object' ? r.user._id : r.user;
+                    return reactionUserId === user._id;
+                  });
                   
                   return (
                     <div
@@ -964,11 +1422,11 @@ const Messages = () => {
                               </div>
                             )
                           ) : (
-                            selectedUser?.avatar ? (
-                              <img src={selectedUser.avatar} alt={selectedUser.firstName} className="w-8 h-8 rounded-full object-cover" />
+                            message.sender.avatar ? (
+                              <img src={message.sender.avatar} alt={message.sender.firstName} className="w-8 h-8 rounded-full object-cover" />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs font-semibold">
-                                {selectedUser?.firstName?.[0]}{selectedUser?.lastName?.[0]}
+                                {message.sender.firstName?.[0]}{message.sender.lastName?.[0]}
                               </div>
                             )
                           )
@@ -1013,6 +1471,11 @@ const Messages = () => {
                             }`}
                             style={isOwn ? { backgroundColor: conversationSettings.themeColor || '#3B82F6' } : {}}
                           >
+                            {/* Sender name - show for all messages */}
+                            <p className={`text-xs font-semibold mb-1 ${isOwn ? 'text-white/90' : 'text-gray-600'}`}>
+                              {isOwn ? 'Me' : `${message.sender.firstName} ${message.sender.lastName}`}
+                            </p>
+                            
                             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                             
                             {/* Attachments */}
@@ -1147,10 +1610,49 @@ const Messages = () => {
                           )}
                         </div>
 
-                        <p className={`text-xs text-gray-500 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
-                          {formatTime(message.createdAt)}
-                          {isOwn && message.readAt && ' · Read'}
-                        </p>
+                        {/* Timestamp and Read Receipts */}
+                        <div className={`mt-1 flex items-center space-x-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                          <p className="text-xs text-gray-500">
+                            {formatTime(message.createdAt)}
+                          </p>
+                          
+                          {/* Read receipts with avatars */}
+                          {isOwn && message.readBy && message.readBy.length > 0 && (
+                            <div className="flex items-center -space-x-1">
+                              {message.readBy.slice(0, 3).map((read, idx) => (
+                                <div
+                                  key={read.user?._id || idx}
+                                  className="relative"
+                                  title={`Read by ${read.user?.firstName || 'Unknown'} ${read.user?.lastName || ''}`}
+                                >
+                                  {read.user?.avatar ? (
+                                    <img
+                                      src={read.user.avatar}
+                                      alt={read.user.firstName}
+                                      className="w-4 h-4 rounded-full border border-white"
+                                    />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full bg-blue-500 border border-white flex items-center justify-center text-[8px] text-white font-semibold">
+                                      {read.user?.firstName?.[0]}{read.user?.lastName?.[0]}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {message.readBy.length > 3 && (
+                                <div className="w-4 h-4 rounded-full bg-gray-300 border border-white flex items-center justify-center text-[8px] text-gray-600 font-semibold">
+                                  +{message.readBy.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Sent indicator */}
+                          {isOwn && (!message.readBy || message.readBy.length === 0) && (
+                            <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -1168,7 +1670,9 @@ const Messages = () => {
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
-                  <span>{selectedUser?.firstName} is typing...</span>
+                  <span>
+                    {selectedGroup ? 'Someone' : selectedUser?.firstName} is typing...
+                  </span>
                 </div>
               </div>
             )}
@@ -1456,7 +1960,7 @@ const Messages = () => {
       )}
 
       {/* Pinned Messages Modal */}
-      {showPinnedMessages && selectedUser && (
+      {showPinnedMessages && (selectedUser || selectedGroup) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-end z-50">
           <div className="bg-white h-full w-full max-w-md shadow-2xl flex flex-col">
             {/* Modal Header */}
@@ -1512,18 +2016,18 @@ const Messages = () => {
                                 </div>
                               )
                             ) : (
-                              selectedUser?.avatar ? (
-                                <img src={selectedUser.avatar} alt={selectedUser.firstName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                              message.sender?.avatar ? (
+                                <img src={message.sender.avatar} alt={message.sender.firstName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                               ) : (
                                 <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                                  {selectedUser?.firstName?.[0]}{selectedUser?.lastName?.[0]}
+                                  {message.sender?.firstName?.[0]}{message.sender?.lastName?.[0]}
                                 </div>
                               )
                             )}
                             <div className="flex-1 min-w-0 pr-6">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-semibold text-gray-900">
-                                  {isOwn ? 'You' : `${selectedUser.firstName} ${selectedUser.lastName}`}
+                                  {isOwn ? 'You' : `${message.sender.firstName} ${message.sender.lastName}`}
                                 </span>
                                 <span className="text-xs text-gray-500">
                                   {formatTime(message.createdAt)}
@@ -1636,6 +2140,160 @@ const Messages = () => {
                     </button>
                   ))
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateGroupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Create Group</h3>
+                <button
+                  onClick={() => {
+                    setShowCreateGroupModal(false);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Group Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Group Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter group name..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    id="groupName"
+                  />
+                </div>
+
+                {/* Group Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    placeholder="What's this group about?"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    rows="3"
+                    id="groupDescription"
+                  />
+                </div>
+
+                {/* Search Members */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Add Members
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Selected Members */}
+                <div className="flex flex-wrap gap-2" id="selectedMembers">
+                  {/* Will be populated by selected users */}
+                </div>
+
+                {/* Search Results */}
+                {searchQuery.length >= 2 && (
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                    {searching ? (
+                      <div className="p-4 text-center text-gray-500">Searching...</div>
+                    ) : searchResults.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">No users found</div>
+                    ) : (
+                      searchResults.map(searchUser => (
+                        <button
+                          key={searchUser._id}
+                          onClick={() => {
+                            const selected = document.getElementById('selectedMembers');
+                            const existing = document.getElementById(`member-${searchUser._id}`);
+                            if (!existing) {
+                              const badge = document.createElement('div');
+                              badge.id = `member-${searchUser._id}`;
+                              badge.className = 'flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm';
+                              badge.innerHTML = `
+                                <span>${searchUser.firstName} ${searchUser.lastName}</span>
+                                <button onclick="this.parentElement.remove()" class="hover:text-green-900">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                  </svg>
+                                </button>
+                              `;
+                              badge.dataset.userId = searchUser._id;
+                              selected.appendChild(badge);
+                            }
+                          }}
+                          className="w-full p-3 hover:bg-gray-50 flex items-center space-x-3 border-b border-gray-100 transition-colors"
+                        >
+                          {searchUser.avatar ? (
+                            <img
+                              src={searchUser.avatar}
+                              alt={searchUser.firstName}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
+                              {searchUser.firstName?.[0]}{searchUser.lastName?.[0]}
+                            </div>
+                          )}
+                          <div className="flex-1 text-left">
+                            <p className="font-semibold text-gray-900">
+                              {searchUser.firstName} {searchUser.lastName}
+                            </p>
+                            <p className="text-sm text-gray-500">{searchUser.email}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Create Button */}
+                <button
+                  onClick={async () => {
+                    const name = document.getElementById('groupName').value;
+                    const description = document.getElementById('groupDescription').value;
+                    const memberElements = document.getElementById('selectedMembers').children;
+                    const memberIds = Array.from(memberElements).map(el => el.dataset.userId);
+
+                    if (!name || memberIds.length === 0) {
+                      alert('Please enter group name and add at least one member');
+                      return;
+                    }
+
+                    try {
+                      await groupService.createGroup(name, description, memberIds);
+                      setShowCreateGroupModal(false);
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      fetchConversations();
+                    } catch (error) {
+                      console.error('Error creating group:', error);
+                      alert('Failed to create group');
+                    }
+                  }}
+                  className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  Create Group
+                </button>
               </div>
             </div>
           </div>
