@@ -24,6 +24,9 @@ import {
   MagnifyingGlassPlusIcon,
   BookmarkIcon,
   DocumentTextIcon,
+  PhotoIcon,
+  PaperClipIcon,
+  GifIcon,
 } from '@heroicons/react/24/outline';
 import { BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid';
 import moment from 'moment';
@@ -58,6 +61,10 @@ const Messages = () => {
 
   // New feature states
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // messageId or null
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearchQuery, setGifSearchQuery] = useState('');
+  const [gifs, setGifs] = useState([]);
+  const [loadingGifs, setLoadingGifs] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
@@ -70,6 +77,79 @@ const Messages = () => {
   });
 
   const emojiList = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎', '🎉', '🔥', '💯'];
+
+  // Giphy API key (you can get free key from https://developers.giphy.com/)
+  const GIPHY_API_KEY = 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65'; // This is a public demo key
+
+  // Fetch trending GIFs on mount
+  useEffect(() => {
+    if (showGifPicker && gifs.length === 0) {
+      fetchTrendingGifs();
+    }
+  }, [showGifPicker]);
+
+  const fetchTrendingGifs = async () => {
+    setLoadingGifs(true);
+    try {
+      const response = await fetch(
+        `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=g`
+      );
+      const data = await response.json();
+      setGifs(data.data || []);
+    } catch (error) {
+      console.error('Error fetching GIFs:', error);
+    } finally {
+      setLoadingGifs(false);
+    }
+  };
+
+  const searchGifs = async (query) => {
+    if (!query.trim()) {
+      fetchTrendingGifs();
+      return;
+    }
+    setLoadingGifs(true);
+    try {
+      const response = await fetch(
+        `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=g`
+      );
+      const data = await response.json();
+      setGifs(data.data || []);
+    } catch (error) {
+      console.error('Error searching GIFs:', error);
+    } finally {
+      setLoadingGifs(false);
+    }
+  };
+
+  const handleSendGif = async (gifUrl) => {
+    try {
+      setSending(true);
+      let response;
+      
+      // Send GIF URL as message content with special marker
+      const gifMessage = `[GIF]${gifUrl}`;
+      
+      if (selectedGroupId) {
+        response = await groupService.sendGroupMessage(selectedGroupId, gifMessage, []);
+      } else {
+        response = await messageService.sendMessage(selectedUserId, gifMessage, []);
+      }
+
+      if (response.data) {
+        setMessages(prev => [...prev, response.data]);
+        scrollToBottom();
+      }
+      
+      setShowGifPicker(false);
+      setGifSearchQuery('');
+    } catch (error) {
+      console.error('Error sending GIF:', error);
+      alert('Failed to send GIF: ' + error.message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   const handleFileSelect = (e) => {
     try {
@@ -452,16 +532,19 @@ const Messages = () => {
       if (showEmojiPicker && !e.target.closest('.emoji-picker-container')) {
         setShowEmojiPicker(null);
       }
+      if (showGifPicker && !e.target.closest('.gif-picker-container') && !e.target.closest('button[title="Send GIF"]')) {
+        setShowGifPicker(false);
+      }
     };
 
-    if (showEmojiPicker) {
+    if (showEmojiPicker || showGifPicker) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showEmojiPicker]);
+  }, [showEmojiPicker, showGifPicker]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -493,6 +576,8 @@ const Messages = () => {
       } else {
         setMessages(newMessages);
         setHasMore(newMessages.length === limit);
+        // Scroll to bottom when loading new conversation
+        setTimeout(() => scrollToBottom(), 100);
       }
       
       if (newMessages.length > 0) {
@@ -624,6 +709,13 @@ const Messages = () => {
         return conv;
       });
     });
+    
+    // Mark conversation as read immediately
+    try {
+      await messageService.markConversationAsRead(otherUser._id);
+    } catch (error) {
+      console.error('Error marking conversation as read:', error);
+    }
     // fetchMessages will be called by useEffect when selectedUserId changes
   };
 
@@ -670,6 +762,9 @@ const Messages = () => {
       
       // Mark all messages as read
       await groupService.markGroupMessagesAsRead(group._id);
+      
+      // Scroll to bottom after loading messages
+      setTimeout(() => scrollToBottom(), 100);
     } catch (error) {
       console.error('Error fetching group messages:', error);
     } finally {
@@ -936,16 +1031,38 @@ const Messages = () => {
   };
 
   // Message search handler
-  const handleSearchMessages = async () => {
-    if (!messageSearchQuery.trim() || messageSearchQuery.length < 2) return;
+  const handleSearchMessages = async (query = messageSearchQuery) => {
+    if (!query.trim() || query.length < 2) {
+      setSearchedMessages([]);
+      return;
+    }
     
     try {
-      const response = await messageService.searchMessages(selectedUserId, messageSearchQuery);
-      setSearchedMessages(response.data || []);
+      let response;
+      if (selectedGroupId) {
+        // For group, use backend API
+        response = await groupService.searchGroupMessages(selectedGroupId, query);
+        setSearchedMessages(response.data || []);
+      } else {
+        response = await messageService.searchMessages(selectedUserId, query);
+        setSearchedMessages(response.data || []);
+      }
     } catch (error) {
       console.error('Error searching messages:', error);
     }
   };
+  
+  // Auto search when query changes
+  useEffect(() => {
+    if (messageSearchQuery.trim().length >= 2) {
+      const timeoutId = setTimeout(() => {
+        handleSearchMessages(messageSearchQuery);
+      }, 300); // Debounce 300ms
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSearchedMessages([]);
+    }
+  }, [messageSearchQuery, messages, selectedUserId, selectedGroupId]);
 
   const handleJumpToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
@@ -1158,7 +1275,7 @@ const Messages = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center justify-between mb-1">
-                          <p className={`font-semibold ${groupUnreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                          <p className={`${groupUnreadCount > 0 ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}`}>
                             {group.name}
                           </p>
                           <span className="text-xs text-gray-500">
@@ -1222,7 +1339,7 @@ const Messages = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center justify-between mb-1">
-                          <p className={`font-semibold ${unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                          <p className={`${unreadCount > 0 ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}`}>
                             {otherUser.firstName} {otherUser.lastName}
                           </p>
                           <span className="text-xs text-gray-500">
@@ -1476,7 +1593,19 @@ const Messages = () => {
                               {isOwn ? 'Me' : `${message.sender.firstName} ${message.sender.lastName}`}
                             </p>
                             
-                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            {/* Check if message is a GIF */}
+                            {message.content?.startsWith('[GIF]') ? (
+                              <div className="mt-1">
+                                <img 
+                                  src={message.content.replace('[GIF]', '')} 
+                                  alt="GIF"
+                                  className="max-w-xs rounded-lg"
+                                  style={{ maxHeight: '200px' }}
+                                />
+                              </div>
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            )}
                             
                             {/* Attachments */}
                             {message.attachments && message.attachments.length > 0 && (
@@ -1679,6 +1808,75 @@ const Messages = () => {
 
             {/* Input Form - Fixed */}
             <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+              {/* GIF Picker */}
+              {showGifPicker && (
+                <div className="gif-picker-container mb-3 p-4 bg-white rounded-lg border-2 border-purple-200 shadow-lg max-h-96 overflow-hidden flex flex-col">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <GifIcon className="w-5 h-5 text-purple-600" />
+                      Send GIF
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowGifPicker(false);
+                        setGifSearchQuery('');
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  {/* Search Input */}
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Search GIFs..."
+                      value={gifSearchQuery}
+                      onChange={(e) => {
+                        setGifSearchQuery(e.target.value);
+                        searchGifs(e.target.value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+
+                  {/* GIFs Grid */}
+                  <div className="flex-1 overflow-y-auto">
+                    {loadingGifs ? (
+                      <div className="flex items-center justify-center h-40">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {gifs.map((gif) => (
+                          <button
+                            key={gif.id}
+                            type="button"
+                            onClick={() => handleSendGif(gif.images.fixed_height.url)}
+                            className="relative rounded-lg overflow-hidden hover:ring-2 hover:ring-purple-500 transition-all group"
+                          >
+                            <img
+                              src={gif.images.fixed_height_small.url}
+                              alt={gif.title}
+                              className="w-full h-32 object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all"></div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {!loadingGifs && gifs.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <GifIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm">No GIFs found</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* File Preview */}
               {selectedFiles.length > 0 && (
                 <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -1717,6 +1915,21 @@ const Messages = () => {
               )}
               
               <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+                {/* Image Upload Button */}
+                <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Send images">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*"
+                    disabled={sending || selectedFiles.length >= 5}
+                  />
+                  <PhotoIcon className={`w-5 h-5 ${
+                    selectedFiles.length >= 5 ? 'text-gray-300' : 'text-green-600'
+                  }`} />
+                </label>
+
                 {/* File Upload Button */}
                 <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Attach files">
                   <input
@@ -1724,13 +1937,23 @@ const Messages = () => {
                     multiple
                     onChange={handleFileSelect}
                     className="hidden"
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
                     disabled={sending || selectedFiles.length >= 5}
                   />
-                  <PlusIcon className={`w-5 h-5 ${
-                    selectedFiles.length >= 5 ? 'text-gray-300' : 'text-gray-600'
+                  <PaperClipIcon className={`w-5 h-5 ${
+                    selectedFiles.length >= 5 ? 'text-gray-300' : 'text-blue-600'
                   }`} />
                 </label>
+
+                {/* GIF Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowGifPicker(!showGifPicker)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Send GIF"
+                >
+                  <GifIcon className="w-5 h-5 text-purple-600" />
+                </button>
                 
                 <input
                   type="text"
@@ -1875,27 +2098,18 @@ const Messages = () => {
 
             {/* Search Input */}
             <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search in conversation..."
-                    value={messageSearchQuery}
-                    onChange={(e) => setMessageSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    autoFocus
-                  />
-                </div>
-                <button
-                  onClick={handleSearchMessages}
-                  disabled={messageSearchQuery.trim().length < 2}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Search
-                </button>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search in conversation..."
+                  value={messageSearchQuery}
+                  onChange={(e) => setMessageSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus
+                />
               </div>
-              <p className="text-xs text-gray-500 mt-2">Enter at least 2 characters to search</p>
+              <p className="text-xs text-gray-500 mt-2">Type to search in real-time</p>
             </div>
 
             {/* Search Results */}

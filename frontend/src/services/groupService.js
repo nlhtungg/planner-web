@@ -74,6 +74,13 @@ const groupService = {
   async markGroupMessagesAsRead(groupId) {
     const response = await api.patch(`/groups/${groupId}/read`);
     return response.data;
+  },
+
+  async searchGroupMessages(groupId, query) {
+    const response = await api.get(`/groups/${groupId}/messages/search`, {
+      params: { q: query }
+    });
+    return response.data;
   }
 };
 
