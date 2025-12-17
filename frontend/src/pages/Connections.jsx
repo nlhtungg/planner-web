@@ -7,6 +7,7 @@ import messageService from '../services/messageService';
 import socketService from '../services/socketService';
 import ToastContainer from '../components/ToastContainer';
 import useToast from '../utils/useToast';
+import UserProfileModal from '../components/UserProfileModal';
 import {
   MagnifyingGlassIcon,
   UserGroupIcon,
@@ -29,7 +30,7 @@ const Connections = () => {
   const { pendingRequestsCount: globalPendingCount, refreshCount } = useConnection();
   const navigate = useNavigate();
   const { toasts, removeToast, showSuccess, showError } = useToast();
-  const [activeTab, setActiveTab] = useState('friends'); // friends, requests, sent, suggestions, blocked
+  const [activeTab, setActiveTab] = useState('myFriends'); // myFriends, findFriends, requests, sent, blocked
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -42,11 +43,11 @@ const Connections = () => {
   const [searchResults, setSearchResults] = useState([]);
   
   // UI states
-  const [showSearchModal, setShowSearchModal] = useState(false);
   const [searching, setSearching] = useState(false);
   const [actionLoading, setActionLoading] = useState({});
   const [dropdownOpen, setDropdownOpen] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null, type: 'danger' });
+  const [profileModal, setProfileModal] = useState({ show: false, userId: null });
 
   useEffect(() => {
     fetchAllData();
@@ -56,42 +57,127 @@ const Connections = () => {
   useEffect(() => {
     const socket = socketService.connect();
 
+    socket.on('friend-request-sent', (data) => {
+      console.log('Friend request sent event:', data);
+      // Add to sent requests immediately (for sender)
+      if (data.request) {
+        setSentRequests(prev => {
+          const exists = prev.find(req => req._id === data.request._id);
+          if (!exists) {
+            return [data.request, ...prev];
+          }
+          return prev;
+        });
+      }
+    });
+
     socket.on('friend-request-received', (data) => {
       console.log('Friend request received:', data);
-      fetchAllData();
+      // Add new request to pending requests immediately
+      setPendingRequests(prev => {
+        const exists = prev.find(req => req._id === data.request._id);
+        if (!exists) {
+          return [data.request, ...prev];
+        }
+        return prev;
+      });
+      refreshCount();
     });
 
     socket.on('friend-request-accepted', (data) => {
-      console.log('Friend request accepted:', data);
-      fetchAllData();
+      console.log('Friend request accepted event:', data);
+      // If I sent the request, move from sent to friends
+      // If I received the request, move from pending to friends
+      const friend = data.friend;
+      
+      if (friend && friend._id) {
+        console.log('Adding friend to list:', friend);
+        
+        // Add to friends list immediately
+        setFriends(prev => {
+          const exists = prev.find(f => f._id === friend._id);
+          if (!exists) {
+            console.log('Friend added to list');
+            return [friend, ...prev];
+          }
+          console.log('Friend already in list');
+          return prev;
+        });
+        
+        // Remove from sent requests
+        setSentRequests(prev => prev.filter(req => req.recipient?._id !== friend._id));
+        
+        // Remove from pending requests
+        setPendingRequests(prev => {
+          const filtered = prev.filter(req => req.requester?._id !== friend._id);
+          console.log('Pending requests after filter:', filtered.length);
+          return filtered;
+        });
+        
+        // Remove from suggestions
+        setSuggestions(prev => prev.filter(s => s._id !== friend._id));
+      }
+      
+      refreshCount();
     });
 
     socket.on('friend-request-rejected', (data) => {
       console.log('Friend request rejected:', data);
-      fetchAllData();
+      // Remove from pending or sent requests
+      setPendingRequests(prev => prev.filter(req => req._id !== data.requestId));
+      setSentRequests(prev => prev.filter(req => req._id !== data.requestId));
+      refreshCount();
     });
 
     socket.on('friend-request-cancelled', (data) => {
       console.log('Friend request cancelled:', data);
-      fetchAllData();
+      // Remove from pending requests
+      setPendingRequests(prev => prev.filter(req => req._id !== data.requestId));
+      refreshCount();
     });
 
     socket.on('friend-removed', (data) => {
       console.log('Friend removed:', data);
-      fetchAllData();
+      const removedUserId = data.removedUser?._id || data.userId;
+      if (removedUserId) {
+        // Remove from friends list immediately
+        setFriends(prev => prev.filter(f => f._id !== removedUserId));
+      }
     });
 
     socket.on('user-blocked', (data) => {
       console.log('User blocked:', data);
-      fetchAllData();
+      const blockedUserId = data.blockedUser?._id || data.userId;
+      if (blockedUserId) {
+        // Remove from all lists and add to blocked
+        setFriends(prev => prev.filter(f => f._id !== blockedUserId));
+        setPendingRequests(prev => prev.filter(req => req.requester._id !== blockedUserId));
+        setSentRequests(prev => prev.filter(req => req.recipient._id !== blockedUserId));
+        setSuggestions(prev => prev.filter(s => s._id !== blockedUserId));
+        
+        if (data.blockedUser) {
+          setBlockedUsers(prev => {
+            const exists = prev.find(b => b._id === blockedUserId);
+            if (!exists) {
+              return [data.blockedUser, ...prev];
+            }
+            return prev;
+          });
+        }
+      }
     });
 
     socket.on('user-unblocked', (data) => {
       console.log('User unblocked:', data);
-      fetchAllData();
+      const unblockedUserId = data.unblockedUser?._id || data.userId;
+      if (unblockedUserId) {
+        // Remove from blocked list
+        setBlockedUsers(prev => prev.filter(b => b._id !== unblockedUserId));
+      }
     });
 
     return () => {
+      socket.off('friend-request-sent');
       socket.off('friend-request-received');
       socket.off('friend-request-accepted');
       socket.off('friend-request-rejected');
@@ -125,19 +211,32 @@ const Connections = () => {
     }
   };
 
-  const handleSearch = async (query) => {
-    setSearchQuery(query);
-    if (query.trim().length < 2) {
+  // Auto search when query changes (with debounce)
+  useEffect(() => {
+    const delaySearch = setTimeout(() => {
+      if (searchQuery.trim().length >= 2) {
+        handleSearch();
+      } else if (searchQuery.trim().length === 0) {
+        setSearchResults([]);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(delaySearch);
+  }, [searchQuery]);
+
+  const handleSearch = async () => {
+    if (searchQuery.trim().length < 2) {
       setSearchResults([]);
       return;
     }
 
     try {
       setSearching(true);
-      const response = await messageService.searchUsers(query);
+      const response = await messageService.searchUsers(searchQuery);
       setSearchResults(response.data || []);
     } catch (error) {
       console.error('Error searching users:', error);
+      showError('Failed to search users');
     } finally {
       setSearching(false);
     }
@@ -150,35 +249,84 @@ const Connections = () => {
         case 'accept':
           await connectionService.acceptRequest(id);
           showSuccess('Friend request accepted!');
+          
+          // Update state immediately
+          const acceptedRequest = pendingRequests.find(req => req._id === id);
+          if (acceptedRequest) {
+            // Add to friends
+            setFriends(prev => [acceptedRequest.requester, ...prev]);
+            // Remove from pending requests
+            setPendingRequests(prev => prev.filter(req => req._id !== id));
+            // Remove from suggestions
+            setSuggestions(prev => prev.filter(s => s._id === acceptedRequest.requester._id));
+          }
+          
           refreshCount();
           break;
         case 'reject':
           await connectionService.rejectRequest(id);
           showSuccess('Friend request rejected');
+          
+          // Remove from pending requests immediately
+          setPendingRequests(prev => prev.filter(req => req._id !== id));
+          
           refreshCount();
           break;
         case 'cancel':
           await connectionService.cancelRequest(id);
           showSuccess('Friend request cancelled');
+          
+          // Remove from sent requests immediately
+          setSentRequests(prev => prev.filter(req => req._id === id));
           break;
         case 'unfriend':
           await connectionService.unfriend(id);
           showSuccess('Friend removed');
+          
+          // Remove from friends list immediately
+          setFriends(prev => prev.filter(f => f._id === id));
           break;
         case 'block':
           await connectionService.blockUser(id);
           showSuccess('User blocked');
+          
+          // Remove from all lists and add to blocked immediately
+          const blockedUser = friends.find(f => f._id === id) || 
+                             suggestions.find(s => s._id === id) ||
+                             pendingRequests.find(req => req.requester._id === id)?.requester ||
+                             sentRequests.find(req => req.recipient._id === id)?.recipient;
+          
+          if (blockedUser) {
+            setBlockedUsers(prev => [blockedUser, ...prev]);
+          }
+          setFriends(prev => prev.filter(f => f._id !== id));
+          setPendingRequests(prev => prev.filter(req => req.requester._id !== id));
+          setSentRequests(prev => prev.filter(req => req.recipient._id !== id));
+          setSuggestions(prev => prev.filter(s => s._id !== id));
           break;
         case 'unblock':
           await connectionService.unblockUser(id);
           showSuccess('User unblocked');
+          
+          // Remove from blocked list immediately
+          setBlockedUsers(prev => prev.filter(b => b._id !== id));
           break;
         case 'send':
           await connectionService.sendRequest(id);
           showSuccess('Friend request sent!');
+          
+          // Add to sent requests and remove from suggestions immediately
+          const targetUser = suggestions.find(s => s._id === id) || searchResults.find(u => u._id === id);
+          if (targetUser) {
+            setSentRequests(prev => [{
+              _id: Date.now().toString(), // temporary ID
+              recipient: targetUser,
+              createdAt: new Date().toISOString()
+            }, ...prev]);
+            setSuggestions(prev => prev.filter(s => s._id !== id));
+          }
           break;
       }
-      fetchAllData();
     } catch (error) {
       console.error(`Error performing ${action}:`, error);
       // Don't show notification for "already sent" errors
@@ -187,6 +335,9 @@ const Connections = () => {
           !errorMessage.toLowerCase().includes('already exists')) {
         showError(errorMessage);
       }
+      
+      // Rollback on error - fetch fresh data
+      fetchAllData();
     } finally {
       setActionLoading({ ...actionLoading, [id]: false });
     }
@@ -362,14 +513,24 @@ const Connections = () => {
               <div className="border-b border-gray-200">
                 <nav className="flex -mb-px">
                 <button
-                  onClick={() => setActiveTab('friends')}
+                  onClick={() => setActiveTab('myFriends')}
                   className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'friends'
+                    activeTab === 'myFriends'
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
                 >
                   Friends ({friends.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('findFriends')}
+                  className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'findFriends'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                >
+                  Find Friends
                 </button>
                 <button
                   onClick={() => setActiveTab('requests')}
@@ -397,16 +558,6 @@ const Connections = () => {
                   Sent ({sentRequests.length})
                 </button>
                 <button
-                  onClick={() => setActiveTab('suggestions')}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'suggestions'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                  }`}
-                >
-                  Suggestions ({suggestions.length})
-                </button>
-                <button
                   onClick={() => setActiveTab('blocked')}
                   className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'blocked'
@@ -428,14 +579,14 @@ const Connections = () => {
                 </div>
             ) : (
               <>
-                {/* Friends Tab */}
-                {activeTab === 'friends' && (
+                {/* My Friends Tab */}
+                {activeTab === 'myFriends' && (
                   friends.length === 0 ? (
                     <div className="text-center py-12">
                       <UserGroupIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                       <p className="text-gray-500">No friends yet</p>
                       <button
-                        onClick={() => setShowSearchModal(true)}
+                        onClick={() => setActiveTab('findFriends')}
                         className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                       >
                         Find Friends
@@ -486,7 +637,7 @@ const Connections = () => {
                                     </button>
                                     <button
                                       onClick={() => {
-                                        navigate(`/profile/${friend._id}`);
+                                        setProfileModal({ show: true, userId: friend._id });
                                         setDropdownOpen(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -563,6 +714,12 @@ const Connections = () => {
                           </div>
                           <div className="flex gap-2">
                             <button
+                              onClick={() => setProfileModal({ show: true, userId: request.requester._id })}
+                              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                            >
+                              View Profile
+                            </button>
+                            <button
                               onClick={() => handleAction('accept', request._id)}
                               disabled={actionLoading[request._id]}
                               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1"
@@ -624,98 +781,188 @@ const Connections = () => {
                   )
                 )}
 
-                {/* Suggestions Tab */}
-                {activeTab === 'suggestions' && (
-                  suggestions.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-gray-500">No suggestions available</p>
+                {/* Find Friends Tab */}
+                {activeTab === 'findFriends' && (
+                  <div>
+                    {/* Search Bar */}
+                    <div className="mb-6">
+                      <div className="relative">
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search for friends by name, email, or username..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => {
+                              setSearchQuery('');
+                              setSearchResults([]);
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <XMarkIcon className="w-5 h-5" />
+                          </button>
+                        )}
+                        {searching && (
+                          <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {suggestions.map((suggestion) => (
-                        <div key={suggestion._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
-                          <div className="flex items-start gap-3">
-                            {suggestion.avatar ? (
-                              <img src={suggestion.avatar} alt={suggestion.firstName} className="w-12 h-12 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                                {suggestion.firstName?.[0]}{suggestion.lastName?.[0]}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-gray-900 truncate">
-                                {suggestion.firstName} {suggestion.lastName}
-                              </h3>
-                              <p className="text-sm text-gray-500 truncate">{suggestion.email}</p>
-                              {suggestion.mutualFriends > 0 && (
-                                <p className="text-xs text-blue-600 mt-1">
-                                  {suggestion.mutualFriends} mutual friend{suggestion.mutualFriends > 1 ? 's' : ''}
-                                </p>
-                              )}
-                            </div>
-                            {/* Dropdown Menu */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setDropdownOpen(dropdownOpen === suggestion._id ? null : suggestion._id)}
-                                className="p-1 hover:bg-gray-100 rounded-lg"
-                              >
-                                <EllipsisVerticalIcon className="w-5 h-5 text-gray-500" />
-                              </button>
-                              {dropdownOpen === suggestion._id && (
-                                <>
-                                  <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(null)}></div>
-                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                                    <button
-                                      onClick={() => {
-                                        navigate(`/profile/${suggestion._id}`);
-                                        setDropdownOpen(null);
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                    >
-                                      <UserGroupIcon className="w-4 h-4" />
-                                      View Profile
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setDropdownOpen(null);
-                                        showConfirmModal(
-                                          'Block User',
-                                          `Are you sure you want to block ${suggestion.firstName} ${suggestion.lastName}? They won't be able to contact you or see your profile.`,
-                                          () => handleAction('block', suggestion._id),
-                                          'danger'
-                                        );
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                    >
-                                      <NoSymbolIcon className="w-4 h-4" />
-                                      Block User
-                                    </button>
+
+                    {/* Search Results */}
+                    {searchResults.length > 0 && (
+                      <div className="mb-8">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Search Results</h3>
+                        <div className="space-y-3">
+                          {searchResults.map((searchUser) => (
+                            <div key={searchUser._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                {searchUser.avatar ? (
+                                  <img src={searchUser.avatar} alt={searchUser.username} className="w-12 h-12 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                                    {searchUser.firstName?.[0]}{searchUser.lastName?.[0]}
                                   </div>
-                                </>
-                              )}
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-gray-900 truncate">
+                                    {searchUser.firstName} {searchUser.lastName}
+                                  </p>
+                                  <p className="text-sm text-gray-500 truncate">{searchUser.email}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setProfileModal({ show: true, userId: searchUser._id })}
+                                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    showConfirmModal(
+                                      'Send Friend Request',
+                                      `Send a friend request to ${searchUser.firstName} ${searchUser.lastName}?`,
+                                      () => {
+                                        handleAction('send', searchUser._id);
+                                        setSearchResults([]);
+                                        setSearchQuery('');
+                                      },
+                                      'success'
+                                    );
+                                  }}
+                                  disabled={actionLoading[searchUser._id]}
+                                  className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
+                                >
+                                  Add
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              onClick={() => {
-                                showConfirmModal(
-                                  'Send Friend Request',
-                                  `Send a friend request to ${suggestion.firstName} ${suggestion.lastName}?`,
-                                  () => handleAction('send', suggestion._id),
-                                  'success'
-                                );
-                              }}
-                              disabled={actionLoading[suggestion._id]}
-                              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center justify-center gap-1"
-                            >
-                              <UserPlusIcon className="w-4 h-4" />
-                              Add Friend
-                            </button>
-                          </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                    )}
+
+                    {/* Suggestions */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Suggested Friends</h3>
+                      {suggestions.length === 0 ? (
+                        <div className="text-center py-12">
+                          <p className="text-gray-500">No suggestions available</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {suggestions.map((suggestion) => (
+                            <div key={suggestion._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
+                              <div className="flex items-start gap-3">
+                                {suggestion.avatar ? (
+                                  <img src={suggestion.avatar} alt={suggestion.firstName} className="w-12 h-12 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                                    {suggestion.firstName?.[0]}{suggestion.lastName?.[0]}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-semibold text-gray-900 truncate">
+                                    {suggestion.firstName} {suggestion.lastName}
+                                  </h3>
+                                  <p className="text-sm text-gray-500 truncate">{suggestion.email}</p>
+                                  {suggestion.mutualFriends > 0 && (
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      {suggestion.mutualFriends} mutual friend{suggestion.mutualFriends > 1 ? 's' : ''}
+                                    </p>
+                                  )}
+                                </div>
+                                {/* Dropdown Menu */}
+                                <div className="relative">
+                                  <button
+                                    onClick={() => setDropdownOpen(dropdownOpen === suggestion._id ? null : suggestion._id)}
+                                    className="p-1 hover:bg-gray-100 rounded-lg"
+                                  >
+                                    <EllipsisVerticalIcon className="w-5 h-5 text-gray-500" />
+                                  </button>
+                                  {dropdownOpen === suggestion._id && (
+                                    <>
+                                      <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(null)}></div>
+                                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                                        <button
+                                          onClick={() => {
+                                            setProfileModal({ show: true, userId: suggestion._id });
+                                            setDropdownOpen(null);
+                                          }}
+                                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                        >
+                                          <UserGroupIcon className="w-4 h-4" />
+                                          View Profile
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setDropdownOpen(null);
+                                            showConfirmModal(
+                                              'Block User',
+                                              `Are you sure you want to block ${suggestion.firstName} ${suggestion.lastName}? They won't be able to contact you or see your profile.`,
+                                              () => handleAction('block', suggestion._id),
+                                              'danger'
+                                            );
+                                          }}
+                                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                        >
+                                          <NoSymbolIcon className="w-4 h-4" />
+                                          Block User
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-4">
+                                <button
+                                  onClick={() => {
+                                    showConfirmModal(
+                                      'Send Friend Request',
+                                      `Send a friend request to ${suggestion.firstName} ${suggestion.lastName}?`,
+                                      () => handleAction('send', suggestion._id),
+                                      'success'
+                                    );
+                                  }}
+                                  disabled={actionLoading[suggestion._id]}
+                                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center justify-center gap-1"
+                                >
+                                  <UserPlusIcon className="w-4 h-4" />
+                                  Add Friend
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )
+                  </div>
                 )}
 
                 {/* Blocked Tab */}
@@ -747,7 +994,7 @@ const Connections = () => {
                             </div>
                             <div className="flex gap-2">
                               <button
-                                onClick={() => navigate(`/profile/${blocked._id}`)}
+                                onClick={() => setProfileModal({ show: true, userId: blocked._id })}
                                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                               >
                                 View Profile
@@ -772,99 +1019,6 @@ const Connections = () => {
           </div>
         </main>
       </div>
-
-      {/* Search Modal */}
-      {showSearchModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Find Friends</h3>
-                <button
-                  onClick={() => {
-                    setShowSearchModal(false);
-                    setSearchQuery('');
-                    setSearchResults([]);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Search Input */}
-              <div className="relative mb-4">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-
-              {/* Search Results */}
-              <div className="max-h-96 overflow-y-auto">
-                {searching ? (
-                  <div className="p-4 text-center text-gray-500">Searching...</div>
-                ) : searchResults.length === 0 ? (
-                  searchQuery.length >= 2 && (
-                    <div className="p-4 text-center text-gray-500">No users found</div>
-                  )
-                ) : (
-                  searchResults.map(searchUser => (
-                    <div
-                      key={searchUser._id}
-                      className="p-3 hover:bg-gray-50 flex items-center justify-between border-b border-gray-100"
-                    >
-                      <div className="flex items-center gap-3">
-                        {searchUser.avatar ? (
-                          <img
-                            src={searchUser.avatar}
-                            alt={searchUser.firstName}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                            {searchUser.firstName?.[0]}{searchUser.lastName?.[0]}
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {searchUser.firstName} {searchUser.lastName}
-                          </p>
-                          <p className="text-sm text-gray-500">{searchUser.email}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setShowSearchModal(false);
-                          showConfirmModal(
-                            'Send Friend Request',
-                            `Send a friend request to ${searchUser.firstName} ${searchUser.lastName}?`,
-                            () => {
-                              handleAction('send', searchUser._id);
-                              setSearchQuery('');
-                              setSearchResults([]);
-                            },
-                            'success'
-                          );
-                        }}
-                        disabled={actionLoading[searchUser._id]}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Confirm Modal */}
       {confirmModal.show && (
@@ -920,6 +1074,13 @@ const Connections = () => {
           </div>
         </div>
       )}
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        userId={profileModal.userId}
+        isOpen={profileModal.show}
+        onClose={() => setProfileModal({ show: false, userId: null })}
+      />
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />

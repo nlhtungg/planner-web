@@ -11,6 +11,7 @@ import Workspaces from './pages/Workspaces';
 import WorkspaceDetail from './pages/WorkspaceDetail';
 import TaskDetail from './pages/TaskDetail';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import DocumentEditor from './pages/DocumentEditor';
@@ -57,6 +58,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user/:userId"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
                 </ProtectedRoute>
               }
             />
