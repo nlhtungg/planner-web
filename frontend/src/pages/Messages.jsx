@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConnection } from '../context/ConnectionContext';
 import messageService from '../services/messageService';
 import groupService from '../services/groupService';
 import socketService from '../services/socketService';
+import ToastContainer from '../components/ToastContainer';
+import useToast from '../utils/useToast';
 import {
   MagnifyingGlassIcon,
   ChatBubbleLeftRightIcon,
@@ -33,7 +36,10 @@ import moment from 'moment';
 
 const Messages = () => {
   const { user, logout } = useAuth();
+  const { pendingRequestsCount } = useConnection();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { toasts, removeToast, showSuccess, showError, showWarning } = useToast();
   const [conversations, setConversations] = useState([]);
   const [groups, setGroups] = useState([]);
   const [allConversations, setAllConversations] = useState([]);
@@ -145,7 +151,7 @@ const Messages = () => {
       setGifSearchQuery('');
     } catch (error) {
       console.error('Error sending GIF:', error);
-      alert('Failed to send GIF: ' + error.message);
+      showError('Failed to send GIF: ' + error.message);
     } finally {
       setSending(false);
     }
@@ -196,7 +202,7 @@ const Messages = () => {
         }
         
         if (error) {
-          alert(error);
+          showError(error);
         }
         
         const newFiles = validFiles.length > 0 ? [...prev, ...validFiles] : prev;
@@ -205,14 +211,14 @@ const Messages = () => {
       });
     } catch (error) {
       console.error('❌ Error in handleFileSelect:', error);
-      alert('Error selecting files: ' + error.message);
+      showError('Error selecting files: ' + error.message);
     }
   };
 
   const sidebarItems = [
-    { id: 'home', name: 'Home', icon: HomeIcon, path: '/' },
+    { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
-    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '#' },
+    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections' },
     { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar' },
   ];
@@ -229,6 +235,18 @@ const Messages = () => {
     socketService.connect();
     if (user?._id) {
       socketService.joinChat(user._id);
+    }
+
+    // Check if user was passed from navigation (from Connections page)
+    if (location.state?.selectUser) {
+      const userToSelect = location.state.selectUser;
+      console.log('📨 Auto-selecting user from navigation:', userToSelect);
+      // Wait a bit for conversations to load, then select
+      setTimeout(() => {
+        handleSelectConversation(userToSelect);
+      }, 500);
+      // Clear the state to prevent re-selection on re-render
+      navigate(location.pathname, { replace: true });
     }
 
     // Get socket instance for listeners
@@ -923,7 +941,7 @@ const Messages = () => {
       }
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      alert('Failed to send message: ' + error.message);
+      showError('Failed to send message: ' + error.message);
     } finally {
       setSending(false);
     }
@@ -1147,6 +1165,11 @@ const Messages = () => {
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
+                  {item.id === 'connections' && pendingRequestsCount > 0 && (
+                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -2489,7 +2512,7 @@ const Messages = () => {
                     const memberIds = Array.from(memberElements).map(el => el.dataset.userId);
 
                     if (!name || memberIds.length === 0) {
-                      alert('Please enter group name and add at least one member');
+                      showWarning('Please enter group name and add at least one member');
                       return;
                     }
 
@@ -2501,7 +2524,7 @@ const Messages = () => {
                       fetchConversations();
                     } catch (error) {
                       console.error('Error creating group:', error);
-                      alert('Failed to create group');
+                      showError('Failed to create group');
                     }
                   }}
                   className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"

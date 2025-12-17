@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useConnection } from '../context/ConnectionContext';
 import { useNavigate } from 'react-router-dom';
 import workspaceService from '../services/workspaceService';
 import WorkspaceListItem from '../components/WorkspaceListItem';
@@ -21,6 +22,7 @@ import {
 
 const Home = () => {
   const { user, logout } = useAuth();
+  const { pendingRequestsCount } = useConnection();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSection, setActiveSection] = useState('home');
@@ -157,6 +159,7 @@ const Home = () => {
                 if (item.id === 'workspaces') navigate('/workspaces');
                 else if (item.id === 'calendar') navigate('/calendar');
                 else if (item.id === 'messages') navigate('/messages');
+                else if (item.id === 'connections') navigate('/connections');
                 else setActiveSection(item.id);
               };
               return (
@@ -171,6 +174,11 @@ const Home = () => {
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
+                  {item.id === 'connections' && pendingRequestsCount > 0 && (
+                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                    </span>
+                  )}
                 </button>
               );
             })}

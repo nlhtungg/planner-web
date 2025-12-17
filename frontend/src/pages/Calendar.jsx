@@ -58,7 +58,7 @@ const Calendar = () => {
   const sidebarItems = [
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
-    { id: 'connections', name: 'Connections', icon: UserGroupIcon },
+    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections' },
     { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: true },
   ];

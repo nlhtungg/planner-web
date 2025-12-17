@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ConnectionProvider } from './context/ConnectionContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -15,13 +16,15 @@ import Calendar from './pages/Calendar';
 import DocumentEditor from './pages/DocumentEditor';
 import Messages from './pages/Messages';
 import ChatRoom from './pages/ChatRoom';
+import Connections from './pages/Connections';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <ToastProvider>
-          <Routes>
+        <ConnectionProvider>
+          <ToastProvider>
+            <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -98,6 +101,14 @@ function App() {
               }
             />
             <Route
+              path="/connections"
+              element={
+                <ProtectedRoute>
+                  <Connections />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/messages/:userId"
               element={
                 <ProtectedRoute>
@@ -107,6 +118,7 @@ function App() {
             />
           </Routes>
         </ToastProvider>
+        </ConnectionProvider>
       </AuthProvider>
     </Router>
   );

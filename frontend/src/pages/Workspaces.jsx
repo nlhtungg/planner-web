@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConnection } from '../context/ConnectionContext';
 import workspaceService from '../services/workspaceService';
 import WorkspaceListItem from '../components/WorkspaceListItem';
 import {
@@ -23,6 +24,7 @@ import {
 
 const Workspaces = () => {
   const { user, logout } = useAuth();
+  const { pendingRequestsCount } = useConnection();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -57,7 +59,7 @@ const Workspaces = () => {
   const sidebarItems = [
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces', active: true },
-    { id: 'connections', name: 'Connections', icon: UserGroupIcon, active: false },
+    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections', active: false },
     { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages', active: false },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: false },
   ];
@@ -353,6 +355,11 @@ const Workspaces = () => {
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
+                  {item.id === 'connections' && pendingRequestsCount > 0 && (
+                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
