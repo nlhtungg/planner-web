@@ -18,6 +18,7 @@ import {
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
 import api from '../services/api';
+import TotpSetup from '../components/TotpSetup';
 
 const Profile = () => {
   const { user, logout, updateUser } = useAuth();
@@ -833,6 +834,17 @@ const Profile = () => {
                 </div>
               </div>
             )}
+
+            {/* Two-Factor Authentication Section */}
+            <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Two-Factor Authentication</h3>
+                <p className="text-gray-600 mt-1">Add an extra layer of security to your account</p>
+              </div>
+              <div className="p-6">
+                <TotpSetup />
+              </div>
+            </div>
 
 
           </div>
