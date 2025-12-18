@@ -28,6 +28,16 @@ const messageSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  readBy: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    readAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   deletedBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

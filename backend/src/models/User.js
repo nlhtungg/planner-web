@@ -39,6 +39,46 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  bio: {
+    type: String,
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+    default: ''
+  },
+  phone: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  location: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Location cannot exceed 100 characters'],
+    default: null
+  },
+  company: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Company cannot exceed 100 characters'],
+    default: null
+  },
+  jobTitle: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Job title cannot exceed 100 characters'],
+    default: null
+  },
+  website: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  socialLinks: {
+    facebook: { type: String, default: null },
+    twitter: { type: String, default: null },
+    linkedin: { type: String, default: null },
+    instagram: { type: String, default: null },
+    github: { type: String, default: null }
+  },
   role: {
     type: String,
     enum: ['user', 'admin'],

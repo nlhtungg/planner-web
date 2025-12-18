@@ -9,6 +9,7 @@ router.post('/', authenticateToken, groupController.createGroup);
 router.get('/', authenticateToken, groupController.getUserGroups);
 router.get('/:groupId', authenticateToken, groupController.getGroup);
 router.get('/:groupId/messages', authenticateToken, groupController.getGroupMessages);
+router.get('/:groupId/messages/search', authenticateToken, groupController.searchGroupMessages);
 router.post('/:groupId/messages', authenticateToken, messageUpload.array('files', 5), groupController.sendGroupMessage);
 router.post('/:groupId/members', authenticateToken, groupController.addMember);
 router.delete('/:groupId/members', authenticateToken, groupController.removeMember);

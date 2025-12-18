@@ -428,3 +428,42 @@ exports.markGroupMessagesAsRead = async (req, res) => {
     });
   }
 };
+
+exports.searchGroupMessages = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { q } = req.query;
+    const userId = req.user._id;
+
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query must be at least 2 characters'
+      });
+    }
+
+    // Check if user is a member of the group
+    const group = await groupRepository.getGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found' });
+    }
+
+    const isMember = group.members.some(m => m.user._id.toString() === userId.toString());
+    if (!isMember) {
+      return res.status(403).json({ success: false, message: 'Not a group member' });
+    }
+
+    const messages = await groupRepository.searchGroupMessages(groupId, q);
+
+    res.json({
+      success: true,
+      data: messages
+    });
+  } catch (error) {
+    console.error('Error searching group messages:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

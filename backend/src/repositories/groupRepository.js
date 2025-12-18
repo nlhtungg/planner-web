@@ -181,6 +181,13 @@ class GroupRepository {
   }
 
   /**
+   * Toggle pin group message (alias for togglePinMessage)
+   */
+  async togglePinGroupMessage(messageId, userId) {
+    return await this.togglePinMessage(messageId);
+  }
+
+  /**
    * Add reaction to message
    */
   async addReaction(messageId, userId, emoji) {
@@ -241,6 +248,21 @@ class GroupRepository {
     await message.populate('readBy.user', 'firstName lastName avatar');
 
     return message;
+  }
+
+  /**
+   * Search messages in group
+   */
+  async searchGroupMessages(groupId, query) {
+    return await GroupMessage.find({
+      group: groupId,
+      content: { $regex: query, $options: 'i' }
+    })
+      .populate('sender', 'firstName lastName email avatar')
+      .populate('reactions.user', 'firstName lastName email avatar')
+      .populate('readBy.user', 'firstName lastName avatar')
+      .sort({ createdAt: -1 })
+      .limit(50);
   }
 }
 
