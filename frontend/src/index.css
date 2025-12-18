@@ -49,6 +49,10 @@
   .animate-slide-in {
     animation: slideIn 0.3s ease-out;
   }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
 }
 
 @keyframes slideIn {
@@ -58,6 +62,17 @@
   }
   to {
     transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
     opacity: 1;
   }
 }

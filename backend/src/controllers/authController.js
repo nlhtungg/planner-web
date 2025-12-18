@@ -566,6 +566,53 @@ class AuthController {
     }
   }
 
+  // Get public profile of another user
+  async getUserPublicProfile(req, res) {
+    try {
+      const { userId } = req.params;
+      const currentUserId = req.user._id || req.user.id;
+
+      const user = await userRepository.getUserById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Return public profile (exclude sensitive info)
+      const publicProfile = {
+        _id: user._id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        avatar: user.avatar,
+        bio: user.bio,
+        phone: user.phone,
+        location: user.location,
+        company: user.company,
+        jobTitle: user.jobTitle,
+        website: user.website,
+        socialLinks: user.socialLinks,
+        createdAt: user.createdAt,
+        authMethod: user.authMethod
+      };
+
+      res.status(200).json({
+        success: true,
+        data: { user: publicProfile }
+      });
+    } catch (error) {
+      console.error('Get public profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
   // Update user profile
   async updateProfile(req, res) {
     try {

@@ -81,6 +81,12 @@ const authService = {
     return response.data;
   },
 
+  // Get public profile of another user
+  getUserPublicProfile: async (userId) => {
+    const response = await api.get(`/users/${userId}`);
+    return response.data;
+  },
+
   // Update profile
   updateProfile: async (updates) => {
     const response = await api.put('/profile', updates);

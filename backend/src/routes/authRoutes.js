@@ -20,6 +20,7 @@ router.post('/google/callback', authController.googleCallback); // Server-side f
 router.use(authenticateToken);
 
 router.get('/profile', authController.getProfile);
+router.get('/users/:userId', authController.getUserPublicProfile);
 router.put('/profile', authController.updateProfile);
 router.post('/change-password', authController.changePassword);
 router.post('/upload-avatar', (req, res, next) => {

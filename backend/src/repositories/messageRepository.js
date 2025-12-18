@@ -6,11 +6,21 @@ class MessageRepository {
    * Get all conversations for a user
    */
   async getConversations(userId) {
-    return await Conversation.find({
+    const conversations = await Conversation.find({
       participants: userId
     })
       .populate('participants', 'firstName lastName email avatar')
+      .populate('lastMessageSender', 'firstName lastName email avatar')
       .sort({ lastMessageAt: -1 });
+    
+    // Convert Map to plain object for unreadCount
+    return conversations.map(conv => {
+      const plainConv = conv.toObject();
+      return {
+        ...plainConv,
+        unreadCount: plainConv.unreadCount ? Object.fromEntries(plainConv.unreadCount) : {}
+      };
+    });
   }
 
   /**
@@ -53,6 +63,7 @@ class MessageRepository {
     })
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar')
+      .populate('readBy.user', 'firstName lastName avatar')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip);
@@ -95,6 +106,7 @@ class MessageRepository {
           conversationId,
           participants: [sender, receiver],
           lastMessage: content.substring(0, 100),
+          lastMessageSender: sender,
           lastMessageAt: new Date(),
           unreadCount: {
             [sender]: 0,
@@ -117,6 +129,7 @@ class MessageRepository {
         }
         
         conversation.lastMessage = content.substring(0, 100);
+        conversation.lastMessageSender = sender;
         conversation.lastMessageAt = new Date();
         
         // Increment unread count for receiver
@@ -135,7 +148,8 @@ class MessageRepository {
 
     return await Message.findById(message._id)
       .populate('sender', 'firstName lastName email avatar')
-      .populate('receiver', 'firstName lastName email avatar');
+      .populate('receiver', 'firstName lastName email avatar')
+      .populate('readBy.user', 'firstName lastName avatar');
   }
 
   /**
@@ -153,8 +167,23 @@ class MessageRepository {
       throw new Error('Unauthorized');
     }
     
+    // Check if user already marked as read
+    const alreadyRead = message.readBy.some(
+      rb => rb.user.toString() === userId.toString()
+    );
+    
+    if (!alreadyRead) {
+      message.readBy.push({
+        user: userId,
+        readAt: new Date()
+      });
+    }
+    
     message.readAt = new Date();
     await message.save();
+    
+    // Populate readBy for response
+    await message.populate('readBy.user', 'firstName lastName avatar');
     
     return message;
   }

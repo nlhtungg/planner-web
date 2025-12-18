@@ -7,7 +7,7 @@ dns.setDefaultResultOrder('ipv4first');
 class MinioService {
   constructor() {
     this.userMediaBucket = 'user-media';
-    this.messageMediaBucket = 'message-media';
+   this.messageMediaBucket = 'message-media';
     this.client = new Client({
       endPoint: process.env.MINIO_ENDPOINT || 'minio',
       port: parseInt(process.env.MINIO_PORT) || 9000,

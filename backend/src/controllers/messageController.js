@@ -149,11 +149,12 @@ class MessageController {
 
       const message = await messageRepository.markAsRead(messageId, userId);
 
-      // Emit socket event to sender
+      // Emit socket event to sender with readBy data
       if (global.io && message) {
         global.io.to(`user-${message.sender._id}`).emit('message-read', {
           messageId: message._id,
-          readAt: message.readAt
+          readAt: message.readAt,
+          readBy: message.readBy
         });
       }
 
