@@ -5,26 +5,32 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY backend/package*.json ./
+COPY package*.json ./
 
-# Install dependencies (including dev dependencies for nodemon)
-RUN npm install
+# Install production dependencies only
+RUN npm ci --only=production
 
-# Create non-root user
+# Copy source code
+COPY src ./src
+
+# Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+    adduser -S nodeuser -u 1001
 
 # Change ownership of the app directory
-RUN chown -R nextjs:nodejs /app
+RUN chown -R nodeuser:nodejs /app
 
 # Switch to non-root user
-USER nextjs
+USER nodeuser
 
 # Expose port
 EXPOSE 3001
 
+# Set production environment
+ENV NODE_ENV=production
+
 # Health check
-HEALTHCHECK --interval=60s --timeout=30s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=60s --timeout=30s --start-period=10s --retries=3 \
   CMD node -e "const http = require('http'); \
     const options = { hostname: 'localhost', port: 3001, path: '/health', timeout: 2000 }; \
     const req = http.request(options, (res) => { \
@@ -33,5 +39,5 @@ HEALTHCHECK --interval=60s --timeout=30s --start-period=5s --retries=3 \
     req.on('error', () => process.exit(1)); \
     req.end();"
 
-# Start the application with nodemon for auto-reload
-CMD ["npm", "run", "dev"]
+# Start the application in production mode
+CMD ["npm", "start"]

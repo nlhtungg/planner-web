@@ -3,7 +3,7 @@ services:
   - type: web
     name: planner-backend
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile.prod
+    dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /health
     envVars:
