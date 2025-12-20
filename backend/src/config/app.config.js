@@ -1,5 +1,7 @@
 require('dotenv').config();
 
+const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
+
 module.exports = {
   port: process.env.PORT || 3001,
   env: process.env.NODE_ENV || 'development',
@@ -25,7 +27,7 @@ module.exports = {
   
   // CORS
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: isDevelopment ? true : (process.env.CORS_ORIGIN || 'http://localhost:3000'),
     credentials: true,
   },
   
