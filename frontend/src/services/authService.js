@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001/api/auth';
+// Construct auth API URL - handle both cases:
+// - VITE_API_URL set: https://backend.onrender.com/api -> append /auth
+// - Not set: use localhost fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/auth`
+  : 'http://localhost:3001/api/auth';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
