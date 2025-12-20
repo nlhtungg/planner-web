@@ -4,6 +4,7 @@ import { useConnection } from '../context/ConnectionContext';
 import { useNavigate } from 'react-router-dom';
 import workspaceService from '../services/workspaceService';
 import WorkspaceListItem from '../components/WorkspaceListItem';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import {
   HomeIcon,
   BriefcaseIcon,
@@ -18,6 +19,8 @@ import {
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  Bars3Icon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 const Home = () => {
@@ -26,6 +29,7 @@ const Home = () => {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSection, setActiveSection] = useState('home');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -78,6 +82,12 @@ const Home = () => {
     { id: 3, sender: 'Carol Davis', message: 'Great work on the presentation!', time: '25 min ago', avatar: 'CD' },
   ];
 
+  const teamStatusData = [
+    { name: 'Online', value: 8, color: '#10b981' },
+    { name: 'Away', value: 3, color: '#f59e0b' },
+    { name: 'Offline', value: 1, color: '#9ca3af' },
+  ];
+
   const quickStats = [
     { label: 'Active Projects', value: '8', change: '+2', positive: true },
     { label: 'Tasks Completed', value: '24', change: '+6', positive: true },
@@ -89,70 +99,87 @@ const Home = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4">
-          {/* Logo and Search */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">P</span>
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center gap-4 sm:gap-6 justify-between flex-wrap">
+            {/* Left: Menu + Logo */}
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <button
+                className="md:hidden p-2.5 rounded-xl hover:bg-gray-100 text-gray-700"
+                aria-label="Open sidebar"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Bars3Icon className="w-6 h-6" />
+              </button>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+                <span className="text-white font-bold text-lg">P</span>
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">Planner</h1>
+              <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Planner</h1>
             </div>
-            <div className="relative">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+
+            {/* Middle: Search (full-width on mobile) */}
+            <div className="relative flex-1 min-w-[200px] w-full order-last sm:order-none">
+              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search workspaces, people, or content..."
-                className="pl-10 pr-4 py-2 w-96 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
               />
             </div>
-          </div>
 
-          {/* User Menu */}
-          <div className="flex items-center space-x-4">
-            <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
-              <BellIcon className="w-5 h-5" />
-            </button>
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={() => navigate('/profile')}
-                className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"
-              >
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden">
-                  {user?.avatar ? (
-                    <img
-                      src={`${user.avatar}?t=${Date.now()}`}
-                      alt="Profile Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white text-sm font-medium">
-                      {user?.firstName?.[0]}{user?.lastName?.[0]}
-                    </span>
-                  )}
-                </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
-                </div>
+            {/* Right: Date/Time + User */}
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="text-right px-3 py-2 bg-gray-50 rounded-xl hidden sm:block">
+                <p className="text-sm font-semibold text-gray-900">
+                  {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
+                </p>
+              </div>
+              <button className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
+                <BellIcon className="w-6 h-6" />
               </button>
-              <button 
-                onClick={handleLogout}
-                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded hover:bg-gray-100"
-              >
-                Sign out
-              </button>
+              <div className="flex items-center gap-3 border-l border-gray-200 pl-4 sm:pl-6">
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
+                >
+                  <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-blue-100">
+                    {user?.avatar ? (
+                      <img
+                        src={`${user.avatar}?t=${Date.now()}`}
+                        alt="Profile Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white text-base font-semibold">
+                        {user?.firstName?.[0]}{user?.lastName?.[0]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="hidden md:block text-left">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 font-medium transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-sm h-screen sticky top-0 border-r border-gray-200">
-          <nav className="p-4 space-y-2">
+        {/* Sidebar (desktop) */}
+        <aside className="hidden md:block w-72 bg-white shadow-sm h-screen sticky top-0 border-r border-gray-200">
+          <nav className="p-6 space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               const handleClick = () => {
@@ -166,16 +193,16 @@ const Home = () => {
                 <button
                   key={item.id}
                   onClick={handleClick}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                  className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
                     activeSection === item.id
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-50 font-medium'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
+                  <Icon className="w-6 h-6" />
+                  <span className="text-base">{item.name}</span>
                   {item.id === 'connections' && pendingRequestsCount > 0 && (
-                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
                       {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
                     </span>
                   )}
@@ -183,60 +210,70 @@ const Home = () => {
               );
             })}
           </nav>
-
-          {/* Quick Actions */}
-          <div className="p-4 border-t border-gray-200 mt-8">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
-            <div className="space-y-2">
-              <button 
-                onClick={() => navigate('/workspaces')}
-                className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                <PlusIcon className="w-4 h-4" />
-                <span>New Workspace</span>
-              </button>
-              <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-                <UserGroupIcon className="w-4 h-4" />
-                <span>Invite Members</span>
-              </button>
-              <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-                <Cog6ToothIcon className="w-4 h-4" />
-                <span>Settings</span>
-              </button>
-            </div>
-          </div>
         </aside>
 
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div className="md:hidden fixed inset-0 z-40">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)}></div>
+            <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl border-r border-gray-200 p-6 flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold">P</span>
+                  </div>
+                  <span className="text-lg font-bold text-gray-900">Planner</span>
+                </div>
+                <button className="p-2 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(false)}>
+                  <XMarkIcon className="w-6 h-6 text-gray-700" />
+                </button>
+              </div>
+              <nav className="space-y-1">
+                {sidebarItems.map((item) => {
+                  const Icon = item.icon;
+                  const handleClick = () => {
+                    if (item.id === 'workspaces') navigate('/workspaces');
+                    else if (item.id === 'calendar') navigate('/calendar');
+                    else if (item.id === 'messages') navigate('/messages');
+                    else if (item.id === 'connections') navigate('/connections');
+                    else setActiveSection(item.id);
+                    setSidebarOpen(false);
+                  };
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={handleClick}
+                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
+                        activeSection === item.id
+                          ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                          : 'text-gray-700 hover:bg-gray-50 font-medium'
+                      }`}
+                    >
+                      <Icon className="w-6 h-6" />
+                      <span className="text-base">{item.name}</span>
+                      {item.id === 'connections' && pendingRequestsCount > 0 && (
+                        <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
+                          {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-gray-50">
           {/* Welcome Section */}
           <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Good {currentTime.getHours() < 12 ? 'morning' : currentTime.getHours() < 18 ? 'afternoon' : 'evening'}, {user?.firstName}! 👋
-                </h2>
-                <p className="text-gray-600 mt-1">
-                  {currentTime.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">
-                  {currentTime.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                </p>
-              </div>
-            </div>
+            <h2 className="text-3xl font-bold text-gray-900">
+              Good {currentTime.getHours() < 12 ? 'morning' : currentTime.getHours() < 18 ? 'afternoon' : 'evening'}, {user?.firstName}! 👋
+            </h2>
+            <p className="text-gray-500 mt-2 text-base">
+              Here's what's happening with your projects today
+            </p>
           </div>
 
           {/* Quick Stats */}
@@ -260,12 +297,12 @@ const Home = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Workspaces Section */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Workspaces</h3>
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-xl font-bold text-gray-900">Recent Workspaces</h3>
                   <button 
                     onClick={() => navigate('/workspaces')}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    className="text-blue-600 hover:text-blue-700 text-sm font-semibold"
                   >
                     View all
                   </button>
@@ -278,26 +315,28 @@ const Home = () => {
               </div>
 
               {/* Messages Section */}
-              <div className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Messages</h3>
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-xl font-bold text-gray-900">Recent Messages</h3>
                   <button 
-                    onClick={() => navigate('/workspaces')}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    onClick={() => navigate('/messages')}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-semibold"
                   >
                     View all
                   </button>
                 </div>
-                <div className="space-y-3">
-                  {recentMessages.map((message) => (
-                    <div key={message.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
-                      <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-gray-700">{message.avatar}</span>
+                <div className="space-y-1">
+                  {recentMessages.map((message, index) => (
+                    <div key={message.id} className={`flex items-start space-x-4 p-4 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors ${
+                      index < recentMessages.length - 1 ? 'border-b border-gray-100' : ''
+                    }`}>
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold text-white">{message.avatar}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900">{message.sender}</p>
-                          <p className="text-xs text-gray-500">{message.time}</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold text-gray-900">{message.sender}</p>
+                          <p className="text-sm text-gray-400">{message.time}</p>
                         </div>
                         <p className="text-sm text-gray-600 truncate">{message.message}</p>
                       </div>
@@ -310,22 +349,27 @@ const Home = () => {
             {/* Right Column */}
             <div className="space-y-6">
               {/* Calendar Section */}
-              <div className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Upcoming Events</h3>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-xl font-bold text-gray-900">Upcoming Events</h3>
+                  <button 
+                    onClick={() => navigate('/calendar')}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-semibold"
+                  >
                     View calendar
                   </button>
                 </div>
                 <div className="space-y-3">
                   {upcomingEvents.map((event) => (
-                    <div key={event.id} className="flex items-center space-x-3 p-3 border-l-4 border-blue-500 bg-blue-50 rounded-r-lg">
-                      <div className="flex-shrink-0">
-                        <CalendarDaysIcon className="w-5 h-5 text-blue-600" />
+                    <div key={event.id} className="flex items-start space-x-4 p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-xl hover:bg-blue-100 transition-colors cursor-pointer">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <CalendarDaysIcon className="w-6 h-6 text-white" />
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{event.title}</p>
-                        <p className="text-xs text-gray-600">{event.date} at {event.time}</p>
+                        <p className="text-sm font-semibold text-gray-900 mb-1">{event.title}</p>
+                        <p className="text-sm text-gray-600">{event.date === 'Today' ? 'Today' : event.date === 'Tomorrow' ? 'Tomorrow' : event.date} · {event.time}</p>
                       </div>
                     </div>
                   ))}
@@ -333,57 +377,68 @@ const Home = () => {
               </div>
 
               {/* Connections Section */}
-              <div className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Team Connections</h3>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-xl font-bold text-gray-900">Team Status</h3>
+                  <button 
+                    onClick={() => navigate('/connections')}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-semibold"
+                  >
                     Manage
                   </button>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie
+                        data={teamStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {teamStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="w-full mt-4 space-y-2">
+                    {teamStatusData.map((status, index) => (
+                      <div key={index} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }}></div>
+                          <span className="text-sm font-medium text-gray-700">{status.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-900">{status.value}</span>
                       </div>
-                      <span className="text-sm text-gray-700">Online Team Members</span>
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">8</span>
+                    ))}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      </div>
-                      <span className="text-sm text-gray-700">Away</span>
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">3</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      </div>
-                      <span className="text-sm text-gray-700">Offline</span>
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">1</span>
+                  <div className="mt-4 text-center">
+                    <p className="text-xs text-gray-500">Total Team Members</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">{teamStatusData.reduce((sum, s) => sum + s.value, 0)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Quick Actions Card */}
-              <div className="card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 className="text-xl font-bold text-gray-900 mb-5">Quick Actions</h3>
                 <div className="space-y-3">
                   <button 
                     onClick={() => navigate('/workspaces')}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="w-full flex items-center justify-center space-x-2 px-5 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm font-semibold"
                   >
-                    <PlusIcon className="w-4 h-4" />
+                    <PlusIcon className="w-5 h-5" />
                     <span>Create New Project</span>
                   </button>
-                  <button className="w-full flex items-center justify-center space-x-2 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                    <UserGroupIcon className="w-4 h-4" />
+                  <button 
+                    onClick={() => navigate('/connections')}
+                    className="w-full flex items-center justify-center space-x-2 px-5 py-3.5 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors font-semibold"
+                  >
+                    <UserGroupIcon className="w-5 h-5" />
                     <span>Invite Team Member</span>
                   </button>
                 </div>
