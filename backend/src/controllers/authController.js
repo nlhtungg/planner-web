@@ -4,6 +4,7 @@ const userRepository = require('../repositories/userRepository');
 const authService = require('../services/authService');
 const googleAuthService = require('../services/googleAuthService');
 const minioService = require('../services/minioService');
+const totpService = require('../services/totpService');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -158,6 +159,16 @@ class AuthController {
           requiresActivation: true,
           userId: user._id,
           email: user.email
+        });
+      }
+
+      // Check if TOTP is enabled for this user
+      if (user.totpEnabled) {
+        return res.status(200).json({
+          success: true,
+          requiresTOTP: true,
+          message: 'Please enter your 6-digit authentication code',
+          userId: user._id
         });
       }
 
@@ -330,6 +341,16 @@ class AuthController {
           requiresActivation: true,
           userId: user._id,
           email: user.email
+        });
+      }
+
+      // Check if TOTP is enabled for this user
+      if (user.totpEnabled) {
+        return res.status(200).json({
+          success: true,
+          requiresTOTP: true,
+          message: 'Please enter your 6-digit authentication code',
+          userId: user._id
         });
       }
 
@@ -938,6 +959,387 @@ class AuthController {
       });
     }
   }
+
+  // ============ TOTP (Two-Factor Authentication) Methods ============
+
+  /**
+   * Setup TOTP - Generate secret and QR code
+   * User must be authenticated to access this
+   */
+  async setupTOTP(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (user.totpEnabled) {
+        return res.status(400).json({
+          success: false,
+          message: 'TOTP is already enabled for this account'
+        });
+      }
+
+      // Generate new TOTP secret
+      const { secret, otpauthUrl } = totpService.generateSecret(user.email);
+      
+      // Generate QR code
+      const qrCodeDataUrl = await totpService.generateQRCode(otpauthUrl);
+
+      // Save secret temporarily (not enabled yet until verified)
+      await User.findByIdAndUpdate(userId, {
+        totpSecret: secret
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'TOTP setup initiated. Please scan the QR code with your authenticator app.',
+        data: {
+          secret: secret,
+          qrCode: qrCodeDataUrl
+        }
+      });
+    } catch (error) {
+      console.error('Setup TOTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Enable TOTP - Verify the initial token and enable 2FA
+   */
+  async enableTOTP(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+      const { token } = req.body;
+
+      if (!token || !/^\d{6}$/.test(token)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid token format. Please provide a 6-digit code.'
+        });
+      }
+
+      const user = await User.findById(userId).select('+totpSecret');
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (user.totpEnabled) {
+        return res.status(400).json({
+          success: false,
+          message: 'TOTP is already enabled'
+        });
+      }
+
+      if (!user.totpSecret) {
+        return res.status(400).json({
+          success: false,
+          message: 'TOTP setup not initiated. Please call /setup-totp first.'
+        });
+      }
+
+      // Verify the token
+      const isValid = totpService.verifyToken(token, user.totpSecret);
+
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid verification code. Please try again.'
+        });
+      }
+
+      // Generate backup codes
+      const backupCodes = totpService.generateBackupCodes();
+
+      // Enable TOTP
+      await User.findByIdAndUpdate(userId, {
+        totpEnabled: true,
+        totpBackupCodes: backupCodes
+      });
+
+      // Format backup codes for display
+      const formattedBackupCodes = totpService.formatBackupCodes(backupCodes);
+
+      res.status(200).json({
+        success: true,
+        message: 'Two-factor authentication enabled successfully',
+        data: {
+          backupCodes: formattedBackupCodes
+        }
+      });
+    } catch (error) {
+      console.error('Enable TOTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Verify TOTP during login
+   * This is called after username/password or Google auth
+   */
+  async verifyTOTP(req, res) {
+    try {
+      const { userId, token } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      if (!token || !/^\d{6}$/.test(token)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid token format. Please provide a 6-digit code.'
+        });
+      }
+
+      const user = await User.findById(userId).select('+totpSecret +totpBackupCodes');
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (!user.totpEnabled) {
+        return res.status(400).json({
+          success: false,
+          message: 'TOTP is not enabled for this account'
+        });
+      }
+
+      // Verify the token
+      const isValid = totpService.verifyToken(token, user.totpSecret);
+
+      if (!isValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid verification code'
+        });
+      }
+
+      // Generate tokens after successful TOTP verification
+      const { accessToken, refreshToken } = authService.generateTokens(user._id);
+      
+      // Save refresh token
+      await authService.saveRefreshToken(user._id, refreshToken);
+
+      // Update last login
+      await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+
+      // Remove sensitive fields
+      const userResponse = user.toJSON();
+
+      res.status(200).json({
+        success: true,
+        message: 'Two-factor authentication verified successfully',
+        data: {
+          user: userResponse,
+          accessToken,
+          refreshToken
+        }
+      });
+    } catch (error) {
+      console.error('Verify TOTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Verify backup code during login (alternative to TOTP)
+   */
+  async verifyBackupCode(req, res) {
+    try {
+      const { userId, backupCode } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      if (!backupCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Backup code is required'
+        });
+      }
+
+      const user = await User.findById(userId).select('+totpBackupCodes');
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (!user.totpEnabled) {
+        return res.status(400).json({
+          success: false,
+          message: 'TOTP is not enabled for this account'
+        });
+      }
+
+      // Verify backup code
+      const result = totpService.verifyBackupCode(backupCode, user.totpBackupCodes);
+
+      if (!result.success) {
+        return res.status(401).json({
+          success: false,
+          message: result.message
+        });
+      }
+
+      // Update backup codes (mark as used)
+      await User.findByIdAndUpdate(userId, {
+        totpBackupCodes: result.backupCodes
+      });
+
+      // Generate tokens after successful backup code verification
+      const { accessToken, refreshToken } = authService.generateTokens(user._id);
+      
+      // Save refresh token
+      await authService.saveRefreshToken(user._id, refreshToken);
+
+      // Update last login
+      await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+
+      // Remove sensitive fields
+      const userResponse = user.toJSON();
+
+      res.status(200).json({
+        success: true,
+        message: 'Backup code verified successfully',
+        data: {
+          user: userResponse,
+          accessToken,
+          refreshToken
+        }
+      });
+    } catch (error) {
+      console.error('Verify backup code error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Disable TOTP - User must verify with current TOTP token
+   */
+  async disableTOTP(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+      const { token } = req.body;
+
+      if (!token || !/^\d{6}$/.test(token)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid token format. Please provide a 6-digit code.'
+        });
+      }
+
+      const user = await User.findById(userId).select('+totpSecret');
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (!user.totpEnabled) {
+        return res.status(400).json({
+          success: false,
+          message: 'TOTP is not enabled'
+        });
+      }
+
+      // Verify the token before disabling
+      const isValid = totpService.verifyToken(token, user.totpSecret);
+
+      if (!isValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid verification code'
+        });
+      }
+
+      // Disable TOTP and clear secret and backup codes
+      await User.findByIdAndUpdate(userId, {
+        totpEnabled: false,
+        totpSecret: null,
+        totpBackupCodes: []
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Two-factor authentication disabled successfully'
+      });
+    } catch (error) {
+      console.error('Disable TOTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Get TOTP status for the authenticated user
+   */
+  async getTOTPStatus(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          totpEnabled: user.totpEnabled || false
+        }
+      });
+    } catch (error) {
+      console.error('Get TOTP status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
 }
 
 module.exports = new AuthController();

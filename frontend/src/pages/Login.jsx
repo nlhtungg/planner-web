@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import TotpVerification from '../components/TotpVerification';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,8 +11,10 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [requiresTOTP, setRequiresTOTP] = useState(false);
+  const [userId, setUserId] = useState(null);
 
-  const { login, googleLogin } = useAuth();
+  const { login, googleLogin, updateUser } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -30,7 +33,13 @@ const Login = () => {
     const result = await login(formData);
 
     if (result.success) {
-      navigate('/home');
+      if (result.requiresTOTP) {
+        // Show TOTP verification screen
+        setRequiresTOTP(true);
+        setUserId(result.userId);
+      } else {
+        navigate('/home');
+      }
     } else if (result.requiresActivation) {
       // Redirect to activation page
       navigate('/activate', {
@@ -50,32 +59,41 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    const result = await googleLogin(idToken);
+    try {
+      const result = await googleLogin(idToken);
 
-    if (result.success) {
-      if (result.requiresActivation) {
-        // Navigate to activation page
-        navigate('/activate', {
-          state: {
-            userId: result.userId,
-            email: result.email,
-          },
-        });
+      if (result.success) {
+        if (result.requiresTOTP) {
+          // Show TOTP verification screen
+          setRequiresTOTP(true);
+          setUserId(result.userId);
+        } else if (result.requiresActivation) {
+          // Navigate to activation page
+          navigate('/activate', {
+            state: {
+              userId: result.userId,
+              email: result.email,
+            },
+          });
+        } else {
+          navigate('/home');
+        }
       } else {
-        navigate('/home');
+        if (result.requiresActivation) {
+          // Navigate to activation page for unactivated accounts
+          navigate('/activate', {
+            state: {
+              userId: result.userId,
+              email: result.email,
+            },
+          });
+        } else {
+          setError(result.message);
+        }
       }
-    } else {
-      if (result.requiresActivation) {
-        // Navigate to activation page for unactivated accounts
-        navigate('/activate', {
-          state: {
-            userId: result.userId,
-            email: result.email,
-          },
-        });
-      } else {
-        setError(result.message);
-      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      setError(error.response?.data?.message || 'Google Sign-In failed. Please try again.');
     }
 
     setLoading(false);
@@ -85,6 +103,29 @@ const Login = () => {
     console.error('Google Sign-In Error:', error);
     setError('Google Sign-In failed. Please try again.');
   };
+
+  const handleTOTPSuccess = (data) => {
+    // TOTP verification successful, update user state and navigate to home
+    updateUser(data.user);
+    navigate('/home');
+  };
+
+  const handleTOTPCancel = () => {
+    // Cancel TOTP verification and go back to login
+    setRequiresTOTP(false);
+    setUserId(null);
+  };
+
+  // If TOTP is required, show the TOTP verification component
+  if (requiresTOTP && userId) {
+    return (
+      <TotpVerification
+        userId={userId}
+        onSuccess={handleTOTPSuccess}
+        onCancel={handleTOTPCancel}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
