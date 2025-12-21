@@ -53,6 +53,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.login(credentials);
       if (response.success) {
+        // Check if TOTP is required
+        if (response.requiresTOTP) {
+          return {
+            success: true,
+            requiresTOTP: true,
+            userId: response.userId,
+            message: response.message,
+          };
+        }
+
+        // Normal login with tokens
         const { user, accessToken, refreshToken } = response.data;
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('accessToken', accessToken);
@@ -82,8 +93,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.googleLogin(idToken);
       if (response.success) {
+        // Check if TOTP is required
+        if (response.requiresTOTP) {
+          return {
+            success: true,
+            requiresTOTP: true,
+            userId: response.userId,
+            message: response.message,
+          };
+        }
+
         // Check if activation is required
-        if (response.data.requiresActivation) {
+        if (response.data?.requiresActivation) {
           return {
             success: true,
             requiresActivation: true,

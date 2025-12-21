@@ -105,6 +105,25 @@ const userSchema = new mongoose.Schema({
     type: Date,
     select: false
   },
+  // TOTP (Two-Factor Authentication) fields
+  totpSecret: {
+    type: String,
+    select: false // Don't return by default for security
+  },
+  totpEnabled: {
+    type: Boolean,
+    default: false
+  },
+  totpBackupCodes: [{
+    code: {
+      type: String,
+      select: false
+    },
+    used: {
+      type: Boolean,
+      default: false
+    }
+  }],
   // Authentication method tracking
   authMethod: {
     type: String,

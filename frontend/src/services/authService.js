@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001/api/auth';
+const API_BASE_URL = '/api/auth';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -123,6 +123,44 @@ const authService = {
   // Resend activation code
   resendActivationCode: async (userId) => {
     const response = await api.post('/resend-activation', { userId });
+    return response.data;
+  },
+
+  // TOTP / 2FA Methods
+
+  // Get TOTP status
+  getTOTPStatus: async () => {
+    const response = await api.get('/totp/status');
+    return response.data;
+  },
+
+  // Setup TOTP - Get QR code
+  setupTOTP: async () => {
+    const response = await api.post('/totp/setup');
+    return response.data;
+  },
+
+  // Enable TOTP - Verify initial token
+  enableTOTP: async (token) => {
+    const response = await api.post('/totp/enable', { token });
+    return response.data;
+  },
+
+  // Disable TOTP
+  disableTOTP: async (token) => {
+    const response = await api.post('/totp/disable', { token });
+    return response.data;
+  },
+
+  // Verify TOTP during login
+  verifyTOTP: async (userId, token) => {
+    const response = await api.post('/verify-totp', { userId, token });
+    return response.data;
+  },
+
+  // Verify backup code during login
+  verifyBackupCode: async (userId, backupCode) => {
+    const response = await api.post('/verify-backup-code', { userId, backupCode });
     return response.data;
   },
 };

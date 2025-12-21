@@ -16,6 +16,10 @@ router.post('/google', authController.googleAuth); // Client-side flow (ID token
 router.get('/google/url', authController.getGoogleAuthUrl); // Get auth URL for server-side flow
 router.post('/google/callback', authController.googleCallback); // Server-side flow callback
 
+// Public routes - TOTP verification during login (no auth required)
+router.post('/verify-totp', authController.verifyTOTP);
+router.post('/verify-backup-code', authController.verifyBackupCode);
+
 // Protected routes (require authentication)
 router.use(authenticateToken);
 
@@ -29,5 +33,11 @@ router.post('/upload-avatar', (req, res, next) => {
 }, uploadSingle, authController.uploadAvatar);
 router.delete('/delete-avatar', authController.deleteAvatar);
 router.post('/logout', authController.logout);
+
+// TOTP management routes (protected)
+router.get('/totp/status', authController.getTOTPStatus);
+router.post('/totp/setup', authController.setupTOTP);
+router.post('/totp/enable', authController.enableTOTP);
+router.post('/totp/disable', authController.disableTOTP);
 
 module.exports = router;
