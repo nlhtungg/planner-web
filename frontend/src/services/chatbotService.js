@@ -117,6 +117,26 @@ const chatbotService = {
     });
     return response.data;
   },
+
+  /**
+   * Index workspace for insights
+   */
+  async indexWorkspace(workspaceId) {
+    const response = await api.post(`/chatbot/workspace-insights/${workspaceId}/index`);
+    return response.data;
+  },
+
+  /**
+   * Chat about workspace (Workspace Insights)
+   */
+  async chatWorkspaceInsight(workspaceId, message, sessionId = null) {
+    const response = await api.post('/chatbot/workspace-insights/chat', {
+      workspaceId,
+      message,
+      sessionId
+    });
+    return response.data;
+  },
 };
 
 export default chatbotService;
