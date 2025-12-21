@@ -7,6 +7,7 @@ const calendarRoutes = require('./calendarRoutes');
 const messageRoutes = require('./messageRoutes');
 const groupRoutes = require('./groupRoutes');
 const connectionRoutes = require('./connectionRoutes');
+const chatbotRoutes = require('./chatbotRoutes');
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.use('/api/documents', require('./documentRoutes'));
 router.use('/api/messages', messageRoutes);
 router.use('/api/groups', groupRoutes);
 router.use('/api/connections', connectionRoutes);
+router.use('/api/chatbot', chatbotRoutes);
 
 /**
  * 404 handler for undefined routes

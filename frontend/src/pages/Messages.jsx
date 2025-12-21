@@ -30,6 +30,7 @@ import {
   PhotoIcon,
   PaperClipIcon,
   GifIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid';
@@ -219,6 +220,7 @@ const Messages = () => {
   const sidebarItems = [
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
+    { id: 'ai-assistant', name: 'AI Assistant', icon: SparklesIcon, path: '/home?section=ai-assistant' },
     { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections' },
     { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar' },

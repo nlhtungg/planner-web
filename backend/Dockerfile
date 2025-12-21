@@ -1,5 +1,5 @@
-# Use Node.js 18 alpine image
-FROM node:18-alpine
+# Use Node.js 20 alpine image (fix chromadb undici issue)
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app

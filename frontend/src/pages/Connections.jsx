@@ -22,6 +22,7 @@ import {
   PlusIcon,
   EllipsisVerticalIcon,
   NoSymbolIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import moment from 'moment';
 
@@ -430,6 +431,13 @@ const Connections = () => {
             >
               <BriefcaseIcon className="w-5 h-5" />
               <span className="font-medium">Workspaces</span>
+            </button>
+            <button
+              onClick={() => navigate('/home?section=ai-assistant')}
+              className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-gray-700 hover:bg-gray-100"
+            >
+              <SparklesIcon className="w-5 h-5" />
+              <span className="font-medium">AI Assistant</span>
             </button>
             <button
               onClick={() => navigate('/connections')}
