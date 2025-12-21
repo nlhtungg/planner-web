@@ -1,17 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import documentService from '../services/documentService';
-import { PlusIcon, DocumentTextIcon, TrashIcon, ArrowDownTrayIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import {
+    Plus,
+    FileText,
+    Trash2,
+    Download,
+    FolderPlus,
+    Upload,
+    Folder,
+    ChevronRight
+} from 'lucide-react';
 
 const DocumentList = () => {
     const { workspaceId } = useParams();
     const toast = useToast();
+    const { isDark } = useTheme();
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const [currentPath, setCurrentPath] = useState(null); // Current folder path
+    const [currentPath, setCurrentPath] = useState(null);
+
+    // Theme classes
+    const textClass = isDark ? 'text-white' : 'text-slate-800';
+    const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
+    const borderClass = isDark ? 'border-white/10' : 'border-slate-200';
+    const hoverBgClass = isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50';
+    const glassCardClass = isDark
+        ? 'bg-slate-900/40 backdrop-blur-xl border border-white/10 shadow-[0_18px_55px_rgba(0,0,0,0.55)]'
+        : 'bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl';
 
     useEffect(() => {
         fetchDocuments();
@@ -77,7 +97,6 @@ const DocumentList = () => {
         const title = prompt('Enter folder name:');
         if (!title) return;
 
-        // Prevent duplicate folder names in current directory
         const exists = documents.find(d =>
             d.fileType === 'folder' &&
             d.title === title &&
@@ -110,7 +129,6 @@ const DocumentList = () => {
 
         try {
             if (doc.fileUrl) {
-                // Download file from MinIO
                 const response = await fetch(doc.fileUrl);
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -123,7 +141,6 @@ const DocumentList = () => {
                 document.body.removeChild(a);
                 toast.success('File downloaded successfully!');
             } else {
-                // Download text content as file
                 const blob = new Blob([doc.content || ''], { type: 'text/plain' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -143,38 +160,28 @@ const DocumentList = () => {
     const handleDownloadFolder = async (folder) => {
         try {
             toast.info('Preparing folder download...');
-
-            // Dynamic import of JSZip
             const JSZip = (await import('jszip')).default;
             const zip = new JSZip();
-
-            // Get folder path
             const folderPath = currentPath ? `${currentPath}/${folder.title}` : folder.title;
-
-            // Get all documents in this folder recursively
             const folderDocs = documents.filter(doc =>
                 doc.folder && doc.folder.startsWith(folderPath)
             );
 
-            // Add files to zip
             for (const doc of folderDocs) {
                 if (doc.fileType !== 'folder') {
                     const relativePath = doc.folder.replace(folderPath + '/', '') || '';
                     const fileName = relativePath ? `${relativePath}/${doc.title}` : doc.title;
 
                     if (doc.fileUrl) {
-                        // Fetch file from URL
                         const response = await fetch(doc.fileUrl);
                         const blob = await response.blob();
                         zip.file(fileName, blob);
                     } else if (doc.content) {
-                        // Add text content
                         zip.file(fileName, doc.content);
                     }
                 }
             }
 
-            // Generate and download zip
             const content = await zip.generateAsync({ type: 'blob' });
             const url = window.URL.createObjectURL(content);
             const a = document.createElement('a');
@@ -184,11 +191,10 @@ const DocumentList = () => {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-
             toast.success('Folder downloaded successfully!');
         } catch (err) {
             console.error('Folder download error:', err);
-            toast.error('Failed to download folder. Make sure jszip is installed.');
+            toast.error('Failed to download folder.');
         }
     };
 
@@ -213,12 +219,11 @@ const DocumentList = () => {
 
     const getFileIcon = (doc) => {
         if (doc.fileType === 'folder') return '📁';
-        if (doc.isEditable && !doc.fileUrl) return '📝'; // Text documents created in-app
+        if (doc.isEditable && !doc.fileUrl) return '📝';
 
         const type = doc.fileType || '';
         const category = doc.fileCategory;
 
-        // Use category if available (new documents)
         if (category) {
             const categoryIcons = {
                 document: '📄',
@@ -235,75 +240,51 @@ const DocumentList = () => {
             return categoryIcons[category] || '📎';
         }
 
-        // Fallback to MIME type detection for existing documents
-        // Office documents - check for actual MIME type patterns
         if (type.includes('wordprocessingml') || type.includes('msword')) return '📄';
         if (type.includes('spreadsheetml') || type.includes('ms-excel')) return '📊';
         if (type.includes('presentationml') || type.includes('ms-powerpoint')) return '📙';
-        if (type.includes('opendocument.text')) return '📄';
-        if (type.includes('opendocument.spreadsheet')) return '📊';
-        if (type.includes('opendocument.presentation')) return '📙';
-
-        // Media
         if (type.includes('pdf')) return '📄';
         if (type.includes('image')) return '🖼️';
         if (type.includes('video')) return '🎥';
         if (type.includes('audio')) return '🎵';
-
-        // Archives
-        if (type.includes('zip') || type.includes('rar') || type.includes('7z') || type.includes('tar') || type.includes('gzip')) return '📦';
-
-        // Code/Text
-        if (type.includes('javascript') || type.includes('json') || type.includes('html') || type.includes('css') || type.includes('xml') || type.includes('yaml')) return '💻';
+        if (type.includes('zip') || type.includes('rar') || type.includes('7z')) return '📦';
+        if (type.includes('javascript') || type.includes('json') || type.includes('html')) return '💻';
         if (type.includes('text')) return '📝';
 
         return '📎';
     };
 
-    // Get human-readable file type label
     const getFileTypeLabel = (doc) => {
         if (doc.isEditable && !doc.fileUrl) return 'Document';
-
         const type = doc.fileType || '';
         const category = doc.fileCategory;
 
-        // Office documents
         if (type.includes('wordprocessingml') || type.includes('msword') || category === 'document') return 'Word Document';
         if (type.includes('spreadsheetml') || type.includes('ms-excel') || category === 'spreadsheet') return 'Spreadsheet';
         if (type.includes('presentationml') || type.includes('ms-powerpoint') || category === 'presentation') return 'Presentation';
-
-        // Media
         if (type.includes('pdf')) return 'PDF';
         if (type.includes('image') || category === 'image') return 'Image';
         if (type.includes('video') || category === 'video') return 'Video';
         if (type.includes('audio') || category === 'audio') return 'Audio';
-
-        // Archives
-        if (type.includes('zip') || type.includes('rar') || type.includes('7z') || category === 'archive') return 'Archive';
-
-        // Code
+        if (type.includes('zip') || type.includes('rar') || category === 'archive') return 'Archive';
         if (category === 'code') return 'Code';
         if (category === 'text') return 'Text File';
 
         return 'File';
     };
 
-    // Filter documents by current path
     const filteredDocuments = documents.filter(doc => {
-        // Handle null vs undefined vs empty string comparison
         const docFolder = doc.folder || null;
         const current = currentPath || null;
         return docFolder === current;
     });
 
-    // Sort: Folders first, then files
     filteredDocuments.sort((a, b) => {
         if (a.fileType === 'folder' && b.fileType !== 'folder') return -1;
         if (a.fileType !== 'folder' && b.fileType === 'folder') return 1;
-        return 0; // Keep original order otherwise (or sort by date)
+        return 0;
     });
 
-    // Navigation handlers
     const enterFolder = (folderName) => {
         const newPath = currentPath ? `${currentPath}/${folderName}` : folderName;
         setCurrentPath(newPath);
@@ -320,21 +301,34 @@ const DocumentList = () => {
         setCurrentPath(null);
     };
 
-    if (loading) return <div className="text-center p-4">Loading documents...</div>;
-    if (error) return <div className="text-red-500 p-4">{error}</div>;
-
-    // Breadcrumbs UI
-    const renderBreadcrumbs = () => {
-        if (!currentPath) return (
-            <span className="font-semibold text-gray-700">Root</span>
+    if (loading) {
+        return (
+            <div className={`rounded-2xl p-8 text-center ${glassCardClass}`}>
+                <div className={`animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-3 ${isDark ? 'border-blue-400' : 'border-blue-600'}`}></div>
+                <p className={textSecondaryClass}>Loading documents...</p>
+            </div>
         );
+    }
+
+    if (error) {
+        return (
+            <div className={`rounded-2xl p-8 text-center ${glassCardClass}`}>
+                <p className={isDark ? 'text-red-400' : 'text-red-600'}>{error}</p>
+            </div>
+        );
+    }
+
+    const renderBreadcrumbs = () => {
+        if (!currentPath) {
+            return <span className={`font-semibold ${textClass}`}>Root</span>;
+        }
 
         const parts = currentPath.split('/');
         return (
-            <div className="flex items-center text-sm text-gray-600">
+            <div className={`flex items-center text-sm ${textSecondaryClass}`}>
                 <button
                     onClick={goToRoot}
-                    className="hover:text-blue-600 hover:underline"
+                    className={`${isDark ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-colors`}
                 >
                     Root
                 </button>
@@ -343,13 +337,13 @@ const DocumentList = () => {
                     const isLast = index === parts.length - 1;
                     return (
                         <React.Fragment key={path}>
-                            <span className="mx-2 text-gray-400">/</span>
+                            <ChevronRight className="w-4 h-4 mx-1" />
                             {isLast ? (
-                                <span className="font-semibold text-gray-800">{part}</span>
+                                <span className={`font-semibold ${textClass}`}>{part}</span>
                             ) : (
                                 <button
                                     onClick={() => setCurrentPath(path)}
-                                    className="hover:text-blue-600 hover:underline"
+                                    className={`${isDark ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-colors`}
                                 >
                                     {part}
                                 </button>
@@ -362,33 +356,39 @@ const DocumentList = () => {
     };
 
     return (
-        <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className={`rounded-2xl p-6 ${glassCardClass}`}>
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
-                    <h2 className="text-xl font-bold flex items-center mb-2">
-                        <DocumentTextIcon className="h-6 w-6 mr-2 text-blue-500" />
+                    <h2 className={`text-xl font-bold flex items-center gap-2 mb-2 ${textClass}`}>
+                        <FileText className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                         Documents
                     </h2>
-                    {/* Breadcrumbs */}
-                    <div className="bg-gray-50 px-3 py-1 rounded-md inline-block">
+                    <div className={`px-3 py-1.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
                         {renderBreadcrumbs()}
                     </div>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                     <button
                         onClick={handleCreateFolder}
-                        className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center"
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm transition-all ${isDark
+                                ? 'bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 border border-white/10'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                            }`}
                     >
-                        <span className="text-xl mr-1 mb-1">📁</span>
-                        New Folder
+                        <FolderPlus className="w-4 h-4" />
+                        <span className="hidden sm:inline">New Folder</span>
                     </button>
                     <button
                         onClick={handleCreateDocument}
-                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm transition-all ${isDark
+                                ? 'bg-green-600/80 hover:bg-green-600 text-white shadow-[0_0_18px_rgba(34,197,94,0.3)]'
+                                : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
+                            }`}
                     >
-                        <PlusIcon className="h-5 w-5 mr-1" />
-                        New Doc
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline">New Doc</span>
                     </button>
                     <div className="relative">
                         <input
@@ -400,44 +400,61 @@ const DocumentList = () => {
                         />
                         <label
                             htmlFor="document-upload"
-                            className={`bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center cursor-pointer ${uploading ? 'opacity-50' : ''}`}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm cursor-pointer transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''
+                                } ${isDark
+                                    ? 'bg-blue-600/80 hover:bg-blue-600 text-white shadow-[0_0_18px_rgba(59,130,246,0.3)]'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                                }`}
                         >
-                            <PlusIcon className="h-5 w-5 mr-1" />
-                            {uploading ? 'Uploading...' : 'Upload'}
+                            <Upload className="w-4 h-4" />
+                            <span className="hidden sm:inline">{uploading ? 'Uploading...' : 'Upload'}</span>
                         </label>
                     </div>
                 </div>
             </div>
 
+            {/* Document List */}
             {filteredDocuments.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                    <p className="text-gray-500 mb-2">This folder is empty.</p>
-                    <p className="text-sm text-gray-400">Create a folder, document or upload a file.</p>
+                <div className={`text-center py-12 border-2 border-dashed rounded-xl ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                    <Folder className={`w-12 h-12 mx-auto mb-3 ${textSecondaryClass}`} />
+                    <p className={`mb-1 ${textSecondaryClass}`}>This folder is empty.</p>
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+                        Create a folder, document or upload a file.
+                    </p>
                 </div>
             ) : (
-                <ul className="divide-y divide-gray-200">
+                <ul className={`divide-y ${isDark ? 'divide-white/10' : 'divide-slate-200'}`}>
                     {filteredDocuments.map((doc) => {
                         const isFolder = doc.fileType === 'folder';
                         return (
-                            <li key={doc._id} className="py-4 flex justify-between items-center hover:bg-gray-50 px-2 rounded group transition-colors">
-                                <div className="flex-1 flex items-center space-x-3 cursor-pointer" onClick={() => isFolder ? enterFolder(doc.title) : null}>
-                                    <div className="text-3xl">
+                            <li
+                                key={doc._id}
+                                className={`py-4 flex justify-between items-center px-3 rounded-xl group transition-all ${hoverBgClass}`}
+                            >
+                                <div
+                                    className="flex-1 flex items-center space-x-3 cursor-pointer"
+                                    onClick={() => isFolder ? enterFolder(doc.title) : null}
+                                >
+                                    <div className="text-2xl">
                                         {isFolder ? '📁' : getFileIcon(doc)}
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         {isFolder ? (
                                             <button
                                                 onClick={() => enterFolder(doc.title)}
-                                                className="font-medium text-gray-900 hover:text-blue-600 text-left"
+                                                className={`font-medium ${textClass} ${isDark ? 'hover:text-blue-400' : 'hover:text-blue-600'} text-left truncate block`}
                                             >
                                                 {doc.title}
                                             </button>
                                         ) : (
-                                            <Link to={`/documents/${doc._id}`} className="font-medium text-blue-600 hover:text-blue-800">
+                                            <Link
+                                                to={`/documents/${doc._id}`}
+                                                className={`font-medium ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'} truncate block`}
+                                            >
                                                 {doc.title}
                                             </Link>
                                         )}
-                                        <div className="text-sm text-gray-500">
+                                        <div className={`text-sm ${textSecondaryClass} truncate`}>
                                             {isFolder ? 'Folder' : (
                                                 <>
                                                     {getFileTypeLabel(doc)}
@@ -448,20 +465,26 @@ const DocumentList = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
-                                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                                        className={`p-2 rounded-lg transition-colors ${isDark
+                                                ? 'text-slate-400 hover:text-blue-400 hover:bg-white/5'
+                                                : 'text-slate-400 hover:text-blue-600 hover:bg-slate-100'
+                                            }`}
                                         title={isFolder ? "Download as ZIP" : "Download"}
                                     >
-                                        <ArrowDownTrayIcon className="h-5 w-5" />
+                                        <Download className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDelete(doc._id); }}
-                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                        className={`p-2 rounded-lg transition-colors ${isDark
+                                                ? 'text-slate-400 hover:text-red-400 hover:bg-white/5'
+                                                : 'text-slate-400 hover:text-red-600 hover:bg-slate-100'
+                                            }`}
                                         title="Delete"
                                     >
-                                        <TrashIcon className="h-5 w-5" />
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </li>

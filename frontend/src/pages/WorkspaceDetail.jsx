@@ -56,7 +56,7 @@ const WorkspaceDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-  
+
   // Posts state
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -70,7 +70,7 @@ const WorkspaceDetail = () => {
   const [editPostMentions, setEditPostMentions] = useState([]);
   const [editPostMentionsEveryone, setEditPostMentionsEveryone] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(null);
-  
+
   // Comments state
   const [expandedComments, setExpandedComments] = useState({}); // { [postId]: true/false }
   const [postComments, setPostComments] = useState({}); // { [postId]: [...comments] }
@@ -84,11 +84,11 @@ const WorkspaceDetail = () => {
   const [editCommentMentions, setEditCommentMentions] = useState([]);
   const [editCommentMentionsEveryone, setEditCommentMentionsEveryone] = useState(false);
   const [commentDropdownOpen, setCommentDropdownOpen] = useState(null);
-  
+
   // Reactions state
   const [postReactions, setPostReactions] = useState({}); // { [postId]: { summary: [...], userReaction: {...} } }
   const [commentReactions, setCommentReactions] = useState({}); // { [commentId]: { summary: [...], userReaction: {...} } }
-  
+
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [addMemberLoading, setAddMemberLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState(null);
@@ -469,7 +469,7 @@ const WorkspaceDetail = () => {
       const response = await postService.getWorkspacePosts(workspaceId);
       if (response.success) {
         setPosts(response.data);
-        
+
         // Fetch comment counts and reactions for all posts
         const counts = {};
         const reactions = {};
@@ -479,11 +479,11 @@ const WorkspaceDetail = () => {
               commentService.getPostComments(workspaceId, post._id),
               reactionService.getPostReactionSummary(workspaceId, post._id)
             ]);
-            
+
             if (commentsResponse.success) {
               counts[post._id] = commentsResponse.data.length;
             }
-            
+
             if (reactionsResponse.success) {
               reactions[post._id] = {
                 summary: reactionsResponse.data.summary,
@@ -586,7 +586,7 @@ const WorkspaceDetail = () => {
   // Comment handlers
   const toggleComments = async (postId) => {
     const isExpanded = expandedComments[postId];
-    
+
     if (!isExpanded) {
       // Expanding - fetch comments if not already loaded
       if (!postComments[postId]) {
@@ -606,7 +606,7 @@ const WorkspaceDetail = () => {
       if (response.success) {
         setPostComments({ ...postComments, [postId]: response.data });
         setCommentCounts({ ...commentCounts, [postId]: response.data.length });
-        
+
         // Fetch reactions for each comment
         const reactions = {};
         for (const comment of response.data) {
@@ -637,8 +637,8 @@ const WorkspaceDetail = () => {
 
     try {
       const response = await commentService.createComment(
-        workspaceId, 
-        postId, 
+        workspaceId,
+        postId,
         content.trim(),
         newCommentMentions[postId] || [],
         newCommentMentionsEveryone[postId] || false
@@ -662,9 +662,9 @@ const WorkspaceDetail = () => {
 
     try {
       const response = await commentService.updateComment(
-        workspaceId, 
-        postId, 
-        commentId, 
+        workspaceId,
+        postId,
+        commentId,
         editCommentContent.trim(),
         editCommentMentions,
         editCommentMentionsEveryone
@@ -833,11 +833,10 @@ const WorkspaceDetail = () => {
               <p className={`mb-6 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{error}</p>
               <button
                 onClick={() => navigate('/workspaces')}
-                className={`px-6 py-2 rounded-full font-medium transition-all ${
-                  isDark
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                }`}
+                className={`px-6 py-2 rounded-full font-medium transition-all ${isDark
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                  }`}
               >
                 Back to Workspaces
               </button>
@@ -865,9 +864,8 @@ const WorkspaceDetail = () => {
               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                 <button
                   onClick={() => navigate('/workspaces')}
-                  className={`p-2 rounded-full transition-colors flex-shrink-0 ${
-                    isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
-                  }`}
+                  className={`p-2 rounded-full transition-colors flex-shrink-0 ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                    }`}
                 >
                   <ArrowLeft className={`w-5 h-5 ${textClass}`} />
                 </button>
@@ -890,29 +888,27 @@ const WorkspaceDetail = () => {
 
               <div className="flex items-center gap-2">
                 {isOwnerOrAdmin() && (
-                <>
-                  <button
-                    onClick={() => setIsAddMemberModalOpen(true)}
-                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full font-medium transition-all text-sm ${
-                      isDark
+                  <>
+                    <button
+                      onClick={() => setIsAddMemberModalOpen(true)}
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full font-medium transition-all text-sm ${isDark
                         ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
                         : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                    }`}
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Invite</span>
-                  </button>
-                  <button
-                    className={`p-2 rounded-full transition-colors ${
-                      isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
-                    }`}
-                  >
-                    <Settings className={`w-5 h-5 ${textClass}`} />
-                  </button>
-                </>
-              )}
+                        }`}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span className="hidden sm:inline">Invite</span>
+                    </button>
+                    <button
+                      className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                        }`}
+                    >
+                      <Settings className={`w-5 h-5 ${textClass}`} />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
           </div>
 
           {/* Navigation Tabs */}
@@ -931,15 +927,14 @@ const WorkspaceDetail = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 sm:gap-2 py-3 sm:py-4 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
-                      isActive
-                        ? isDark
-                          ? 'border-blue-400 text-blue-400'
-                          : 'border-blue-600 text-blue-600'
-                        : isDark
+                    className={`flex items-center gap-1.5 sm:gap-2 py-3 sm:py-4 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${isActive
+                      ? isDark
+                        ? 'border-blue-400 text-blue-400'
+                        : 'border-blue-600 text-blue-600'
+                      : isDark
                         ? 'border-transparent text-slate-400 hover:text-slate-200'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span className="hidden sm:inline">{tab.name}</span>
@@ -998,9 +993,8 @@ const WorkspaceDetail = () => {
               <GlassCard>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className={`text-lg font-semibold ${textClass}`}>Recent Activity</h3>
-                  <button className={`text-sm font-medium transition-colors ${
-                    isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
-                  }`}>
+                  <button className={`text-sm font-medium transition-colors ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                    }`}>
                     View all
                   </button>
                 </div>
@@ -1010,9 +1004,8 @@ const WorkspaceDetail = () => {
                     return (
                       <div key={activity.id} className="flex items-start gap-3">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'
-                          }`}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'
+                            }`}
                         >
                           <span className="text-white text-sm font-semibold">
                             {activity.avatar}
@@ -1055,15 +1048,14 @@ const WorkspaceDetail = () => {
                   <div className="flex items-center justify-between">
                     <span className={textSecondaryClass}>Visibility:</span>
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        workspace.settings?.isPublic
-                          ? isDark
-                            ? 'bg-green-900/30 text-green-400'
-                            : 'bg-green-100 text-green-800'
-                          : isDark
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${workspace.settings?.isPublic
+                        ? isDark
+                          ? 'bg-green-900/30 text-green-400'
+                          : 'bg-green-100 text-green-800'
+                        : isDark
                           ? 'bg-slate-700/50 text-slate-300'
                           : 'bg-gray-100 text-gray-800'
-                      }`}
+                        }`}
                     >
                       {workspace.settings?.isPublic ? 'Public' : 'Private'}
                     </span>
@@ -1076,9 +1068,8 @@ const WorkspaceDetail = () => {
                 <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Quick Actions</h3>
                 <div className="space-y-2">
                   <button
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                      }`}
                   >
                     <Plus className="w-4 h-4" />
                     <span>Create Task</span>
@@ -1090,17 +1081,15 @@ const WorkspaceDetail = () => {
                         document.getElementById('document-upload')?.click();
                       }, 100);
                     }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                      }`}
                   >
                     <FileText className="w-4 h-4" />
                     <span>Upload Document</span>
                   </button>
                   <button
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                      }`}
                   >
                     <Calendar className="w-4 h-4" />
                     <span>Schedule Meeting</span>
@@ -1108,9 +1097,8 @@ const WorkspaceDetail = () => {
                   {isOwnerOrAdmin() && (
                     <button
                       onClick={() => setIsAddMemberModalOpen(true)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
-                        isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                      }`}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                        }`}
                     >
                       <UserPlus className="w-4 h-4" />
                       <span>Invite Member</span>
@@ -1123,514 +1111,503 @@ const WorkspaceDetail = () => {
         )}
 
         {activeTab === 'posts' && (
-          <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
-            {/* Create Post Form */}
-            <GlassCard>
-              <form onSubmit={handleCreatePost}>
-                <div className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                      {user?.avatar ? (
-                        <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className={`w-full h-full flex items-center justify-center ${
-                          isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-500 to-blue-600'
-                        }`}>
-                          <span className="text-white text-sm font-semibold">
-                            {user?.firstName?.[0]}{user?.lastName?.[0]}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <MentionInput
-                        value={newPostContent}
-                        onChange={(value) => setNewPostContent(value)}
-                        onMentionsChange={handleNewPostMentionsChange}
-                        members={workspaceMembers}
-                        placeholder="Start a conversation..."
-                        className={`w-full px-0 py-0 border-0 focus:ring-0 resize-none placeholder-gray-400 bg-transparent ${textClass}`}
-                        rows={3}
-                        disabled={createPostLoading}
-                        maxLength={5000}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className={`px-4 py-3 border-t flex items-center justify-between rounded-b-lg ${
-                  isDark ? 'bg-slate-900/30 border-white/10' : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <span className={`text-xs ${textSecondaryClass}`}>
-                    {newPostContent.length}/5000
-                  </span>
-                  <button
-                    type="submit"
-                    disabled={!newPostContent.trim() || createPostLoading}
-                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isDark
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                    }`}
-                  >
-                    {createPostLoading ? 'Posting...' : 'Post'}
-                  </button>
-                </div>
-              </form>
-            </GlassCard>
-
-            {/* Posts List */}
-            {postsLoading && (
-              <div className="text-center py-12">
-                <div className={`animate-spin rounded-full h-10 w-10 border-b-2 mx-auto ${
-                  isDark ? 'border-blue-400' : 'border-blue-600'
-                }`}></div>
-                <p className={`mt-3 text-sm ${textSecondaryClass}`}>Loading posts...</p>
-              </div>
-            )}
-
-            {postsError && (
-              <GlassCard className={`p-4 ${isDark ? 'bg-red-900/20 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
-                <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>{postsError}</p>
-              </GlassCard>
-            )}
-
-            {!postsLoading && !postsError && posts.length === 0 && (
-              <GlassCard className="text-center py-16">
-                <MessageSquare className={`w-16 h-16 mx-auto mb-4 ${textSecondaryClass}`} />
-                <h3 className={`text-lg font-medium mb-2 ${textClass}`}>No posts yet</h3>
-                <p className={textSecondaryClass}>Be the first to share an update!</p>
-              </GlassCard>
-            )}
-
-            {!postsLoading && !postsError && posts.length > 0 && (
-              <div className="space-y-3">
-                {posts.map((post) => (
-                  <GlassCard
-                    key={post._id} 
-                    className={`border-l-4 hover:shadow-lg transition-shadow ${
-                      isDark ? 'border-orange-500' : 'border-orange-500'
-                    }`}
-                  >
-                    <div className="p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                          {post.author?.avatar ? (
-                            <img src={post.author.avatar} alt={`${post.author.firstName} ${post.author.lastName}`} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className={`w-full h-full flex items-center justify-center ${
-                              isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-500 to-blue-600'
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4 pb-6">
+              {/* Create Post Form */}
+              <GlassCard>
+                <form onSubmit={handleCreatePost}>
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        {user?.avatar ? (
+                          <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className={`w-full h-full flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-500 to-blue-600'
                             }`}>
-                              <span className="text-white text-sm font-semibold">
-                                {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className={`font-semibold text-sm ${textClass}`}>
-                                {post.author?.firstName} {post.author?.lastName}
-                              </h4>
-                              <div className={`flex items-center gap-2 text-xs mt-0.5 ${textSecondaryClass}`}>
-                                <span>
-                                  {new Date(post.createdAt).toLocaleDateString('en-US', { 
-                                    month: 'numeric', 
-                                    day: 'numeric', 
-                                    year: 'numeric' 
-                                  })}
-                                </span>
-                                <span>•</span>
-                                <span>
-                                  {new Date(post.createdAt).toLocaleTimeString('en-US', { 
-                                    hour: 'numeric', 
-                                    minute: '2-digit',
-                                    hour12: true 
-                                  })}
-                                </span>
-                                {post.updatedAt !== post.createdAt && (
-                                  <>
-                                    <span>•</span>
-                                    <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>Edited</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            {(post.author?._id === user._id || post.author?._id === user.id || 
-                              post.author?.email === user.email) && (
-                              <div className="relative">
-                                {editingPost === post._id ? (
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => handleUpdatePost(post._id)}
-                                      className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                                        isDark
-                                          ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/20'
-                                          : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
-                                      }`}
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={cancelEditingPost}
-                                      className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                                        isDark
-                                          ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-                                      }`}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDropdownOpen(dropdownOpen === post._id ? null : post._id);
-                                    }}
-                                    className={`p-1.5 rounded transition-colors ${
-                                      isDark
-                                        ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                  >
-                                    <MoreVertical className="w-5 h-5" />
-                                  </button>
-                                )}
-                                {dropdownOpen === post._id && (
-                                  <div className={`absolute right-0 mt-1 w-36 rounded-lg shadow-lg border z-10 ${
-                                    isDark
-                                      ? 'bg-slate-800/95 backdrop-blur-xl border-white/10'
-                                      : 'bg-white border-gray-200'
-                                  }`}>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        startEditingPost(post);
-                                        setDropdownOpen(null);
-                                      }}
-                                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-t-lg transition-colors ${
-                                        isDark
-                                          ? 'text-slate-200 hover:bg-white/5'
-                                          : 'text-gray-700 hover:bg-gray-100'
-                                      }`}
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                      <span>Edit</span>
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeletePost(post._id);
-                                        setDropdownOpen(null);
-                                      }}
-                                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-b-lg transition-colors ${
-                                        isDark
-                                          ? 'text-red-400 hover:bg-red-900/20'
-                                          : 'text-red-600 hover:bg-red-50'
-                                      }`}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      <span>Delete</span>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          {editingPost === post._id ? (
-                            <div className="mt-3">
-                              <MentionInput
-                                value={editPostContent}
-                                onChange={(value) => setEditPostContent(value)}
-                                onMentionsChange={handleEditPostMentionsChange}
-                                members={workspaceMembers}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                                rows={4}
-                                maxLength={5000}
-                              />
-                              <span className="text-xs text-gray-500 mt-1 block">
-                                {editPostContent.length}/5000
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="mt-3">
-                              <MentionText 
-                                content={post.content}
-                                mentions={post.mentions}
-                                mentionsEveryone={post.mentionsEveryone}
-                                members={memberUsers}
-                                className={`text-sm leading-relaxed whitespace-pre-wrap ${
-                                  isDark ? 'text-slate-200' : 'text-gray-800'
-                                }`}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Reactions and interactions bar */}
-                      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          {/* Reaction Picker */}
-                          <ReactionPicker
-                            onReact={(reactionType, emoji) => handlePostReaction(post._id, reactionType, emoji)}
-                            currentReaction={postReactions[post._id]?.userReaction}
-                            position="top"
-                          />
-                          
-                          {/* Reaction Bar */}
-                          {postReactions[post._id]?.summary && postReactions[post._id].summary.length > 0 && (
-                            <ReactionBar
-                              reactions={postReactions[post._id].summary}
-                              userReaction={postReactions[post._id].userReaction}
-                              onShowDetails={() => console.log('Show reaction details')}
-                            />
-                          )}
-                        </div>
-                        
-                        {/* Comment count button */}
-                        <button
-                          onClick={() => toggleComments(post._id)}
-                          className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                        >
-                          <MessageSquare className="w-5 h-5" />
-                          <span>
-                            {commentCounts[post._id] || 0} {commentCounts[post._id] === 1 ? 'comment' : 'comments'}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {expandedComments[post._id] ? '' : ''}
-                          </span>
-                        </button>
-                      </div>
-                      
-                      {/* Comment section */}
-                      <div className="mt-3">
-                        {/* Expanded comments section */}
-                        {expandedComments[post._id] && (
-                          <div className="mt-4 space-y-3">
-                            {commentsLoading[post._id] ? (
-                              <div className="text-center py-4">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                                <p className="mt-2 text-xs text-gray-500">Loading comments...</p>
-                              </div>
-                            ) : (
-                              <>
-                                {/* Comments list */}
-                                {postComments[post._id]?.length > 0 ? (
-                                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                                    {postComments[post._id].map((comment) => (
-                                      <div key={comment._id} className="flex items-start space-x-2 bg-gray-50 rounded-lg p-3">
-                                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                                          {comment.author?.avatar ? (
-                                            <img src={comment.author.avatar} alt={`${comment.author.firstName} ${comment.author.lastName}`} className="w-full h-full object-cover" />
-                                          ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                                              <span className="text-white text-xs font-semibold">
-                                                {comment.author?.firstName?.[0]}{comment.author?.lastName?.[0]}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                              <h5 className="font-semibold text-gray-900 text-xs">
-                                                {comment.author?.firstName} {comment.author?.lastName}
-                                              </h5>
-                                              <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
-                                                <span>
-                                                  {new Date(comment.createdAt).toLocaleDateString('en-US', { 
-                                                    month: 'numeric', 
-                                                    day: 'numeric',
-                                                    year: 'numeric'
-                                                  })}
-                                                </span>
-                                                <span>•</span>
-                                                <span>
-                                                  {new Date(comment.createdAt).toLocaleTimeString('en-US', { 
-                                                    hour: 'numeric', 
-                                                    minute: '2-digit',
-                                                    hour12: true 
-                                                  })}
-                                                </span>
-                                                {comment.updatedAt !== comment.createdAt && (
-                                                  <>
-                                                    <span>•</span>
-                                                    <span className="text-blue-600">Edited</span>
-                                                  </>
-                                                )}
-                                              </div>
-                                            </div>
-                                            {(comment.author?._id === user._id || comment.author?._id === user.id || 
-                                              comment.author?.email === user.email) && (
-                                              <div className="relative">
-                                                {editingComment === comment._id ? (
-                                                  <div className="flex items-center space-x-1">
-                                                    <button
-                                                      onClick={() => handleUpdateComment(post._id, comment._id)}
-                                                      className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                                                    >
-                                                      Save
-                                                    </button>
-                                                    <button
-                                                      onClick={cancelEditingComment}
-                                                      className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                                                    >
-                                                      Cancel
-                                                    </button>
-                                                  </div>
-                                                ) : (
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setCommentDropdownOpen(commentDropdownOpen === comment._id ? null : comment._id);
-                                                    }}
-                                                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
-                                                  >
-                                                    <EllipsisVerticalIcon className="w-4 h-4" />
-                                                  </button>
-                                                )}
-                                                {commentDropdownOpen === comment._id && (
-                                                  <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        startEditingComment(comment);
-                                                        setCommentDropdownOpen(null);
-                                                      }}
-                                                      className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded-t-lg"
-                                                    >
-                                                      <PencilIcon className="w-3 h-3" />
-                                                      <span>Edit</span>
-                                                    </button>
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteComment(post._id, comment._id);
-                                                        setCommentDropdownOpen(null);
-                                                      }}
-                                                      className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-b-lg"
-                                                    >
-                                                      <TrashIcon className="w-3 h-3" />
-                                                      <span>Delete</span>
-                                                    </button>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                          {editingComment === comment._id ? (
-                                            <div className="mt-2">
-                                              <MentionInput
-                                                value={editCommentContent}
-                                                onChange={(value) => setEditCommentContent(value)}
-                                                onMentionsChange={handleEditCommentMentionsChange}
-                                                members={workspaceMembers}
-                                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-xs"
-                                                rows={2}
-                                                maxLength={2000}
-                                              />
-                                              <span className="text-xs text-gray-500 mt-0.5 block">
-                                                {editCommentContent.length}/2000
-                                              </span>
-                                            </div>
-                                          ) : (
-                                            <>
-                                              <MentionText
-                                                content={comment.content}
-                                                mentions={comment.mentions}
-                                                mentionsEveryone={comment.mentionsEveryone}
-                                                members={memberUsers}
-                                                className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap"
-                                              />
-                                              {/* Comment reactions */}
-                                              <div className="mt-2 flex items-center space-x-2">
-                                                <ReactionPicker
-                                                  onReact={(reactionType, emoji) => handleCommentReaction(post._id, comment._id, reactionType, emoji)}
-                                                  currentReaction={commentReactions[comment._id]?.userReaction}
-                                                  position="bottom"
-                                                />
-                                                {commentReactions[comment._id]?.summary && commentReactions[comment._id].summary.length > 0 && (
-                                                  <ReactionBar
-                                                    reactions={commentReactions[comment._id].summary}
-                                                    userReaction={commentReactions[comment._id].userReaction}
-                                                    onShowDetails={() => console.log('Show comment reaction details')}
-                                                  />
-                                                )}
-                                              </div>
-                                            </>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-center py-4">
-                                    <p className="text-sm text-gray-500">No comments yet. Be the first to comment!</p>
-                                  </div>
-                                )}
-
-                                {/* Add comment form */}
-                                <div className="flex items-start space-x-2 mt-3">
-                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                                    {user.avatar ? (
-                                      <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <div className="w-full h-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                                        <span className="text-white text-xs font-semibold">
-                                          {user.firstName?.[0]}{user.lastName?.[0]}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex-1">
-                                    <MentionInput
-                                      value={newCommentContent[post._id] || ''}
-                                      onChange={(value) => setNewCommentContent({ ...newCommentContent, [post._id]: value })}
-                                      onMentionsChange={handleNewCommentMentionsChange(post._id)}
-                                      members={workspaceMembers}
-                                      placeholder="Write a comment..."
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                                      rows={2}
-                                      maxLength={2000}
-                                    />
-                                    <div className="flex items-center justify-between mt-2">
-                                      <span className="text-xs text-gray-500">
-                                        {(newCommentContent[post._id] || '').length}/2000
-                                      </span>
-                                      <button
-                                        onClick={() => handleCreateComment(post._id)}
-                                        disabled={!newCommentContent[post._id]?.trim()}
-                                        className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                      >
-                                        Comment
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </>
-                            )}
+                            <span className="text-white text-sm font-semibold">
+                              {user?.firstName?.[0]}{user?.lastName?.[0]}
+                            </span>
                           </div>
                         )}
                       </div>
+                      <div className="flex-1">
+                        <MentionInput
+                          value={newPostContent}
+                          onChange={(value) => setNewPostContent(value)}
+                          onMentionsChange={handleNewPostMentionsChange}
+                          members={workspaceMembers}
+                          placeholder="Start a conversation..."
+                          className={`w-full px-0 py-0 border-0 focus:ring-0 resize-none placeholder-gray-400 bg-transparent ${textClass}`}
+                          rows={3}
+                          disabled={createPostLoading}
+                          maxLength={5000}
+                        />
+                      </div>
                     </div>
-                  </GlassCard>
-                ))}
-              </div>
-            )}
+                  </div>
+                  <div className={`px-4 py-3 border-t flex items-center justify-between rounded-b-lg ${isDark ? 'bg-slate-900/30 border-white/10' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                    <span className={`text-xs ${textSecondaryClass}`}>
+                      {newPostContent.length}/5000
+                    </span>
+                    <button
+                      type="submit"
+                      disabled={!newPostContent.trim() || createPostLoading}
+                      className={`px-4 py-2 text-sm font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                        }`}
+                    >
+                      {createPostLoading ? 'Posting...' : 'Post'}
+                    </button>
+                  </div>
+                </form>
+              </GlassCard>
+
+              {/* Posts List */}
+              {postsLoading && (
+                <div className="text-center py-12">
+                  <div className={`animate-spin rounded-full h-10 w-10 border-b-2 mx-auto ${isDark ? 'border-blue-400' : 'border-blue-600'
+                    }`}></div>
+                  <p className={`mt-3 text-sm ${textSecondaryClass}`}>Loading posts...</p>
+                </div>
+              )}
+
+              {postsError && (
+                <GlassCard className={`p-4 ${isDark ? 'bg-red-900/20 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
+                  <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>{postsError}</p>
+                </GlassCard>
+              )}
+
+              {!postsLoading && !postsError && posts.length === 0 && (
+                <GlassCard className="text-center py-16">
+                  <MessageSquare className={`w-16 h-16 mx-auto mb-4 ${textSecondaryClass}`} />
+                  <h3 className={`text-lg font-medium mb-2 ${textClass}`}>No posts yet</h3>
+                  <p className={textSecondaryClass}>Be the first to share an update!</p>
+                </GlassCard>
+              )}
+
+              {!postsLoading && !postsError && posts.length > 0 && (
+                <div className="space-y-3">
+                  {posts.map((post) => (
+                    <GlassCard
+                      key={post._id}
+                      className={`border-l-4 hover:shadow-lg transition-shadow ${isDark ? 'border-orange-500' : 'border-orange-500'
+                        }`}
+                    >
+                      <div className="p-5">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                            {post.author?.avatar ? (
+                              <img src={post.author.avatar} alt={`${post.author.firstName} ${post.author.lastName}`} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className={`w-full h-full flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                                }`}>
+                                <span className="text-white text-sm font-semibold">
+                                  {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className={`font-semibold text-sm ${textClass}`}>
+                                  {post.author?.firstName} {post.author?.lastName}
+                                </h4>
+                                <div className={`flex items-center gap-2 text-xs mt-0.5 ${textSecondaryClass}`}>
+                                  <span>
+                                    {new Date(post.createdAt).toLocaleDateString('en-US', {
+                                      month: 'numeric',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    {new Date(post.createdAt).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </span>
+                                  {post.updatedAt !== post.createdAt && (
+                                    <>
+                                      <span>•</span>
+                                      <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>Edited</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              {(post.author?._id === user._id || post.author?._id === user.id ||
+                                post.author?.email === user.email) && (
+                                  <div className="relative">
+                                    {editingPost === post._id ? (
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => handleUpdatePost(post._id)}
+                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${isDark
+                                            ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/20'
+                                            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                                            }`}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={cancelEditingPost}
+                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${isDark
+                                            ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDropdownOpen(dropdownOpen === post._id ? null : post._id);
+                                        }}
+                                        className={`p-1.5 rounded transition-colors ${isDark
+                                          ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                          }`}
+                                      >
+                                        <MoreVertical className="w-5 h-5" />
+                                      </button>
+                                    )}
+                                    {dropdownOpen === post._id && (
+                                      <div className={`absolute right-0 mt-1 w-36 rounded-lg shadow-lg border z-10 ${isDark
+                                        ? 'bg-slate-800/95 backdrop-blur-xl border-white/10'
+                                        : 'bg-white border-gray-200'
+                                        }`}>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            startEditingPost(post);
+                                            setDropdownOpen(null);
+                                          }}
+                                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-t-lg transition-colors ${isDark
+                                            ? 'text-slate-200 hover:bg-white/5'
+                                            : 'text-gray-700 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                          <span>Edit</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeletePost(post._id);
+                                            setDropdownOpen(null);
+                                          }}
+                                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-b-lg transition-colors ${isDark
+                                            ? 'text-red-400 hover:bg-red-900/20'
+                                            : 'text-red-600 hover:bg-red-50'
+                                            }`}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          <span>Delete</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                            </div>
+                            {editingPost === post._id ? (
+                              <div className="mt-3">
+                                <MentionInput
+                                  value={editPostContent}
+                                  onChange={(value) => setEditPostContent(value)}
+                                  onMentionsChange={handleEditPostMentionsChange}
+                                  members={workspaceMembers}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                  rows={4}
+                                  maxLength={5000}
+                                />
+                                <span className="text-xs text-gray-500 mt-1 block">
+                                  {editPostContent.length}/5000
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="mt-3">
+                                <MentionText
+                                  content={post.content}
+                                  mentions={post.mentions}
+                                  mentionsEveryone={post.mentionsEveryone}
+                                  members={memberUsers}
+                                  className={`text-sm leading-relaxed whitespace-pre-wrap ${isDark ? 'text-slate-200' : 'text-gray-800'
+                                    }`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Reactions and interactions bar */}
+                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            {/* Reaction Picker */}
+                            <ReactionPicker
+                              onReact={(reactionType, emoji) => handlePostReaction(post._id, reactionType, emoji)}
+                              currentReaction={postReactions[post._id]?.userReaction}
+                              position="top"
+                            />
+
+                            {/* Reaction Bar */}
+                            {postReactions[post._id]?.summary && postReactions[post._id].summary.length > 0 && (
+                              <ReactionBar
+                                reactions={postReactions[post._id].summary}
+                                userReaction={postReactions[post._id].userReaction}
+                                onShowDetails={() => console.log('Show reaction details')}
+                              />
+                            )}
+                          </div>
+
+                          {/* Comment count button */}
+                          <button
+                            onClick={() => toggleComments(post._id)}
+                            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                          >
+                            <MessageSquare className="w-5 h-5" />
+                            <span>
+                              {commentCounts[post._id] || 0} {commentCounts[post._id] === 1 ? 'comment' : 'comments'}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {expandedComments[post._id] ? '' : ''}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Comment section */}
+                        <div className="mt-3">
+                          {/* Expanded comments section */}
+                          {expandedComments[post._id] && (
+                            <div className="mt-4 space-y-3">
+                              {commentsLoading[post._id] ? (
+                                <div className="text-center py-4">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                  <p className="mt-2 text-xs text-gray-500">Loading comments...</p>
+                                </div>
+                              ) : (
+                                <>
+                                  {/* Comments list */}
+                                  {postComments[post._id]?.length > 0 ? (
+                                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                                      {postComments[post._id].map((comment) => (
+                                        <div key={comment._id} className={`flex items-start space-x-2 rounded-lg p-3 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
+                                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                            {comment.author?.avatar ? (
+                                              <img src={comment.author.avatar} alt={`${comment.author.firstName} ${comment.author.lastName}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                                <span className="text-white text-xs font-semibold">
+                                                  {comment.author?.firstName?.[0]}{comment.author?.lastName?.[0]}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <h5 className="font-semibold text-gray-900 text-xs">
+                                                  {comment.author?.firstName} {comment.author?.lastName}
+                                                </h5>
+                                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                                  <span>
+                                                    {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                                                      month: 'numeric',
+                                                      day: 'numeric',
+                                                      year: 'numeric'
+                                                    })}
+                                                  </span>
+                                                  <span>•</span>
+                                                  <span>
+                                                    {new Date(comment.createdAt).toLocaleTimeString('en-US', {
+                                                      hour: 'numeric',
+                                                      minute: '2-digit',
+                                                      hour12: true
+                                                    })}
+                                                  </span>
+                                                  {comment.updatedAt !== comment.createdAt && (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span className="text-blue-600">Edited</span>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {(comment.author?._id === user._id || comment.author?._id === user.id ||
+                                                comment.author?.email === user.email) && (
+                                                  <div className="relative">
+                                                    {editingComment === comment._id ? (
+                                                      <div className="flex items-center space-x-1">
+                                                        <button
+                                                          onClick={() => handleUpdateComment(post._id, comment._id)}
+                                                          className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                                        >
+                                                          Save
+                                                        </button>
+                                                        <button
+                                                          onClick={cancelEditingComment}
+                                                          className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                                                        >
+                                                          Cancel
+                                                        </button>
+                                                      </div>
+                                                    ) : (
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setCommentDropdownOpen(commentDropdownOpen === comment._id ? null : comment._id);
+                                                        }}
+                                                        className={`p-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/10' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
+                                                      >
+                                                        <MoreVertical className="w-4 h-4" />
+                                                      </button>
+                                                    )}
+                                                    {commentDropdownOpen === comment._id && (
+                                                      <div className={`absolute right-0 mt-1 w-32 rounded-lg shadow-lg border z-10 ${isDark ? 'bg-slate-800 border-white/10' : 'bg-white border-gray-200'}`}>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            startEditingComment(comment);
+                                                            setCommentDropdownOpen(null);
+                                                          }}
+                                                          className={`w-full flex items-center space-x-2 px-3 py-2 text-xs rounded-t-lg ${isDark ? 'text-slate-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
+                                                        >
+                                                          <PencilIcon className="w-3 h-3" />
+                                                          <span>Edit</span>
+                                                        </button>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteComment(post._id, comment._id);
+                                                            setCommentDropdownOpen(null);
+                                                          }}
+                                                          className={`w-full flex items-center space-x-2 px-3 py-2 text-xs rounded-b-lg ${isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-50'}`}
+                                                        >
+                                                          <TrashIcon className="w-3 h-3" />
+                                                          <span>Delete</span>
+                                                        </button>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+                                            </div>
+                                            {editingComment === comment._id ? (
+                                              <div className="mt-2">
+                                                <MentionInput
+                                                  value={editCommentContent}
+                                                  onChange={(value) => setEditCommentContent(value)}
+                                                  onMentionsChange={handleEditCommentMentionsChange}
+                                                  members={workspaceMembers}
+                                                  className={`w-full px-2 py-1.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-xs ${isDark ? 'bg-slate-700 border-white/10 text-white' : 'border-gray-300'}`}
+                                                  rows={2}
+                                                  maxLength={2000}
+                                                />
+                                                <span className={`text-xs mt-0.5 block ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                                                  {editCommentContent.length}/2000
+                                                </span>
+                                              </div>
+                                            ) : (
+                                              <>
+                                                <MentionText
+                                                  content={comment.content}
+                                                  mentions={comment.mentions}
+                                                  mentionsEveryone={comment.mentionsEveryone}
+                                                  members={memberUsers}
+                                                  className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap"
+                                                />
+                                                {/* Comment reactions */}
+                                                <div className="mt-2 flex items-center space-x-2">
+                                                  <ReactionPicker
+                                                    onReact={(reactionType, emoji) => handleCommentReaction(post._id, comment._id, reactionType, emoji)}
+                                                    currentReaction={commentReactions[comment._id]?.userReaction}
+                                                    position="bottom"
+                                                  />
+                                                  {commentReactions[comment._id]?.summary && commentReactions[comment._id].summary.length > 0 && (
+                                                    <ReactionBar
+                                                      reactions={commentReactions[comment._id].summary}
+                                                      userReaction={commentReactions[comment._id].userReaction}
+                                                      onShowDetails={() => console.log('Show comment reaction details')}
+                                                    />
+                                                  )}
+                                                </div>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-4">
+                                      <p className="text-sm text-gray-500">No comments yet. Be the first to comment!</p>
+                                    </div>
+                                  )}
+
+                                  {/* Add comment form */}
+                                  <div className="flex items-start space-x-2 mt-3">
+                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                      {user.avatar ? (
+                                        <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                                          <span className="text-white text-xs font-semibold">
+                                            {user.firstName?.[0]}{user.lastName?.[0]}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-1">
+                                      <MentionInput
+                                        value={newCommentContent[post._id] || ''}
+                                        onChange={(value) => setNewCommentContent({ ...newCommentContent, [post._id]: value })}
+                                        onMentionsChange={handleNewCommentMentionsChange(post._id)}
+                                        members={workspaceMembers}
+                                        placeholder="Write a comment..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                        rows={2}
+                                        maxLength={2000}
+                                      />
+                                      <div className="flex items-center justify-between mt-2">
+                                        <span className="text-xs text-gray-500">
+                                          {(newCommentContent[post._id] || '').length}/2000
+                                        </span>
+                                        <button
+                                          onClick={() => handleCreateComment(post._id)}
+                                          disabled={!newCommentContent[post._id]?.trim()}
+                                          className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                          Comment
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === 'tasks' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
+              <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Tasks</h2>
               <div className="flex items-center space-x-2">
                 <select
                   value={taskFilters.status}
                   onChange={e => setTaskFilters(f => ({ ...f, status: e.target.value }))}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'border-gray-300'}`}
                 >
                   <option value="all">All Statuses</option>
                   <option value="todo">Todo</option>
@@ -1644,41 +1621,51 @@ const WorkspaceDetail = () => {
               </div>
             </div>
 
-            <div className="card">
+            <div className={`rounded-2xl p-4 ${isDark ? 'bg-slate-900/40 backdrop-blur-xl border border-white/10' : 'bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl'}`}>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Task</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Priority</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Progress</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Assignee</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Due Date</th>
+                    <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Task</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Status</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Priority</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Progress</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Assignee</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Actions</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Due Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tasksLoading && (
-                      <tr><td colSpan="4" className="py-4 text-center text-sm text-gray-500">Loading tasks...</td></tr>
+                      <tr><td colSpan="4" className={`py-4 text-center text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Loading tasks...</td></tr>
                     )}
                     {tasksError && !tasksLoading && (
-                      <tr><td colSpan="4" className="py-4 text-center text-sm text-red-600">{tasksError}</td></tr>
+                      <tr><td colSpan="4" className={`py-4 text-center text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>{tasksError}</td></tr>
                     )}
                     {!tasksLoading && !tasksError && filteredTasks.map((task) => (
-                      <tr key={task._id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={task._id} className={`border-b ${isDark ? 'border-white/5 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'}`}>
                         <td className="py-3 px-4">
-                          <div className="font-medium text-gray-900">
-                            <Link to={`/tasks/${task._id}`} className="text-blue-600 hover:underline">{task.title}</Link>
+                          <div className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            <Link to={`/tasks/${task._id}`} className={`${isDark ? 'text-blue-400' : 'text-blue-600'} hover:underline`}>{task.title}</Link>
                           </div>
                           {task.description && (
-                            <div className="text-xs text-gray-500 mt-1 line-clamp-1">{task.description}</div>
+                            <div className={`text-xs mt-1 line-clamp-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{task.description}</div>
                           )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <button className="btn-secondary text-xs" onClick={() => handleUpdateTask(task._id)}>Update</button>
-                            <button className="btn-secondary text-xs" onClick={() => handleDeleteTask(task._id)}>Delete</button>
+                            <button
+                              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-slate-700 border-white/10 text-slate-200 hover:bg-slate-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                              onClick={() => handleUpdateTask(task._id)}
+                            >
+                              Update
+                            </button>
+                            <button
+                              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-red-900/50 border-red-500/30 text-red-300 hover:bg-red-800/50' : 'bg-white border-gray-300 text-red-600 hover:bg-red-50'}`}
+                              onClick={() => handleDeleteTask(task._id)}
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -1694,7 +1681,7 @@ const WorkspaceDetail = () => {
                         <td className="py-3 px-4">
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2">
-                              <div className="w-24 bg-gray-200 rounded h-2 overflow-hidden">
+                              <div className={`w-24 rounded h-2 overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
                                 <div
                                   className="h-2 bg-blue-600"
                                   style={{ width: `${percentOf(task.loggedHours, task.estimatedHours)}%` }}
@@ -1709,10 +1696,10 @@ const WorkspaceDetail = () => {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-gray-700">
-                          <TaskAssigneeCell 
-                            task={task} 
-                            members={workspaceMembers} 
-                            onUpdate={fetchTasks} 
+                          <TaskAssigneeCell
+                            task={task}
+                            members={workspaceMembers}
+                            onUpdate={fetchTasks}
                           />
                         </td>
                         <td className="py-3 px-4 text-gray-700">
@@ -1741,7 +1728,7 @@ const WorkspaceDetail = () => {
         {activeTab === 'members' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Members</h2>
+              <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Members</h2>
               {isOwnerOrAdmin() && (
                 <button
                   onClick={() => setIsAddMemberModalOpen(true)}
@@ -1753,10 +1740,10 @@ const WorkspaceDetail = () => {
               )}
             </div>
 
-            <div className="card">
+            <div className={`rounded-2xl p-4 ${isDark ? 'bg-slate-900/40 backdrop-blur-xl border border-white/10' : 'bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl'}`}>
               <div className="space-y-4">
                 {workspace.members.filter(member => member.user).map((member) => (
-                  <div key={member._id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                  <div key={member._id} className={`flex items-center space-x-4 p-4 border rounded-lg ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200'}`}>
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
                       {member.user.avatar ? (
                         <img src={member.user.avatar} alt={`${member.user.firstName} ${member.user.lastName}`} className="w-full h-full object-cover" />
@@ -1769,10 +1756,10 @@ const WorkspaceDetail = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900">
+                      <h4 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
                         {member.user.firstName} {member.user.lastName}
                       </h4>
-                      <p className="text-sm text-gray-500">{member.user.email}</p>
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{member.user.email}</p>
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.role === 'owner'
@@ -1786,20 +1773,20 @@ const WorkspaceDetail = () => {
                       {canChangeRole(member) && (
                         <button
                           onClick={() => openChangeRoleModal(member)}
-                          className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200 hover:border-blue-300 transition-colors"
+                          className={`px-2 py-1 text-xs rounded border transition-colors ${isDark ? 'text-blue-400 border-blue-500/30 hover:bg-blue-900/30' : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50 border-blue-200 hover:border-blue-300'}`}
                         >
-                          <PencilIcon className="w-3 h-3" />
+                          <Pencil className="w-3 h-3" />
                         </button>
                       )}
                       {canRemoveMember(member) && (
                         <button
                           onClick={() => openRemoveMemberModal(member)}
                           disabled={removingMemberId === (member.user._id || member.user.id)}
-                          className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-200 hover:border-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={`px-2 py-1 text-xs rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'text-red-400 border-red-500/30 hover:bg-red-900/30' : 'text-red-600 hover:text-red-800 hover:bg-red-50 border-red-200 hover:border-red-300'}`}
                         >
                           {removingMemberId === (member.user._id || member.user.id) ? (
                             <div className="flex items-center space-x-1">
-                              <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600"></div>
+                              <div className={`animate-spin rounded-full h-3 w-3 border-b ${isDark ? 'border-red-400' : 'border-red-600'}`}></div>
                               <span>Removing...</span>
                             </div>
                           ) : (
@@ -1815,223 +1802,215 @@ const WorkspaceDetail = () => {
           </div>
         )}
 
-      {/* Add Member Modal */}
-      <AddMemberModal
-        isOpen={isAddMemberModalOpen}
-        onClose={() => setIsAddMemberModalOpen(false)}
-        onAddMember={handleAddMember}
-        loading={addMemberLoading}
-      />
+        {/* Add Member Modal */}
+        <AddMemberModal
+          isOpen={isAddMemberModalOpen}
+          onClose={() => setIsAddMemberModalOpen(false)}
+          onAddMember={handleAddMember}
+          loading={addMemberLoading}
+        />
 
-      {/* Remove Member Modal */}
-      <RemoveMemberModal
-        isOpen={isRemoveMemberModalOpen}
-        onClose={() => {
-          setIsRemoveMemberModalOpen(false);
-          setMemberToRemove(null);
-        }}
-        onConfirm={handleRemoveMember}
-        member={memberToRemove}
-        isCurrentUser={memberToRemove && memberToRemove.user.email === user.email}
-        loading={removingMemberId === (memberToRemove?.user._id || memberToRemove?.user.id)}
-      />
+        {/* Remove Member Modal */}
+        <RemoveMemberModal
+          isOpen={isRemoveMemberModalOpen}
+          onClose={() => {
+            setIsRemoveMemberModalOpen(false);
+            setMemberToRemove(null);
+          }}
+          onConfirm={handleRemoveMember}
+          member={memberToRemove}
+          isCurrentUser={memberToRemove && memberToRemove.user.email === user.email}
+          loading={removingMemberId === (memberToRemove?.user._id || memberToRemove?.user.id)}
+        />
 
-      {/* Change Role Modal */}
-      {isChangeRoleModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Change Member Role</h2>
-              <button
-                onClick={() => {
-                  setIsChangeRoleModalOpen(false);
-                  setMemberToChangeRole(null);
-                  setSelectedRole('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="p-6">
-              {memberToChangeRole && (
-                <>
-                  <div className="mb-4">
-                    <p className="text-gray-700">
-                      Change role for <span className="font-medium">
-                        {memberToChangeRole.user.firstName} {memberToChangeRole.user.lastName}
-                      </span>?
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {memberToChangeRole.user.email}
-                    </p>
-                  </div>
-
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Role
-                    </label>
-                    <div className="space-y-2">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          value="admin"
-                          checked={selectedRole === 'admin'}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Admin - Can manage members and settings</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          value="member"
-                          checked={selectedRole === 'member'}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Member - Can view and contribute to workspace</span>
-                      </label>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="flex items-center justify-end space-x-3">
+        {/* Change Role Modal */}
+        {isChangeRoleModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Change Member Role</h2>
                 <button
-                  type="button"
                   onClick={() => {
                     setIsChangeRoleModalOpen(false);
                     setMemberToChangeRole(null);
                     setSelectedRole('');
                   }}
-                  className="btn-secondary"
-                  disabled={changingRoleLoading}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  Cancel
+                  ×
                 </button>
-                <button
-                  onClick={handleChangeRole}
-                  className="btn-primary"
-                  disabled={changingRoleLoading || !selectedRole || selectedRole === memberToChangeRole?.role}
-                >
-                  {changingRoleLoading ? 'Changing...' : 'Change Role'}
-                </button>
+              </div>
+
+              <div className="p-6">
+                {memberToChangeRole && (
+                  <>
+                    <div className="mb-4">
+                      <p className="text-gray-700">
+                        Change role for <span className="font-medium">
+                          {memberToChangeRole.user.firstName} {memberToChangeRole.user.lastName}
+                        </span>?
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {memberToChangeRole.user.email}
+                      </p>
+                    </div>
+
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Role
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            value="admin"
+                            checked={selectedRole === 'admin'}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">Admin - Can manage members and settings</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            value="member"
+                            checked={selectedRole === 'member'}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">Member - Can view and contribute to workspace</span>
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangeRoleModalOpen(false);
+                      setMemberToChangeRole(null);
+                      setSelectedRole('');
+                    }}
+                    className="btn-secondary"
+                    disabled={changingRoleLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleChangeRole}
+                    className="btn-primary"
+                    disabled={changingRoleLoading || !selectedRole || selectedRole === memberToChangeRole?.role}
+                  >
+                    {changingRoleLoading ? 'Changing...' : 'Change Role'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-      {/* Task Creation Modal */}
-      {isTaskModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <GlassCard className="max-w-md w-full">
-            <form onSubmit={handleCreateTask}>
-              <div className={`flex items-center justify-between p-6 border-b ${
-                isDark ? 'border-white/10' : 'border-slate-200'
-              }`}>
-                <h2 className={`text-xl font-semibold ${textClass}`}>New Task</h2>
-                <button
-                  type="button"
-                  onClick={() => setIsTaskModalOpen(false)}
-                  className={textSecondaryClass}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${textClass}`}>Title</label>
-                  <input
-                    value={newTask.title}
-                    onChange={e => setNewTask(t => ({ ...t, title: e.target.value }))}
-                    required
-                    className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark
-                        ? 'bg-slate-800/50 border-white/10 text-white'
-                        : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                    placeholder="Task title"
-                  />
+        )}
+        {/* Task Creation Modal */}
+        {isTaskModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <GlassCard className="max-w-md w-full">
+              <form onSubmit={handleCreateTask}>
+                <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-slate-200'
+                  }`}>
+                  <h2 className={`text-xl font-semibold ${textClass}`}>New Task</h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsTaskModalOpen(false)}
+                    className={textSecondaryClass}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${textClass}`}>Description</label>
-                  <textarea
-                    value={newTask.description}
-                    onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
-                    rows={3}
-                    className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark
-                        ? 'bg-slate-800/50 border-white/10 text-white'
-                        : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                    placeholder="Optional description"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="p-6 space-y-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${textClass}`}>Due Date</label>
+                    <label className={`block text-sm font-medium mb-1 ${textClass}`}>Title</label>
                     <input
-                      type="date"
-                      value={newTask.dueDate}
-                      onChange={e => setNewTask(t => ({ ...t, dueDate: e.target.value }))}
-                      className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark
-                          ? 'bg-slate-800/50 border-white/10 text-white'
-                          : 'bg-white border-slate-300 text-slate-900'
-                      }`}
+                      value={newTask.title}
+                      onChange={e => setNewTask(t => ({ ...t, title: e.target.value }))}
+                      required
+                      className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark
+                        ? 'bg-slate-800/50 border-white/10 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                      placeholder="Task title"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${textClass}`}>Priority</label>
-                    <select
-                      value={newTask.priority}
-                      onChange={e => setNewTask(t => ({ ...t, priority: e.target.value }))}
-                      className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark
+                    <label className={`block text-sm font-medium mb-1 ${textClass}`}>Description</label>
+                    <textarea
+                      value={newTask.description}
+                      onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
+                      rows={3}
+                      className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark
+                        ? 'bg-slate-800/50 border-white/10 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                      placeholder="Optional description"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${textClass}`}>Due Date</label>
+                      <input
+                        type="date"
+                        value={newTask.dueDate}
+                        onChange={e => setNewTask(t => ({ ...t, dueDate: e.target.value }))}
+                        className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark
                           ? 'bg-slate-800/50 border-white/10 text-white'
                           : 'bg-white border-slate-300 text-slate-900'
-                      }`}
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                          }`}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${textClass}`}>Priority</label>
+                      <select
+                        value={newTask.priority}
+                        onChange={e => setNewTask(t => ({ ...t, priority: e.target.value }))}
+                        className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark
+                          ? 'bg-slate-800/50 border-white/10 text-white'
+                          : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className={`flex items-center justify-end gap-3 p-6 border-t ${
-                isDark ? 'border-white/10' : 'border-slate-200'
-              }`}>
-                <button
-                  type="button"
-                  onClick={() => setIsTaskModalOpen(false)}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                    isDark
+                <div className={`flex items-center justify-end gap-3 p-6 border-t ${isDark ? 'border-white/10' : 'border-slate-200'
+                  }`}>
+                  <button
+                    type="button"
+                    onClick={() => setIsTaskModalOpen(false)}
+                    className={`px-4 py-2 rounded-full font-medium transition-colors ${isDark
                       ? 'bg-slate-700/50 hover:bg-slate-700 text-white'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                  disabled={creatingTask}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={`px-4 py-2 rounded-full font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isDark
+                      }`}
+                    disabled={creatingTask}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={`px-4 py-2 rounded-full font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark
                       ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
                       : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                  }`}
-                  disabled={creatingTask || !newTask.title}
-                >
-                  {creatingTask ? 'Creating...' : 'Create Task'}
-                </button>
-              </div>
-            </form>
-          </GlassCard>
-        </div>
-      )}
+                      }`}
+                    disabled={creatingTask || !newTask.title}
+                  >
+                    {creatingTask ? 'Creating...' : 'Create Task'}
+                  </button>
+                </div>
+              </form>
+            </GlassCard>
+          </div>
+        )}
       </GlassHeader>
     </GlassPageContainer>
   );

@@ -5,11 +5,11 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-  getCalendarEvents, 
-  createCalendarEvent, 
-  updateCalendarEvent, 
-  deleteCalendarEvent 
+import {
+  getCalendarEvents,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent
 } from '../services/calendarService';
 import workspaceService from '../services/workspaceService';
 import GlassPageContainer from '../components/layout/GlassPageContainer';
@@ -37,7 +37,7 @@ const Calendar = () => {
   const [date, setDate] = useState(new Date());
   const [workspaces, setWorkspaces] = useState([]);
   const [workspaceFilter, setWorkspaceFilter] = useState('');
-  
+
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
@@ -96,11 +96,11 @@ const Calendar = () => {
     } catch (error) {
       console.error('Error fetching calendar data:', error);
       console.error('Error details:', error.response?.data || error.message);
-      
+
       // Set error message
       const errorMsg = error.response?.data?.message || error.message || 'Failed to load calendar';
       setError(errorMsg);
-      
+
       // Keep empty events array so calendar still renders
       setEvents([]);
     } finally {
@@ -111,7 +111,7 @@ const Calendar = () => {
   const handleSelectEvent = (event) => {
     // Check if this is a personal event or workspace task
     const isPersonalEvent = event.resource.isPersonal || !event.resource.workspace;
-    
+
     if (isPersonalEvent) {
       // Personal event: Open edit modal
       setModalMode('edit');
@@ -169,21 +169,21 @@ const Calendar = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim()) {
       setError('Title is required');
       return;
     }
-    
+
     try {
       setSaving(true);
       setError('');
-      
+
       if (modalMode === 'create') {
         // Create new calendar event (always personal - no workspace)
         const eventData = { ...formData };
         delete eventData.workspace; // Force personal task
-        
+
         await createCalendarEvent(eventData);
         alert('Personal event created successfully!');
         fetchData(); // Refresh calendar
@@ -193,7 +193,7 @@ const Calendar = () => {
         alert('Event updated successfully!');
         fetchData(); // Refresh calendar
       }
-      
+
       handleCloseModal();
     } catch (error) {
       console.error('Error saving task:', error);
@@ -207,11 +207,11 @@ const Calendar = () => {
     if (!window.confirm('Are you sure you want to delete this task?')) {
       return;
     }
-    
+
     try {
       setSaving(true);
       await deleteCalendarEvent(selectedEvent.id);
-      
+
       alert('Event deleted successfully!');
       handleCloseModal();
       fetchData(); // Refresh calendar
@@ -294,22 +294,22 @@ const Calendar = () => {
     };
 
     return (
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+      <div className={`flex items-center justify-between mb-6 pb-4 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
         <div className="flex items-center space-x-3">
           <button
             onClick={goToBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
           >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
 
           {/* Workspace Filter */}
           <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-gray-500" />
+            <Filter className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
             <select
-              className="border px-2 py-1 rounded text-sm"
+              className={`border px-2 py-1 rounded text-sm ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
               value={workspaceFilter}
               onChange={(e) => setWorkspaceFilter(e.target.value)}
             >
@@ -319,20 +319,20 @@ const Calendar = () => {
               ))}
             </select>
             {workspaceFilter && (
-              <button className="text-xs text-blue-600" onClick={() => setWorkspaceFilter('')}>Clear</button>
+              <button className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-600'}`} onClick={() => setWorkspaceFilter('')}>Clear</button>
             )}
           </div>
           <button
             onClick={goToToday}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium ${isDark ? 'shadow-[0_0_18px_rgba(59,130,246,0.3)]' : ''}`}
           >
             Today
           </button>
           <button
             onClick={goToNext}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
           >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -382,7 +382,7 @@ const Calendar = () => {
         <GlassCard className="flex flex-col flex-1 overflow-hidden calendar-wrapper">
           <div className="flex items-center justify-between mb-6">
             <h2 className={`text-2xl font-bold ${textClass}`}>Calendar</h2>
-            <button 
+            <button
               onClick={() => {
                 setModalMode('create');
                 setFormData({ title: '', description: '', dueDate: '', priority: 'medium', status: 'todo' });
@@ -429,39 +429,39 @@ const Calendar = () => {
 
       {/* Task Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto ${isDark ? 'bg-slate-900 border border-white/10' : 'bg-white'}`}>
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">
+            <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <h2 className={`text-2xl font-bold ${textClass}`}>
                 {modalMode === 'create' ? 'Create New Task' : 'Edit Task'}
               </h2>
               <button
                 onClick={handleCloseModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
               >
-                <X className="w-6 h-6 text-gray-600" />
+                <X className={`w-6 h-6 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} />
               </button>
             </div>
 
             {/* Modal Body */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                <div className={`px-4 py-3 rounded-lg ${isDark ? 'bg-red-900/30 border border-red-500/30 text-red-300' : 'bg-red-50 border border-red-200 text-red-700'}`}>
                   {error}
                 </div>
               )}
 
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                   Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-400' : 'border-gray-300'}`}
                   placeholder="Enter task title"
                   required
                 />
@@ -469,29 +469,29 @@ const Calendar = () => {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-400' : 'border-gray-300'}`}
                   placeholder="Enter task description"
                 />
               </div>
 
               {/* Personal Task Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className={`rounded-lg p-4 ${isDark ? 'bg-blue-900/30 border border-blue-500/30' : 'bg-blue-50 border border-blue-200'}`}>
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
-                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">Personal Calendar Event</p>
-                    <p className="text-xs text-blue-700 mt-1">
+                    <p className={`text-sm font-medium ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>Personal Calendar Event</p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
                       Events created here are personal and editable. Workspace tasks with due dates will also appear but are read-only - click them to navigate to the workspace for editing.
                     </p>
                   </div>
@@ -500,14 +500,14 @@ const Calendar = () => {
 
               {/* Due Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                   Due Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={formData.dueDate}
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'border-gray-300'}`}
                   required
                 />
               </div>
@@ -515,13 +515,13 @@ const Calendar = () => {
               {/* Priority and Status */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                     Priority
                   </label>
                   <select
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'border-gray-300'}`}
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -530,13 +530,13 @@ const Calendar = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                     Status
                   </label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'border-gray-300'}`}
                   >
                     <option value="todo">To Do</option>
                     <option value="in-progress">In Progress</option>
@@ -546,7 +546,7 @@ const Calendar = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+              <div className={`flex items-center justify-between pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
                 <div>
                   {modalMode === 'edit' && (
                     <button
@@ -566,14 +566,14 @@ const Calendar = () => {
                     type="button"
                     onClick={handleCloseModal}
                     disabled={saving}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    className={`px-4 py-2 border rounded-lg transition-colors disabled:opacity-50 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'shadow-[0_0_18px_rgba(59,130,246,0.3)]' : ''}`}
                   >
                     {saving ? 'Saving...' : (modalMode === 'create' ? 'Create Task' : 'Save Changes')}
                   </button>
@@ -593,17 +593,18 @@ const Calendar = () => {
         .rbc-header {
           padding: 12px 8px;
           font-weight: 600;
-          color: #374151;
-          background-color: #f9fafb;
-          border-bottom: 2px solid #e5e7eb;
+          color: ${isDark ? '#e2e8f0' : '#374151'};
+          background-color: ${isDark ? 'rgba(30, 41, 59, 0.5)' : '#f9fafb'};
+          border-bottom: 2px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
         }
 
         .rbc-today {
-          background-color: #eff6ff;
+          background-color: ${isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff'};
         }
 
         .rbc-date-cell {
           padding: 8px;
+          color: ${isDark ? '#e2e8f0' : 'inherit'};
         }
 
         .rbc-date-cell.rbc-now {
@@ -623,11 +624,11 @@ const Calendar = () => {
         }
 
         .rbc-off-range {
-          color: #d1d5db;
+          color: ${isDark ? '#64748b' : '#d1d5db'};
         }
 
         .rbc-off-range-bg {
-          background-color: #fafafa;
+          background-color: ${isDark ? 'rgba(15, 23, 42, 0.3)' : '#fafafa'};
         }
 
         .rbc-event {
@@ -646,22 +647,35 @@ const Calendar = () => {
         }
 
         .rbc-month-view {
-          border: 1px solid #e5e7eb;
+          border: 1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
           border-radius: 8px;
           overflow: hidden;
+          background-color: ${isDark ? 'rgba(15, 23, 42, 0.4)' : 'white'};
         }
 
         .rbc-month-row {
-          border-color: #e5e7eb;
+          border-color: ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
           min-height: 100px;
         }
 
         .rbc-day-bg {
-          border-color: #e5e7eb;
+          border-color: ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
         }
 
         .rbc-day-bg:hover {
-          background-color: #f9fafb;
+          background-color: ${isDark ? 'rgba(255,255,255,0.05)' : '#f9fafb'};
+        }
+        
+        .rbc-toolbar button {
+          color: ${isDark ? '#e2e8f0' : '#374151'};
+        }
+        
+        .rbc-toolbar button:hover {
+          background-color: ${isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6'};
+        }
+        
+        .rbc-time-header-content {
+          border-color: ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
         }
       `}</style>
 
@@ -728,11 +742,10 @@ const Calendar = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Priority</label>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      selectedWorkspaceTask.resource.priority === 'high' ? 'bg-red-100 text-red-800' :
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${selectedWorkspaceTask.resource.priority === 'high' ? 'bg-red-100 text-red-800' :
                       selectedWorkspaceTask.resource.priority === 'medium' ? 'bg-orange-100 text-orange-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
+                        'bg-green-100 text-green-800'
+                      }`}>
                       {selectedWorkspaceTask.resource.priority}
                     </span>
                   </div>
@@ -740,11 +753,10 @@ const Calendar = () => {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    selectedWorkspaceTask.resource.status === 'done' ? 'bg-gray-100 text-gray-800' :
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${selectedWorkspaceTask.resource.status === 'done' ? 'bg-gray-100 text-gray-800' :
                     selectedWorkspaceTask.resource.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
                     {selectedWorkspaceTask.resource.status}
                   </span>
                 </div>
