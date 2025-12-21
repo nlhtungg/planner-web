@@ -21,7 +21,7 @@ export const ConnectionProvider = ({ children }) => {
   useEffect(() => {
     const fetchCount = async () => {
       if (!user?._id) return;
-      
+
       try {
         const requests = await connectionService.getPendingRequests();
         setPendingRequestsCount(requests.length);
@@ -73,7 +73,7 @@ export const ConnectionProvider = ({ children }) => {
 
   const refreshCount = async () => {
     if (!user?._id) return;
-    
+
     try {
       const requests = await connectionService.getPendingRequests();
       setPendingRequestsCount(requests.length);
