@@ -58,12 +58,24 @@ services:
       /bin/sh -c "
         sleep 10;
         mc alias set local http://minio:9000 minioadmin minioadmin;
-        mc mb -p local/user-media local/workspace-media local/message-media;
+        mc mb -p local/user-media local/workspace-media local/message-media local/chatbot-documents;
         mc anonymous set public local/user-media; 
         mc anonymous set public local/workspace-media;
         mc anonymous set public local/message-media;
-        echo 'MinIO buckets created: user-media, workspace-media, message-media';
+        mc anonymous set public local/chatbot-documents;
+        echo 'MinIO buckets created: user-media, workspace-media, message-media, chatbot-documents';
       "
+    networks:
+      - backend
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/chroma_data:/chroma/chroma
     networks:
       - backend
 
