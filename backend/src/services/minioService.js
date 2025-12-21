@@ -8,6 +8,7 @@ class MinioService {
   constructor() {
     this.userMediaBucket = 'user-media';
    this.messageMediaBucket = 'message-media';
+    this.chatbotDocumentsBucket = 'chatbot-documents';
     this.client = new Client({
       endPoint: process.env.MINIO_ENDPOINT || 'minio',
       port: parseInt(process.env.MINIO_PORT) || 9000,
@@ -25,6 +26,7 @@ class MinioService {
       // Verify that buckets exist
       const userBucketExists = await this.client.bucketExists(this.userMediaBucket);
       const messageBucketExists = await this.client.bucketExists(this.messageMediaBucket);
+      const chatbotBucketExists = await this.client.bucketExists(this.chatbotDocumentsBucket);
       
       if (userBucketExists) {
         console.log(`✅ MinIO connected successfully - ${this.userMediaBucket} bucket is ready`);
@@ -36,6 +38,12 @@ class MinioService {
         console.log(`✅ MinIO ${this.messageMediaBucket} bucket is ready`);
       } else {
         console.log(`⚠️  MinIO bucket ${this.messageMediaBucket} not found`);
+      }
+      
+      if (chatbotBucketExists) {
+        console.log(`✅ MinIO ${this.chatbotDocumentsBucket} bucket is ready`);
+      } else {
+        console.log(`⚠️  MinIO bucket ${this.chatbotDocumentsBucket} not found`);
       }
     } catch (error) {
       console.error('❌ MinIO connection failed:', error.message);
@@ -130,15 +138,18 @@ class MinioService {
       console.log('   Type:', mimeType);
       console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
       
-      // Generate unique filename
+      // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
-      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      // Only remove dangerous characters, keep Unicode (Vietnamese) characters
+      const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
       console.log('   Object:', objectName);
       
+      // Encode filename for Content-Disposition header
+      const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
         'Content-Type': mimeType,
-        'Content-Disposition': `inline; filename="${fileName}"`
+        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`
       };
 
       // Upload the file
@@ -167,6 +178,74 @@ class MinioService {
     } catch (error) {
       console.error('❌ Error uploading message media:', error);
       throw new Error('Failed to upload message media');
+    }
+  }
+
+  /**
+   * Upload chatbot document (PDF)
+   */
+  async uploadChatbotDocument(userId, fileBuffer, fileName, mimeType) {
+    try {
+      console.log('📤 [MinIO] Uploading chatbot document to bucket:', this.chatbotDocumentsBucket);
+      console.log('   User:', userId);
+      console.log('   File:', fileName);
+      console.log('   Type:', mimeType);
+      console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
+      
+      // Generate unique filename (preserve Unicode characters)
+      const timestamp = Date.now();
+      // Only remove dangerous characters, keep Unicode (Vietnamese) characters
+      const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
+      const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
+      console.log('   Object:', objectName);
+      
+      // Encode filename for Content-Disposition header
+      const encodedFileName = encodeURIComponent(fileName);
+      const metaData = {
+        'Content-Type': mimeType,
+        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`
+      };
+
+      // Upload the file
+      console.log('   ⬆️ Uploading to MinIO...');
+      await this.client.putObject(
+        this.chatbotDocumentsBucket,
+        objectName,
+        fileBuffer,
+        fileBuffer.length,
+        metaData
+      );
+
+      // Generate the public URL
+      const publicUrl = `http://localhost:${process.env.MINIO_PORT || 9000}/${this.chatbotDocumentsBucket}/${objectName}`;
+      console.log('   ✅ Upload complete!');
+      console.log('   🔗 URL:', publicUrl);
+      
+      return {
+        success: true,
+        url: publicUrl,
+        objectName: objectName,
+        fileName: fileName,
+        mimeType: mimeType,
+        size: fileBuffer.length
+      };
+    } catch (error) {
+      console.error('❌ Error uploading chatbot document:', error);
+      throw new Error('Failed to upload chatbot document');
+    }
+  }
+
+  /**
+   * Delete chatbot document
+   */
+  async deleteChatbotDocument(objectName) {
+    try {
+      await this.client.removeObject(this.chatbotDocumentsBucket, objectName);
+      console.log('✅ Deleted chatbot document:', objectName);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error deleting chatbot document:', error);
+      throw new Error('Failed to delete chatbot document');
     }
   }
 }

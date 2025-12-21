@@ -1,5 +1,5 @@
-# Use Node.js 18 alpine image
-FROM node:18-alpine
+# Use Node.js 20 alpine image (fix chromadb undici issue)
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY backend/package*.json ./
 
 # Install dependencies (including dev dependencies for nodemon)
-RUN npm install
+RUN npm install --force
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
