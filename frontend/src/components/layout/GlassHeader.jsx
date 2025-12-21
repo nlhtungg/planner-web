@@ -1,0 +1,217 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useConnection } from '../../context/ConnectionContext';
+import { useTheme } from '../../context/ThemeContext';
+import { 
+  Moon, 
+  Sun, 
+  Bell, 
+  LogOut, 
+  Clock, 
+  Menu, 
+  X 
+} from 'lucide-react';
+
+/**
+ * GlassHeader - Floating pill header with navigation
+ * Reusable across all app pages
+ */
+const GlassHeader = ({ activeNav = '', children }) => {
+  const { user, logout } = useAuth();
+  const { pendingRequestsCount } = useConnection();
+  const { isDark, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  // Determine active nav from location if not provided
+  const currentNav = activeNav || location.pathname.split('/')[1] || 'home';
+
+  const textClass = isDark ? 'text-white' : 'text-slate-800';
+  const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
+  const glassPillClass = isDark ? 'bg-slate-900/35' : 'bg-white/30';
+
+  const navItems = [
+    { id: 'home', label: 'Home', path: '/home' },
+    { id: 'workspaces', label: 'Workspaces', path: '/workspaces' },
+    { id: 'connections', label: 'Connections', path: '/connections' },
+    { id: 'messages', label: 'Messages', path: '/messages' },
+    { id: 'calendar', label: 'Calendar', path: '/calendar' },
+  ];
+
+  const NavButton = ({ item }) => {
+    const isActive = currentNav === item.id;
+    return (
+      <button
+        onClick={() => navigate(item.path)}
+        className={`px-4 py-2 rounded-full transition-all text-sm font-medium ${
+          isActive
+            ? (isDark
+                ? 'bg-white/10 text-white shadow-[0_0_18px_rgba(255,255,255,0.10)]'
+                : 'bg-white/50 text-slate-800 shadow-sm')
+            : (isDark
+                ? 'text-slate-300/70 hover:text-white hover:bg-white/5'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white/20')
+        }`}
+      >
+        {item.label}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      <header className={`${glassPillClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/20'} min-h-[56px] sm:h-16 flex items-center px-3 sm:px-6 justify-between mb-4 sm:mb-8 rounded-full ${isDark ? 'shadow-[0_18px_55px_rgba(0,0,0,0.55)]' : ''}`}>
+        {/* Logo */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={`md:hidden p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/10' : 'hover:bg-white/20'}`}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <X className={`w-5 h-5 ${textClass}`} />
+            ) : (
+              <Menu className={`w-5 h-5 ${textClass}`} />
+            )}
+          </button>
+
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg ${isDark ? 'bg-gradient-to-br from-amber-700 to-orange-800' : 'bg-gradient-to-br from-red-600 to-green-600'}`}>
+            <span className="text-white font-bold text-base sm:text-lg">F</span>
+          </div>
+          <span className={`${textClass} font-bold text-lg sm:text-xl hidden sm:block`}>FestiveSuite</span>
+        </div>
+
+        {/* Center Navigation */}
+        <nav className={`hidden md:flex items-center gap-2 px-2 py-1 rounded-full border backdrop-blur-xl ${isDark ? 'bg-white/5 border-white/10' : 'bg-white/30 border-white/20'}`}>
+          {navItems.map(item => (
+            <NavButton key={item.id} item={item} />
+          ))}
+        </nav>
+
+        {/* Right Side: Time, Dark Mode, Notifications, Logout, Profile */}
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Current Time */}
+          <div className={`hidden lg:flex items-center gap-2 px-3 py-2 rounded-full border ${isDark ? 'bg-white/5 border-white/10' : 'bg-white/30 border-white/20'}`}>
+            <Clock className={`w-4 h-4 ${textSecondaryClass}`} />
+            <span className={`text-xs font-medium ${textClass}`}>
+              {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleTheme}
+            className={`p-1.5 sm:p-2 rounded-full transition-all ${isDark ? 'hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.12)]' : 'hover:bg-white/20'}`}
+            title={isDark ? 'Light Mode' : 'Dark Mode'}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? (
+              <Sun className={`w-4 h-4 sm:w-5 sm:h-5 ${textClass}`} />
+            ) : (
+              <Moon className={`w-4 h-4 sm:w-5 sm:h-5 ${textClass}`} />
+            )}
+          </button>
+
+          {/* Notifications */}
+          <button
+            onClick={() => navigate('/connections')}
+            className={`p-1.5 sm:p-2 rounded-full transition-all relative ${isDark ? 'hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.12)]' : 'hover:bg-white/20'}`}
+            title="Notifications"
+            aria-label="Notifications"
+          >
+            <Bell className={`w-4 h-4 sm:w-5 sm:h-5 ${textClass}`} />
+            {pendingRequestsCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-600 rounded-full"></span>
+            )}
+          </button>
+
+          {/* Logout Button - Hidden on mobile */}
+          <button
+            onClick={handleLogout}
+            className={`hidden sm:block p-2 rounded-full transition-all ${isDark ? 'hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.12)]' : 'hover:bg-white/20'}`}
+            title="Logout"
+            aria-label="Logout"
+          >
+            <LogOut className={`w-5 h-5 ${textClass}`} />
+          </button>
+
+          {/* User Profile */}
+          <button
+            onClick={() => navigate('/profile')}
+            className={`flex items-center gap-2 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 transition-all ${isDark ? 'hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.12)]' : 'hover:bg-white/20'}`}
+            aria-label="User profile"
+          >
+            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-slate-700/70 border border-white/10' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
+              {user?.avatar ? (
+                <img
+                  src={`${user.avatar}?t=${Date.now()}`}
+                  alt="Profile"
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-xs font-semibold">
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </span>
+              )}
+            </div>
+            <span className={`${textClass} text-sm font-medium hidden xl:block`}>
+              {user?.firstName}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className={`md:hidden mb-4 ${isDark ? 'bg-slate-900/40' : 'bg-white/60'} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl p-3 space-y-1`}>
+          {navItems.map(item => {
+            const isActive = currentNav === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
+                className={`w-full px-4 py-3 rounded-xl transition-all text-left font-medium ${
+                  isActive
+                    ? (isDark
+                        ? 'bg-white/10 text-white'
+                        : 'bg-white/50 text-slate-800')
+                    : (isDark
+                        ? 'text-slate-300/70 hover:bg-white/5'
+                        : 'text-slate-600 hover:bg-white/20')
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+          <div className={`border-t ${isDark ? 'border-white/10' : 'border-slate-300'} my-2`}></div>
+          <button
+            onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+            className={`w-full px-4 py-3 rounded-xl transition-all text-left font-medium flex items-center gap-2 ${isDark ? 'text-slate-300/70 hover:bg-white/5' : 'text-slate-600 hover:bg-white/20'}`}
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        </div>
+      )}
+
+      {children}
+    </>
+  );
+};
+
+export default GlassHeader;

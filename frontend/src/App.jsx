@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConnectionProvider } from './context/ConnectionContext';
+import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ChatbotProvider from './components/ChatbotProvider';
 import Login from './pages/Login';
@@ -24,10 +25,11 @@ import Connections from './pages/Connections';
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <ConnectionProvider>
-          <ToastProvider>
-            <Routes>
+      <ThemeProvider>
+        <AuthProvider>
+          <ConnectionProvider>
+            <ToastProvider>
+              <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -153,9 +155,10 @@ function App() {
               }
             />
           </Routes>
-        </ToastProvider>
-        </ConnectionProvider>
-      </AuthProvider>
+            </ToastProvider>
+          </ConnectionProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }
