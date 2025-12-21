@@ -3,6 +3,7 @@ import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   getCalendarEvents, 
@@ -11,27 +12,24 @@ import {
   deleteCalendarEvent 
 } from '../services/calendarService';
 import workspaceService from '../services/workspaceService';
+import GlassPageContainer from '../components/layout/GlassPageContainer';
+import GlassHeader from '../components/layout/GlassHeader';
+import GlassCard from '../components/layout/GlassCard';
 import {
-  HomeIcon,
-  BriefcaseIcon,
-  UserGroupIcon,
-  ChatBubbleLeftRightIcon,
-  CalendarDaysIcon,
-  BellIcon,
-  MagnifyingGlassIcon,
-  ArrowLeftIcon,
-  FunnelIcon,
-  PlusIcon,
-  XMarkIcon,
-  TrashIcon,
-} from '@heroicons/react/24/outline';
-import { Bars3Icon } from '@heroicons/react/24/outline';
+  ArrowLeft,
+  Filter,
+  Plus,
+  X,
+  Trash2,
+  Search
+} from 'lucide-react';
 
 // Setup moment localizer
 const localizer = momentLocalizer(moment);
 
 const Calendar = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,20 +53,14 @@ const Calendar = () => {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
-  const sidebarItems = [
-    { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
-    { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces' },
-    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections' },
-    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
-    { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: true },
-  ];
+  // Theme classes
+  const textClass = isDark ? 'text-white' : 'text-slate-800';
+  const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
+  const glassCardClass = isDark ? 'bg-slate-900/40' : 'bg-white/60';
+  const inputClass = isDark
+    ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-400 focus:border-white/20 focus:shadow-[0_0_18px_rgba(255,255,255,0.08)]'
+    : 'bg-white/40 border-white/30 text-slate-800 placeholder:text-slate-500 focus:ring-2 focus:ring-white/50';
 
   useEffect(() => {
     fetchWorkspaces();
@@ -295,7 +287,7 @@ const Calendar = () => {
     const label = () => {
       const date = moment(toolbar.date);
       return (
-        <span className="text-xl font-bold text-gray-900">
+        <span className={`text-xl font-bold ${textClass}`}>
           {date.format('MMMM YYYY')}
         </span>
       );
@@ -315,7 +307,7 @@ const Calendar = () => {
 
           {/* Workspace Filter */}
           <div className="flex items-center space-x-2">
-            <FunnelIcon className="w-4 h-4 text-gray-500" />
+            <Filter className="w-4 h-4 text-gray-500" />
             <select
               className="border px-2 py-1 rounded text-sm"
               value={workspaceFilter}
@@ -357,332 +349,83 @@ const Calendar = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4 sm:gap-6 justify-between flex-wrap">
-            {/* Left: Menu + Logo */}
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <button
-                className="md:hidden p-2.5 rounded-xl hover:bg-gray-100 text-gray-700"
-                aria-label="Open sidebar"
-                onClick={() => setSidebarOpen(true)}
-              >
-                <Bars3Icon className="w-6 h-6" />
-              </button>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-                <span className="text-white font-bold text-lg">P</span>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Planner</h1>
-            </div>
-
-            {/* Middle: Search (full-width on mobile) */}
-            <div className="relative flex-1 min-w-[200px] w-full order-last sm:order-none">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search workspaces, people, or content..."
-                className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-              />
-            </div>
-
-            {/* Right: Date/Time + User */}
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div className="text-right px-3 py-2 bg-gray-50 rounded-xl hidden sm:block">
-                <p className="text-sm font-semibold text-gray-900">
-                  {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
-                </p>
-              </div>
-              <button className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
-                <BellIcon className="w-6 h-6" />
-              </button>
-              <div className="flex items-center gap-3 border-l border-gray-200 pl-4 sm:pl-6">
-                <button 
-                  onClick={() => navigate('/profile')}
-                  className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
-                >
-                  <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-blue-100">
-                    {user?.avatar ? (
-                      <img
-                        src={`${user.avatar}?t=${Date.now()}`}
-                        alt="Profile Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-white text-base font-semibold">
-                        {user?.firstName?.[0]}{user?.lastName?.[0]}
-                      </span>
-                    )}
-                  </div>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {user?.firstName} {user?.lastName}
-                    </p>
-                    <p className="text-xs text-gray-500">{user?.email}</p>
-                  </div>
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 font-medium transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
-            </div>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
+      <GlassHeader activeNav="calendar">
+        {/* Search Bar */}
+        <div className="relative flex justify-end mb-4 sm:mb-6">
+          <div className="relative w-full sm:w-80 md:w-96">
+            <Search className={`w-4 h-4 absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 ${textSecondaryClass}`} />
+            <input
+              type="text"
+              placeholder="Search events..."
+              className={`backdrop-blur-xl border rounded-full w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm transition-all focus:outline-none ${inputClass}`}
+            />
           </div>
         </div>
-      </header>
 
-      <div className="flex">
-        {/* Sidebar (desktop) */}
-        <aside className="hidden md:block w-72 bg-white shadow-sm h-screen sticky top-0 border-r border-gray-200">
-          <nav className="p-6 space-y-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => item.path && navigate(item.path)}
-                  className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
-                    item.active
-                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-                      : 'text-gray-700 hover:bg-gray-50 font-medium'
-                  }`}
-                >
-                  <Icon className="w-6 h-6" />
-                  <span className="text-base">{item.name}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Mobile sidebar overlay */}
-        {sidebarOpen && (
-          <div className="md:hidden fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)}></div>
-            <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl border-r border-gray-200 p-6 flex flex-col">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold">P</span>
-                  </div>
-                  <span className="text-lg font-bold text-gray-900">Planner</span>
-                </div>
-                <button className="p-2 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(false)}>
-                  <XMarkIcon className="w-6 h-6 text-gray-700" />
-                </button>
-              </div>
-              <nav className="space-y-1">
-                {sidebarItems.map((item) => {
-                  const Icon = item.icon;
-                  const handleClick = () => {
-                    if (item.path) navigate(item.path);
-                    setSidebarOpen(false);
-                  };
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={handleClick}
-                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
-                        item.active
-                          ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-50 font-medium'
-                      }`}
-                    >
-                      <Icon className="w-6 h-6" />
-                      <span className="text-base">{item.name}</span>
-                    </button>
-                  );
-                })}
-              </nav>
+        {/* Error Banner */}
+        {error && (
+          <div className={`mb-4 ${isDark ? 'bg-red-900/40' : 'bg-red-50/80'} backdrop-blur-xl border ${isDark ? 'border-red-500/30' : 'border-red-200'} rounded-2xl p-4`}>
+            <div className="flex items-center justify-between">
+              <p className={`text-sm ${isDark ? 'text-red-200' : 'text-red-700'}`}>{error}</p>
+              <button
+                onClick={() => setError('')}
+                className={`text-sm ${isDark ? 'text-red-200 hover:text-white' : 'text-red-600 hover:text-red-800'}`}
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
 
         {/* Main Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Page Header */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Calendar</h2>
-                  <p className="text-gray-600 text-sm mt-1">View and manage your tasks by date</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setModalMode('create');
-                    setSelectedEvent(null);
-                    setFormData({
-                      title: '',
-                      description: '',
-                      dueDate: moment().format('YYYY-MM-DD'),
-                      priority: 'medium',
-                      status: 'todo'
-                    });
-                    setShowModal(true);
-                  }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  <PlusIcon className="w-5 h-5" />
-                  <span>Create Event</span>
-                </button>
-              </div>
+        <GlassCard className="flex flex-col flex-1 overflow-hidden calendar-wrapper">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-2xl font-bold ${textClass}`}>Calendar</h2>
+            <button 
+              onClick={() => {
+                setModalMode('create');
+                setFormData({ title: '', description: '', dueDate: '', priority: 'medium', status: 'todo' });
+                setShowModal(true);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)]' : 'shadow-lg'}`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Event</span>
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDark ? 'border-white' : 'border-blue-600'}`}></div>
             </div>
-
-            {/* Legend */}
-            <div className="mb-6 bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center space-x-6">
-                  <span className="text-sm font-medium text-gray-700">Priority:</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-red-500 rounded"></div>
-                    <span className="text-sm text-gray-600">High</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                    <span className="text-sm text-gray-600">Medium</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-green-500 rounded"></div>
-                    <span className="text-sm text-gray-600">Low</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-gray-500 rounded opacity-60"></div>
-                    <span className="text-sm text-gray-600">Completed</span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-6">
-                  <span className="text-sm font-medium text-gray-700">Type:</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                    <span className="text-sm text-gray-600">Personal Event (Editable)</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-blue-500 rounded border-2 border-white"></div>
-                    <BriefcaseIcon className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm text-gray-600">Workspace Task (Click to navigate)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Error Banner */}
-            {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <XMarkIcon className="w-5 h-5 text-red-600" />
-                  <p className="text-red-600 font-medium">{error}</p>
-                </div>
-                <button
-                  onClick={fetchData}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {/* Calendar */}
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200" style={{ height: '700px' }}>
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading calendar...</p>
-                  </div>
-                </div>
-              ) : (
+          ) : (
+            <div className="dashboard-scroll flex-1 overflow-auto">
+              <div className={`${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl p-4`} style={{ minHeight: '700px' }}>
                 <BigCalendar
                   localizer={localizer}
                   events={events}
                   startAccessor="start"
                   endAccessor="end"
-                  style={{ height: '100%' }}
-                  onSelectEvent={handleSelectEvent}
+                  style={{ height: '100%', minHeight: '650px' }}
                   onSelectSlot={handleSelectSlot}
+                  onSelectEvent={handleSelectEvent}
+                  selectable
                   eventPropGetter={eventStyleGetter}
-                  views={['month', 'week', 'day', 'agenda']}
+                  components={{
+                    event: EventComponent,
+                    toolbar: CustomToolbar
+                  }}
                   view={view}
                   onView={setView}
                   date={date}
                   onNavigate={setDate}
-                  components={{
-                    toolbar: CustomToolbar,
-                    event: EventComponent,
-                  }}
-                  popup
-                  selectable
                 />
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Tasks</p>
-                    <p className="text-2xl font-bold text-gray-900">{events.length}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <CalendarDaysIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">High Priority</p>
-                    <p className="text-2xl font-bold text-red-600">
-                      {events.filter(e => e.resource.priority === 'high').length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                    <span className="text-red-600 font-bold text-xl">!</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">In Progress</p>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {events.filter(e => e.resource.status === 'in-progress').length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <div className="w-6 h-6 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Completed</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {events.filter(e => e.resource.status === 'done').length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
               </div>
             </div>
-          </div>
-        </main>
-      </div>
+          )}
+        </GlassCard>
+      </GlassHeader>
 
       {/* Task Modal */}
       {showModal && (
@@ -1027,7 +770,7 @@ const Calendar = () => {
           </div>
         </div>
       )}
-    </div>
+    </GlassPageContainer>
   );
 };
 

@@ -3,30 +3,29 @@ import PropTypes from 'prop-types';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
+import { useTheme } from '../context/ThemeContext';
 import workspaceService from '../services/workspaceService';
 import WorkspaceListItem from '../components/WorkspaceListItem';
+import GlassPageContainer from '../components/layout/GlassPageContainer';
+import GlassHeader from '../components/layout/GlassHeader';
+import GlassCard from '../components/layout/GlassCard';
 import {
-  HomeIcon,
-  BriefcaseIcon,
-  UserGroupIcon,
-  ChatBubbleLeftRightIcon,
-  CalendarDaysIcon,
-  BellIcon,
-  Cog6ToothIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  EllipsisVerticalIcon,
-  ClockIcon,
-  PencilIcon,
-  TrashIcon,
-  ExclamationCircleIcon,
-  GlobeAltIcon
-} from '@heroicons/react/24/outline';
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+  Briefcase,
+  Search,
+  Plus,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Globe,
+  X,
+  Clock
+} from 'lucide-react';
 
 const Workspaces = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { pendingRequestsCount } = useConnection();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -43,13 +42,6 @@ const Workspaces = () => {
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [joiningWorkspaceId, setJoiningWorkspaceId] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const [createForm, setCreateForm] = useState({
     name: '',
@@ -64,14 +56,6 @@ const Workspaces = () => {
     color: '#3B82F6',
     isPublic: false
   });
-
-  const sidebarItems = [
-    { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
-    { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces', active: true },
-    { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections', active: false },
-    { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages', active: false },
-    { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: false },
-  ];
 
   const colorOptions = [
     { value: '#3B82F6', name: 'Blue' },
@@ -177,10 +161,13 @@ const Workspaces = () => {
     hasSearchQuery: debouncedSearchQuery.trim() !== ''
   }), [myWorkspaces.length, filteredPublicWorkspaces.length, debouncedSearchQuery]);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+  // Theme classes
+  const textClass = isDark ? 'text-white' : 'text-slate-800';
+  const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
+  const glassCardClass = isDark ? 'bg-slate-900/40' : 'bg-white/60';
+  const inputClass = isDark
+    ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-400 focus:border-white/20 focus:shadow-[0_0_18px_rgba(255,255,255,0.08)]'
+    : 'bg-white/40 border-white/30 text-slate-800 placeholder:text-slate-500 focus:ring-2 focus:ring-white/50';
 
   const handleCreateWorkspace = async (e) => {
     e.preventDefault();
@@ -293,218 +280,82 @@ const Workspaces = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading workspaces...</p>
+      <GlassPageContainer>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDark ? 'border-white' : 'border-blue-600'} mx-auto`}></div>
+            <p className={`mt-4 ${textClass}`}>Loading workspaces...</p>
+          </div>
         </div>
-      </div>
+      </GlassPageContainer>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Error Banner with Retry */}
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-4 mt-4 rounded-r-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <ExclamationCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-            <button
-              onClick={fetchWorkspaces}
-              className="ml-4 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm font-medium transition-colors"
-              aria-label="Retry loading workspaces"
-            >
-              Retry
-            </button>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
+      <GlassHeader activeNav="workspaces">
+        {/* Search Bar */}
+        <div className="relative flex justify-end mb-4 sm:mb-6">
+          <div className="relative w-full sm:w-80 md:w-96">
+            <Search className={`w-4 h-4 absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 ${textSecondaryClass}`} />
+            <input
+              type="text"
+              placeholder="Search workspaces..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`backdrop-blur-xl border rounded-full w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm transition-all focus:outline-none ${inputClass}`}
+            />
           </div>
         </div>
-      )}
 
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4 sm:gap-6 justify-between flex-wrap">
-            {/* Left: Menu + Logo */}
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        {/* Error Banner */}
+        {error && (
+          <div className={`mb-4 ${isDark ? 'bg-red-900/40' : 'bg-red-50/80'} backdrop-blur-xl border ${isDark ? 'border-red-500/30' : 'border-red-200'} rounded-2xl p-4`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className={`w-5 h-5 ${isDark ? 'text-red-300' : 'text-red-500'}`} />
+                <p className={`text-sm ${isDark ? 'text-red-200' : 'text-red-700'}`}>{error}</p>
+              </div>
               <button
-                className="md:hidden p-2.5 rounded-xl hover:bg-gray-100 text-gray-700"
-                aria-label="Open sidebar"
-                onClick={() => setSidebarOpen(true)}
+                onClick={fetchWorkspaces}
+                className={`px-3 py-1 ${isDark ? 'bg-red-500/20 hover:bg-red-500/30' : 'bg-red-100 hover:bg-red-200'} ${isDark ? 'text-red-200' : 'text-red-700'} rounded-lg text-sm font-medium transition-colors`}
               >
-                <Bars3Icon className="w-6 h-6" />
+                Retry
               </button>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-                <span className="text-white font-bold text-lg">P</span>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Planner</h1>
-            </div>
-
-            {/* Middle: Search (full-width on mobile) */}
-            <div className="relative flex-1 min-w-[200px] w-full order-last sm:order-none">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search workspaces, people, or content..."
-                className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                aria-label="Search workspaces, people, or content"
-              />
-            </div>
-
-            {/* Right: Date/Time + User */}
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div className="text-right px-3 py-2 bg-gray-50 rounded-xl hidden sm:block">
-                <p className="text-sm font-semibold text-gray-900">
-                  {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
-                </p>
-              </div>
-              <button 
-                className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-                aria-label="Notifications"
-              >
-                <BellIcon className="w-6 h-6" />
-              </button>
-              <div className="flex items-center gap-3 border-l border-gray-200 pl-4 sm:pl-6">
-                <button 
-                  onClick={() => navigate('/profile')}
-                  className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
-                >
-                  <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-blue-100">
-                    {user?.avatar ? (
-                      <img
-                        src={`${user.avatar}?t=${Date.now()}`}
-                        alt="Profile Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-white text-base font-semibold">
-                        {user?.firstName?.[0]}{user?.lastName?.[0]}
-                      </span>
-                    )}
-                  </div>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {user?.firstName} {user?.lastName}
-                    </p>
-                    <p className="text-xs text-gray-500">{user?.email}</p>
-                  </div>
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 font-medium transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar (desktop) */}
-        <aside className="hidden md:block w-72 bg-white shadow-sm h-screen sticky top-0 border-r border-gray-200">
-          <nav className="p-6 space-y-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => item.path ? navigate(item.path) : null}
-                  className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
-                    item.active
-                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-                      : 'text-gray-700 hover:bg-gray-50 font-medium'
-                  }`}
-                >
-                  <Icon className="w-6 h-6" />
-                  <span className="text-base">{item.name}</span>
-                  {item.id === 'connections' && pendingRequestsCount > 0 && (
-                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
-                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Mobile sidebar overlay */}
-        {sidebarOpen && (
-          <div className="md:hidden fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)}></div>
-            <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl border-r border-gray-200 p-6 flex flex-col">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold">P</span>
-                  </div>
-                  <span className="text-lg font-bold text-gray-900">Planner</span>
-                </div>
-                <button className="p-2 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(false)}>
-                  <XMarkIcon className="w-6 h-6 text-gray-700" />
-                </button>
-              </div>
-              <nav className="space-y-1">
-                {sidebarItems.map((item) => {
-                  const Icon = item.icon;
-                  const handleClick = () => {
-                    if (item.path) navigate(item.path);
-                    setSidebarOpen(false);
-                  };
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={handleClick}
-                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
-                        item.active
-                          ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-50 font-medium'
-                      }`}
-                    >
-                      <Icon className="w-6 h-6" />
-                      <span className="text-base">{item.name}</span>
-                      {item.id === 'connections' && pendingRequestsCount > 0 && (
-                        <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
-                          {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
             </div>
           </div>
         )}
 
         {/* Main Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {/* Page Header with Navigation */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Workspaces</h2>
-            <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <GlassCard className="flex flex-col flex-1 overflow-hidden">
+          {/* View Toggle */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-2xl font-bold ${textClass}`}>Workspaces</h2>
+            <div className={`flex items-center gap-1 p-1 rounded-full border backdrop-blur-xl ${isDark ? 'bg-white/5 border-white/10' : 'bg-white/30 border-white/20'}`}>
               <button
                 onClick={() => setActiveView('my-workspaces')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                   activeView === 'my-workspaces'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? (isDark
+                        ? 'bg-white/10 text-white shadow-[0_0_18px_rgba(255,255,255,0.10)]'
+                        : 'bg-white/50 text-slate-800 shadow-sm')
+                    : (isDark
+                        ? 'text-slate-300/70 hover:text-white hover:bg-white/5'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/20')
                 }`}
               >
                 My Workspaces
               </button>
               <button
                 onClick={() => setActiveView('discover')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                   activeView === 'discover'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? (isDark
+                        ? 'bg-white/10 text-white shadow-[0_0_18px_rgba(255,255,255,0.10)]'
+                        : 'bg-white/50 text-slate-800 shadow-sm')
+                    : (isDark
+                        ? 'text-slate-300/70 hover:text-white hover:bg-white/5'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/20')
                 }`}
               >
                 Discover
@@ -512,41 +363,32 @@ const Workspaces = () => {
             </div>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center space-x-2">
-                <ExclamationCircleIcon className="w-5 h-5 text-red-500" />
-                <p className="text-red-700">{error}</p>
-              </div>
-            </div>
-          )}
-
           {/* My Workspaces View */}
           {activeView === 'my-workspaces' && (
-            <div>
+            <div className="dashboard-scroll flex-1 overflow-auto">
               <div className="flex items-center justify-between mb-6">
-                <p className="text-gray-600">
+                <p className={textSecondaryClass}>
                   {myWorkspaces.length} workspace{myWorkspaces.length !== 1 ? 's' : ''}
                 </p>
                 <button 
                   onClick={() => setShowCreateModal(true)}
-                  className="btn-primary flex items-center space-x-2"
+                  className={`flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)] hover:shadow-[0_0_30px_rgba(59,130,246,0.45)]' : 'shadow-lg'}`}
                 >
-                  <PlusIcon className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                   <span>New Workspace</span>
                 </button>
               </div>
 
               {myWorkspaces.length === 0 ? (
                 <div className="text-center py-12">
-                  <BriefcaseIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No workspaces yet</h3>
-                  <p className="text-gray-600 mb-6">Create your first workspace to get started with organizing your projects.</p>
+                  <Briefcase className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`} />
+                  <h3 className={`text-lg font-medium ${textClass} mb-2`}>No workspaces yet</h3>
+                  <p className={`${textSecondaryClass} mb-6`}>Create your first workspace to get started with organizing your projects.</p>
                   <button 
                     onClick={() => setShowCreateModal(true)}
-                    className="btn-primary flex items-center space-x-2 mx-auto"
+                    className={`flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all mx-auto ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)]' : 'shadow-lg'}`}
                   >
-                    <PlusIcon className="w-4 h-4" />
+                    <Plus className="w-4 h-4" />
                     <span>Create Workspace</span>
                   </button>
                 </div>
@@ -561,23 +403,22 @@ const Workspaces = () => {
                             e.stopPropagation();
                             setDropdownOpen(dropdownOpen === workspace._id ? null : workspace._id);
                           }}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                          className={`p-1 ${textSecondaryClass} hover:${textClass} rounded transition-colors`}
                           aria-label="Workspace options menu"
-                          aria-expanded={dropdownOpen === workspace._id}
                         >
-                          <EllipsisVerticalIcon className="w-5 h-5" />
+                          <MoreVertical className="w-5 h-5" />
                         </button>
 
                         {dropdownOpen === workspace._id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200">
+                          <div className={`absolute right-0 mt-2 w-48 ${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-xl shadow-xl`}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openEditModal(workspace);
                               }}
-                              className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                              className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${textClass} ${isDark ? 'hover:bg-white/10' : 'hover:bg-white/50'} rounded-t-xl transition-colors`}
                             >
-                              <PencilIcon className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                               <span>Edit Workspace</span>
                             </button>
                             {workspace.owner._id === user._id && (
@@ -586,9 +427,9 @@ const Workspaces = () => {
                                   e.stopPropagation();
                                   handleDeleteWorkspace(workspace._id);
                                 }}
-                                className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                                className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-600 hover:bg-red-50'} rounded-b-xl transition-colors`}
                               >
-                                <TrashIcon className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" />
                                 <span>Delete Workspace</span>
                               </button>
                             )}
@@ -606,31 +447,28 @@ const Workspaces = () => {
 
           {/* Discover View */}
           {activeView === 'discover' && (
-            <div>
-              {/* Search Bar */}
+            <div className="dashboard-scroll flex-1 overflow-auto">
+              {/* Discover Search Bar */}
               <div className="max-w-md mb-6">
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                  </div>
+                  <Search className={`w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 ${textSecondaryClass}`} />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`backdrop-blur-xl border rounded-full w-full pl-10 pr-4 py-2 text-sm transition-all focus:outline-none ${inputClass}`}
                     placeholder="Search public workspaces..."
-                    aria-label="Search public workspaces"
                   />
                 </div>
               </div>
 
               {filteredPublicWorkspaces.length === 0 ? (
                 <div className="text-center py-12">
-                  <GlobeAltIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <Globe className={`w-16 h-16 ${textSecondaryClass} mx-auto mb-4`} />
+                  <h3 className={`text-lg font-medium ${textClass} mb-2`}>
                     {searchQuery ? 'No workspaces found' : 'No public workspaces available'}
                   </h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className={`${textSecondaryClass} mb-6`}>
                     {searchQuery 
                       ? `No public workspaces match "${searchQuery}". Try a different search term.`
                       : 'There are currently no public workspaces that you can join. Check back later!'
@@ -639,7 +477,7 @@ const Workspaces = () => {
                   {searchQuery && (
                     <button 
                       onClick={() => setSearchQuery('')}
-                      className="btn-secondary"
+                      className={`px-4 py-2 rounded-full ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'} ${textClass} text-sm font-medium transition-colors`}
                     >
                       Clear Search
                     </button>
@@ -649,7 +487,7 @@ const Workspaces = () => {
                 <>
                   {/* Results Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-gray-600">
+                    <p className={`text-sm ${textSecondaryClass}`}>
                       {searchQuery 
                         ? `Found ${filteredPublicWorkspaces.length} workspace${filteredPublicWorkspaces.length !== 1 ? 's' : ''} matching "${searchQuery}"`
                         : `${filteredPublicWorkspaces.length} public workspace${filteredPublicWorkspaces.length !== 1 ? 's' : ''} available to join`
@@ -662,68 +500,65 @@ const Workspaces = () => {
                     {filteredPublicWorkspaces.map((workspace) => (
                       <div 
                         key={workspace._id} 
-                        className="card hover:shadow-lg transition-shadow relative"
+                        className={`${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl p-6 ${isDark ? 'hover:bg-slate-900/60' : 'hover:bg-white/80'} transition-all relative`}
                       >
                         {/* Public Badge */}
                         <div className="absolute top-4 right-4">
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center space-x-1">
-                            <GlobeAltIcon className="w-3 h-3" />
+                          <span className={`px-2 py-1 ${isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-800'} text-xs font-medium rounded-full flex items-center gap-1`}>
+                            <Globe className="w-3 h-3" />
                             <span>Public</span>
                           </span>
                         </div>
 
-                        <div className="flex items-start space-x-4">
+                        <div className="flex items-start gap-4">
                           <div 
-                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                             style={{ backgroundColor: workspace.color }}
                           >
-                            <BriefcaseIcon className="w-6 h-6 text-white" />
+                            <Briefcase className="w-6 h-6 text-white" />
                           </div>
                           <div className="flex-1 min-w-0 pr-16">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h3 className="font-semibold text-gray-900 truncate">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className={`font-semibold ${textClass} truncate`}>
                                 {workspace.name}
                               </h3>
                             </div>
                             
                             {/* Owner Info */}
-                            <div className="flex items-center space-x-1 mb-2">
-                              <span className="text-xs text-gray-500">by</span>
-                              <span className="text-xs font-medium text-gray-700">
+                            <div className="flex items-center gap-1 mb-2">
+                              <span className={`text-xs ${textSecondaryClass}`}>by</span>
+                              <span className={`text-xs font-medium ${textClass}`}>
                                 {workspace.owner?.firstName || workspace.owner?.username || workspace.owner?.email || 'Unknown'}{workspace.owner?.lastName ? ` ${workspace.owner.lastName}` : ''}
                               </span>
                             </div>
 
                             {workspace.description && (
-                              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                              <p className={`${textSecondaryClass} text-sm mb-3 line-clamp-2`}>
                                 {workspace.description}
                               </p>
                             )}
                             
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                                <div className="flex items-center space-x-1">
-                                  <UserGroupIcon className="w-4 h-4" />
-                                  <span>
-                                    {(workspace.memberCount ?? workspace.members?.length ?? 1)} member
-                                    {(workspace.memberCount ?? workspace.members?.length ?? 1) !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                                {workspace.lastActivity && (
-                                  <div className="flex items-center space-x-1">
-                                    <ClockIcon className="w-4 h-4" />
-                                    <span>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
-                                  </div>
-                                )}
+                            <div className="flex items-center justify-between mt-4">
+                              <div className={`flex items-center gap-1 text-sm ${textSecondaryClass}`}>
+                                <span>
+                                  {(workspace.memberCount ?? workspace.members?.length ?? 1)} member
+                                  {(workspace.memberCount ?? workspace.members?.length ?? 1) !== 1 ? 's' : ''}
+                                </span>
                               </div>
+                              {workspace.lastActivity && (
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
+                                </div>
+                              )}
                             </div>
 
                             {/* Join Button */}
-                            <div className="mt-3 pt-3 border-t border-gray-100">
+                            <div className={`mt-3 pt-3 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                               <button
                                 onClick={() => handleJoinWorkspace(workspace._id)}
                                 disabled={joiningWorkspaceId === workspace._id}
-                                className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                                className={`w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)]' : 'shadow-lg'} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                               >
                                 {joiningWorkspaceId === workspace._id ? (
                                   <>
@@ -744,95 +579,93 @@ const Workspaces = () => {
               )}
             </div>
           )}
-        </main>
-      </div>
+        </GlassCard>
+      </GlassHeader>
 
       {/* Create Workspace Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="create-workspace-title">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 id="create-workspace-title" className="text-xl font-semibold text-gray-900">Create Workspace</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className={`${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto`}>
+            <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+              <h2 className={`text-xl font-semibold ${textClass}`}>Create New Workspace</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close create workspace modal"
+                className={`${textSecondaryClass} hover:${textClass} transition-colors`}
               >
-                ×
+                <X className="w-6 h-6" />
               </button>
             </div>
 
             <form onSubmit={handleCreateWorkspace} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
                     Workspace Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={createForm.name}
                     onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 rounded-xl border backdrop-blur-xl transition-all focus:outline-none ${inputClass}`}
                     placeholder="Enter workspace name"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>Description</label>
                   <textarea
                     value={createForm.description}
                     onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 rounded-xl border backdrop-blur-xl transition-all focus:outline-none ${inputClass}`}
                     placeholder="Describe your workspace"
                     rows="3"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                  <div className="flex space-x-2">
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>Color</label>
+                  <div className="flex gap-2">
                     {colorOptions.map((color) => (
                       <button
                         key={color.value}
                         type="button"
-                        className={`w-8 h-8 rounded-full border-2 ${createForm.color === color.value ? 'border-gray-400' : 'border-gray-200'}`}
+                        className={`w-8 h-8 rounded-full border-2 ${createForm.color === color.value ? (isDark ? 'border-white' : 'border-gray-700') : (isDark ? 'border-white/20' : 'border-gray-200')} transition-all`}
                         style={{ backgroundColor: color.value }}
                         onClick={() => setCreateForm({ ...createForm, color: color.value })}
                         aria-label={`Select ${color.name} color`}
-                        aria-pressed={createForm.color === color.value}
                       />
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="flex items-center space-x-2">
+                  <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={createForm.isPublic}
                       onChange={(e) => setCreateForm({ ...createForm, isPublic: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Make this workspace public</span>
+                    <span className={`text-sm font-medium ${textClass}`}>Make this workspace public</span>
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">Public workspaces can be discovered and joined by other users</p>
+                  <p className={`text-xs ${textSecondaryClass} mt-1`}>Public workspaces can be discovered and joined by other users</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+              <div className={`flex items-center justify-end gap-3 mt-6 pt-6 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="btn-secondary"
                   disabled={createLoading}
+                  className={`px-4 py-2 rounded-full ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'} ${textClass} text-sm font-medium transition-colors disabled:opacity-50`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
                   disabled={createLoading || !createForm.name.trim()}
+                  className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)]' : 'shadow-lg'} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {createLoading ? 'Creating...' : 'Create Workspace'}
                 </button>
@@ -844,54 +677,53 @@ const Workspaces = () => {
 
       {/* Edit Workspace Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="edit-workspace-title">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 id="edit-workspace-title" className="text-xl font-semibold text-gray-900">Edit Workspace</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className={`${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto`}>
+            <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+              <h2 className={`text-xl font-semibold ${textClass}`}>Edit Workspace</h2>
               <button
                 onClick={() => setIsEditModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close edit workspace modal"
+                className={`${textSecondaryClass} hover:${textClass} transition-colors`}
               >
-                ×
+                <X className="w-6 h-6" />
               </button>
             </div>
 
             <form onSubmit={handleUpdateWorkspace} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>
                     Workspace Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={editForm.name}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 rounded-xl border backdrop-blur-xl transition-all focus:outline-none ${inputClass}`}
                     placeholder="Enter workspace name"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>Description</label>
                   <textarea
                     value={editForm.description}
                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 rounded-xl border backdrop-blur-xl transition-all focus:outline-none ${inputClass}`}
                     placeholder="Describe your workspace"
                     rows="3"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                  <div className="flex space-x-2">
+                  <label className={`block text-sm font-medium ${textClass} mb-2`}>Color</label>
+                  <div className="flex gap-2">
                     {colorOptions.map((color) => (
                       <button
                         key={color.value}
                         type="button"
-                        className={`w-8 h-8 rounded-full border-2 ${editForm.color === color.value ? 'border-gray-400' : 'border-gray-200'}`}
+                        className={`w-8 h-8 rounded-full border-2 ${editForm.color === color.value ? (isDark ? 'border-white' : 'border-gray-700') : (isDark ? 'border-white/20' : 'border-gray-200')} transition-all`}
                         style={{ backgroundColor: color.value }}
                         onClick={() => setEditForm({ ...editForm, color: color.value })}
                       />
@@ -900,31 +732,31 @@ const Workspaces = () => {
                 </div>
 
                 <div>
-                  <label className="flex items-center space-x-2">
+                  <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={editForm.isPublic}
                       onChange={(e) => setEditForm({ ...editForm, isPublic: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Make this workspace public</span>
+                    <span className={`text-sm font-medium ${textClass}`}>Make this workspace public</span>
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">Public workspaces can be discovered and joined by other users</p>
+                  <p className={`text-xs ${textSecondaryClass} mt-1`}>Public workspaces can be discovered and joined by other users</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+              <div className={`flex items-center justify-end gap-3 mt-6 pt-6 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="btn-secondary"
+                  className={`px-4 py-2 rounded-full ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'} ${textClass} text-sm font-medium transition-colors`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
                   disabled={!editForm.name.trim()}
+                  className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)]' : 'shadow-lg'} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   Update Workspace
                 </button>
@@ -933,7 +765,7 @@ const Workspaces = () => {
           </div>
         </div>
       )}
-    </div>
+    </GlassPageContainer>
   );
 };
 
