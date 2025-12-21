@@ -440,7 +440,7 @@ const Calendar = () => {
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <XMarkIcon className="w-6 h-6 text-gray-600" />
+                <X className="w-6 h-6 text-gray-600" />
               </button>
             </div>
 
@@ -555,7 +555,7 @@ const Calendar = () => {
                       disabled={saving}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                     >
-                      <TrashIcon className="w-5 h-5" />
+                      <Trash2 className="w-5 h-5" />
                       <span>Delete</span>
                     </button>
                   )}

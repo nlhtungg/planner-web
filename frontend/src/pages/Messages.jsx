@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
+import { useTheme } from '../context/ThemeContext';
 import messageService from '../services/messageService';
 import groupService from '../services/groupService';
 import socketService from '../services/socketService';
 import ToastContainer from '../components/ToastContainer';
 import useToast from '../utils/useToast';
+import clsx from 'clsx';
 import {
   MagnifyingGlassIcon,
   ChatBubbleLeftRightIcon,
@@ -38,6 +40,7 @@ import moment from 'moment';
 const Messages = () => {
   const { user, logout } = useAuth();
   const { pendingRequestsCount } = useConnection();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { toasts, removeToast, showSuccess, showError, showWarning } = useToast();
@@ -1104,15 +1107,15 @@ const Messages = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-4 sm:gap-6 justify-between flex-wrap">
             {/* Left: Menu + Logo */}
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
               <button
-                className="md:hidden p-2.5 rounded-xl hover:bg-gray-100 text-gray-700"
+                className="md:hidden p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                 aria-label="Open sidebar"
                 onClick={() => setSidebarOpen(true)}
               >
@@ -1121,36 +1124,36 @@ const Messages = () => {
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
                 <span className="text-white font-bold text-lg">P</span>
               </div>
-              <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Planner</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">Planner</h1>
             </div>
 
             {/* Middle: Search (full-width on mobile) */}
             <div className="relative flex-1 min-w-[200px] w-full order-last sm:order-none">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <input
                 type="text"
                 placeholder="Search workspaces, people, or content..."
-                className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
 
             {/* Right: Date/Time + User */}
             <div className="flex items-center gap-4 sm:gap-6">
-              <div className="text-right px-3 py-2 bg-gray-50 rounded-xl hidden sm:block">
-                <p className="text-sm font-semibold text-gray-900">
+              <div className="text-right px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-xl hidden sm:block">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
                   {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
                 </p>
               </div>
-              <button className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
+              <button className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
                 <BellIcon className="w-6 h-6" />
               </button>
-              <div className="flex items-center gap-3 border-l border-gray-200 pl-4 sm:pl-6">
+              <div className="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-4 sm:pl-6">
                 <button 
                   onClick={() => navigate('/profile')}
-                  className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
+                  className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl px-3 py-2 transition-colors"
                 >
                   <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-blue-100">
                     {user?.avatar ? (
@@ -1162,15 +1165,15 @@ const Messages = () => {
                     )}
                   </div>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
                       {user?.firstName} {user?.lastName}
                     </p>
-                    <p className="text-xs text-gray-500">{user?.email}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
                   </div>
                 </button>
                 <button 
                   onClick={handleLogout}
-                  className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 font-medium transition-colors"
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition-colors"
                 >
                   Sign out
                 </button>
@@ -1182,7 +1185,7 @@ const Messages = () => {
 
       <div className="flex">
         {/* Sidebar (desktop) */}
-        <aside className="hidden md:block w-72 bg-white shadow-sm h-screen sticky top-0 border-r border-gray-200">
+        <aside className="hidden md:block w-72 bg-white dark:bg-gray-800 shadow-sm h-screen sticky top-0 border-r border-gray-200 dark:border-gray-700">
           <nav className="p-6 space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
@@ -1191,11 +1194,12 @@ const Messages = () => {
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
+                  className={clsx(
+                    'w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all',
                     isActive
-                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-                      : 'text-gray-700 hover:bg-gray-50 font-medium'
-                  }`}
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold shadow-sm'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium'
+                  )}
                 >
                   <Icon className="w-6 h-6" />
                   <span className="text-base">{item.name}</span>
@@ -1213,17 +1217,17 @@ const Messages = () => {
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div className="md:hidden fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)}></div>
-            <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl border-r border-gray-200 p-6 flex flex-col">
+            <div className="absolute inset-0 bg-black/30 dark:bg-black/50" onClick={() => setSidebarOpen(false)}></div>
+            <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 p-6 flex flex-col">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold">P</span>
                   </div>
-                  <span className="text-lg font-bold text-gray-900">Planner</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">Planner</span>
                 </div>
-                <button className="p-2 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(false)}>
-                  <XMarkIcon className="w-6 h-6 text-gray-700" />
+                <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setSidebarOpen(false)}>
+                  <XMarkIcon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
                 </button>
               </div>
               <nav className="space-y-1">
@@ -1237,11 +1241,12 @@ const Messages = () => {
                     <button
                       key={item.id}
                       onClick={handleClick}
-                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all ${
+                      className={clsx(
+                        'w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all',
                         item.id === 'messages'
-                          ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-50 font-medium'
-                      }`}
+                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold shadow-sm'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium'
+                      )}
                     >
                       <Icon className="w-6 h-6" />
                       <span className="text-base">{item.name}</span>
@@ -1256,11 +1261,11 @@ const Messages = () => {
         {/* Main Content - Messages */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8 flex">
       {/* Sidebar - Conversations List */}
-      <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h1>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowCreateGroupModal(true)}
@@ -1335,9 +1340,10 @@ const Messages = () => {
                     <button
                       key={`group-${group._id}`}
                       onClick={() => handleSelectGroup(group)}
-                      className={`w-full p-4 hover:bg-gray-50 border-b border-gray-100 flex items-start space-x-3 transition-colors ${
-                        selectedGroupId === group._id ? 'bg-green-50' : ''
-                      }`}
+                      className={clsx(
+                        'w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 flex items-start space-x-3 transition-colors',
+                        selectedGroupId === group._id && 'bg-green-50 dark:bg-green-900/20'
+                      )}
                     >
                       {/* Group Icon */}
                       <div className="flex-shrink-0 relative">
@@ -1354,15 +1360,20 @@ const Messages = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center justify-between mb-1">
-                          <p className={`${groupUnreadCount > 0 ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}`}>
+                          <p className={clsx(
+                            groupUnreadCount > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'font-normal text-gray-700 dark:text-gray-300'
+                          )}>
                             {group.name}
                           </p>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
                             {group.lastMessageAt && moment(group.lastMessageAt).fromNow()}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className={`text-sm truncate ${groupUnreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                          <p className={clsx(
+                            'text-sm truncate',
+                            groupUnreadCount > 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
+                          )}>
                             {formatGroupLastMessage()}
                           </p>
                         </div>
@@ -1391,9 +1402,10 @@ const Messages = () => {
                     <button
                       key={conversation._id}
                       onClick={() => handleSelectConversation(otherUser)}
-                      className={`w-full p-4 hover:bg-gray-50 border-b border-gray-100 flex items-start space-x-3 transition-colors ${
-                        selectedUserId === otherUser._id ? 'bg-blue-50' : ''
-                      }`}
+                      className={clsx(
+                        'w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 flex items-start space-x-3 transition-colors',
+                        selectedUserId === otherUser._id && 'bg-blue-50 dark:bg-blue-900/20'
+                      )}
                     >
                       {/* Avatar */}
                       <div className="flex-shrink-0 relative">
@@ -1418,15 +1430,20 @@ const Messages = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center justify-between mb-1">
-                          <p className={`${unreadCount > 0 ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}`}>
+                          <p className={clsx(
+                            unreadCount > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'font-normal text-gray-700 dark:text-gray-300'
+                          )}>
                             {otherUser.firstName} {otherUser.lastName}
                           </p>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
                             {moment(conversation.lastMessageAt).fromNow()}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className={`text-sm truncate ${unreadCount > 0 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                          <p className={clsx(
+                            'text-sm truncate',
+                            unreadCount > 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
+                          )}>
                             {formatLastMessage()}
                           </p>
                         </div>
@@ -1441,7 +1458,7 @@ const Messages = () => {
       </div>
 
       {/* Chat Room - Right Side */}
-      <div className="flex-1 flex flex-col bg-gray-50 h-screen">
+      <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 h-screen">
         {!selectedUserId && !selectedGroupId ? (
           <div className="flex items-center justify-center h-full">
             {/* Empty when no conversation selected */}
@@ -1449,7 +1466,7 @@ const Messages = () => {
         ) : (
           <>
             {/* Chat Header - Fixed */}
-            <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4" style={{ backgroundColor: (selectedGroup ? '#10b981' : conversationSettings.themeColor) + '10' }}>
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4" style={{ backgroundColor: theme === 'dark' ? undefined : (selectedGroup ? '#10b98110' : conversationSettings.themeColor + '10') }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   {selectedGroup ? (
@@ -1458,10 +1475,10 @@ const Messages = () => {
                         <UserGroupIcon className="w-6 h-6" />
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {selectedGroup.name}
                         </h2>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {selectedGroup.members?.length || 0} members
                         </p>
                       </div>
@@ -1480,11 +1497,11 @@ const Messages = () => {
                         </div>
                       )}
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {conversationSettings.nickname || `${selectedUser.firstName} ${selectedUser.lastName}`}
                         </h2>
                         {isTyping && (
-                          <p className="text-sm text-blue-600">typing...</p>
+                          <p className="text-sm text-blue-600 dark:text-blue-400">typing...</p>
                         )}
                       </div>
                     </>
@@ -1494,10 +1511,10 @@ const Messages = () => {
                   {/* Pinned Messages Button */}
                   <button
                     onClick={() => setShowPinnedMessages(true)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative"
                     title="Pinned messages"
                   >
-                    <BookmarkIcon className="w-5 h-5 text-gray-600" />
+                    <BookmarkIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     {messages.filter(m => m.isPinned).length > 0 && (
                       <span className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                         {messages.filter(m => m.isPinned).length}
@@ -1506,18 +1523,18 @@ const Messages = () => {
                   </button>
                   <button
                     onClick={() => setShowMessageSearch(true)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                     title="Search messages"
                   >
-                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-600" />
+                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </button>
                   {!selectedGroup && (
                     <button
                       onClick={() => setShowSettings(true)}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                       title="Settings"
                     >
-                      <Cog6ToothIcon className="w-5 h-5 text-gray-600" />
+                      <Cog6ToothIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     </button>
                   )}
                 </div>
@@ -1531,7 +1548,7 @@ const Messages = () => {
                   <button
                     onClick={loadMoreMessages}
                     disabled={loadingMore}
-                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-sm"
+                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-sm"
                   >
                     {loadingMore ? (
                       <>
@@ -1644,31 +1661,38 @@ const Messages = () => {
                           <div className={`absolute top-0 ${isOwn ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover/message:opacity-100 transition-opacity flex items-center space-x-1`}>
                             <button
                               onClick={() => setShowEmojiPicker(showEmojiPicker === message._id ? null : message._id)}
-                              className="p-1 bg-white border border-gray-300 rounded-full hover:bg-gray-100 shadow-sm"
+                              className="p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm"
                               title="React"
                             >
-                              <FaceSmileIcon className="w-4 h-4 text-gray-600" />
+                              <FaceSmileIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                             </button>
                             <button
                               onClick={() => handleTogglePin(message._id)}
-                              className="p-1 bg-white border border-gray-300 rounded-full hover:bg-gray-100 shadow-sm"
+                              className="p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm"
                               title={message.isPinned ? 'Unpin' : 'Pin'}
                             >
-                              <BookmarkIcon className={`w-4 h-4 ${message.isPinned ? 'text-yellow-500' : 'text-gray-600'}`} />
+                              <BookmarkIcon className={clsx(
+                                'w-4 h-4',
+                                message.isPinned ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'
+                              )} />
                             </button>
                           </div>
 
                           {/* Message bubble */}
                           <div 
-                            className={`px-4 py-2 rounded-2xl ${
+                            className={clsx(
+                              'px-4 py-2 rounded-2xl',
                               isOwn 
                                 ? 'text-white' 
-                                : 'bg-white text-gray-900 border border-gray-200'
-                            }`}
+                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                            )}
                             style={isOwn ? { backgroundColor: conversationSettings.themeColor || '#3B82F6' } : {}}
                           >
                             {/* Sender name - show for all messages */}
-                            <p className={`text-xs font-semibold mb-1 ${isOwn ? 'text-white/90' : 'text-gray-600'}`}>
+                            <p className={clsx(
+                              'text-xs font-semibold mb-1',
+                              isOwn ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
+                            )}>
                               {isOwn ? 'Me' : `${message.sender.firstName} ${message.sender.lastName}`}
                             </p>
                             
@@ -1736,22 +1760,26 @@ const Messages = () => {
                                       href={attachment.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className={`flex items-center space-x-2 p-2 rounded-lg ${
-                                        isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'
-                                      } transition-colors`}
+                                      className={clsx(
+                                        'flex items-center space-x-2 p-2 rounded-lg transition-colors',
+                                        isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
+                                      )}
                                     >
-                                      <DocumentTextIcon className={`w-5 h-5 flex-shrink-0 ${
-                                        isOwn ? 'text-white' : 'text-gray-600'
-                                      }`} />
+                                      <DocumentTextIcon className={clsx(
+                                        'w-5 h-5 flex-shrink-0',
+                                        isOwn ? 'text-white' : 'text-gray-600 dark:text-gray-300'
+                                      )} />
                                       <div className="flex-1 min-w-0">
-                                        <p className={`text-xs font-medium truncate ${
-                                          isOwn ? 'text-white' : 'text-gray-900'
-                                        }`}>
+                                        <p className={clsx(
+                                          'text-xs font-medium truncate',
+                                          isOwn ? 'text-white' : 'text-gray-900 dark:text-gray-100'
+                                        )}>
                                           {attachment.filename}
                                         </p>
-                                        <p className={`text-xs ${
-                                          isOwn ? 'text-white/70' : 'text-gray-500'
-                                        }`}>
+                                        <p className={clsx(
+                                          'text-xs',
+                                          isOwn ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+                                        )}>
                                           {(attachment.size / 1024).toFixed(1)} KB
                                         </p>
                                       </div>
@@ -1764,7 +1792,10 @@ const Messages = () => {
 
                           {/* Emoji picker popup */}
                           {showEmojiPicker === message._id && (
-                            <div className={`emoji-picker-container absolute ${isOwn ? 'right-0' : 'left-0'} mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 flex space-x-1 z-10`}>
+                            <div className={clsx(
+                              'emoji-picker-container absolute mt-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-2 flex space-x-1 z-10',
+                              isOwn ? 'right-0' : 'left-0'
+                            )}>
                               {emojiList.map(emoji => (
                                 <button
                                   key={emoji}
@@ -1871,12 +1902,12 @@ const Messages = () => {
 
             {/* Typing Indicator - Fixed */}
             {isTyping && (
-              <div className="flex-shrink-0 px-6 py-2 bg-gray-50">
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex-shrink-0 px-6 py-2 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
                   <span>
                     {selectedGroup ? 'Someone' : selectedUser?.firstName} is typing...
@@ -1886,13 +1917,13 @@ const Messages = () => {
             )}
 
             {/* Input Form - Fixed */}
-            <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
               {/* GIF Picker */}
               {showGifPicker && (
-                <div className="gif-picker-container mb-3 p-4 bg-white rounded-lg border-2 border-purple-200 shadow-lg max-h-96 overflow-hidden flex flex-col">
+                <div className="gif-picker-container mb-3 p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-purple-200 dark:border-purple-700 shadow-lg max-h-96 overflow-hidden flex flex-col">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                      <GifIcon className="w-5 h-5 text-purple-600" />
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <GifIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                       Send GIF
                     </h3>
                     <button
@@ -1901,7 +1932,7 @@ const Messages = () => {
                         setShowGifPicker(false);
                         setGifSearchQuery('');
                       }}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <XMarkIcon className="w-5 h-5" />
                     </button>
@@ -2063,16 +2094,16 @@ const Messages = () => {
 
       {/* Settings Modal */}
       {showSettings && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Conversation Settings</h3>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Conversation Settings</h3>
               <button
                 onClick={() => setShowSettings(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <XMarkIcon className="w-5 h-5 text-gray-500" />
+                <XMarkIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
@@ -2155,11 +2186,11 @@ const Messages = () => {
 
       {/* Message Search Modal */}
       {showMessageSearch && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-end z-50">
-          <div className="bg-white h-full w-full max-w-md shadow-2xl flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-end justify-end z-50">
+          <div className="bg-white dark:bg-gray-800 h-full w-full max-w-md shadow-2xl flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
                 <MagnifyingGlassPlusIcon className="w-6 h-6" />
                 <span>Search Messages</span>
               </h3>
@@ -2254,19 +2285,19 @@ const Messages = () => {
 
       {/* Pinned Messages Modal */}
       {showPinnedMessages && (selectedUser || selectedGroup) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-end z-50">
-          <div className="bg-white h-full w-full max-w-md shadow-2xl flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-end z-50">
+          <div className="bg-white dark:bg-gray-800 h-full w-full max-w-md shadow-2xl flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-yellow-50">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-                <BookmarkIconSolid className="w-6 h-6 text-yellow-600" />
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+                <BookmarkIconSolid className="w-6 h-6 text-yellow-600 dark:text-yellow-500" />
                 <span>Pinned Messages</span>
               </h3>
               <button
                 onClick={() => setShowPinnedMessages(false)}
-                className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 rounded-lg transition-colors"
               >
-                <XMarkIcon className="w-5 h-5 text-gray-500" />
+                <XMarkIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
@@ -2367,33 +2398,33 @@ const Messages = () => {
 
       {/* Search Modal */}
       {showSearchModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Start a conversation</h3>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Start a conversation</h3>
               <button
                 onClick={() => {
                   setShowSearchModal(false);
                   setSearchQuery('');
                   setSearchResults([]);
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <XMarkIcon className="w-5 h-5 text-gray-500" />
+                <XMarkIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
             {/* Search Input */}
             <div className="p-6">
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search by name or email..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   autoFocus
                 />
               </div>
@@ -2441,11 +2472,11 @@ const Messages = () => {
 
       {/* Create Group Modal */}
       {showCreateGroupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Create Group</h3>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Create Group</h3>
                 <button
                   onClick={() => {
                     setShowCreateGroupModal(false);
