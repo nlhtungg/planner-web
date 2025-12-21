@@ -138,15 +138,18 @@ class MinioService {
       console.log('   Type:', mimeType);
       console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
       
-      // Generate unique filename
+      // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
-      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      // Only remove dangerous characters, keep Unicode (Vietnamese) characters
+      const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
       console.log('   Object:', objectName);
       
+      // Encode filename for Content-Disposition header
+      const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
         'Content-Type': mimeType,
-        'Content-Disposition': `inline; filename="${fileName}"`
+        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`
       };
 
       // Upload the file
@@ -189,15 +192,18 @@ class MinioService {
       console.log('   Type:', mimeType);
       console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
       
-      // Generate unique filename
+      // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
-      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      // Only remove dangerous characters, keep Unicode (Vietnamese) characters
+      const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
       console.log('   Object:', objectName);
       
+      // Encode filename for Content-Disposition header
+      const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
         'Content-Type': mimeType,
-        'Content-Disposition': `inline; filename="${fileName}"`
+        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`
       };
 
       // Upload the file
