@@ -68,6 +68,17 @@ services:
     networks:
       - backend
 
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/chroma_data:/chroma/chroma
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
