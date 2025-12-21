@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import workspaceService from '../services/workspaceService';
 import postService from '../services/postService';
 import commentService from '../services/commentService';
@@ -17,29 +18,38 @@ import ReactionBar from '../components/ReactionBar';
 import MentionInput from '../components/MentionInput';
 import MentionText from '../components/MentionText';
 import TaskAssigneeCell from '../components/TaskAssigneeCell';
+import GlassPageContainer from '../components/layout/GlassPageContainer';
+import GlassHeader from '../components/layout/GlassHeader';
+import GlassCard from '../components/layout/GlassCard';
 import {
-  ArrowLeftIcon,
-  BriefcaseIcon,
-  UserGroupIcon,
-  Cog6ToothIcon,
-  PlusIcon,
-  EllipsisVerticalIcon,
-  ClockIcon,
-  DocumentTextIcon,
-  CalendarDaysIcon,
-  ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
-  UserPlusIcon,
-  PencilIcon,
-  TrashIcon,
-  XMarkIcon,
-} from '@heroicons/react/24/outline';
+  ArrowLeft,
+  Briefcase,
+  Users,
+  Settings,
+  Plus,
+  MoreVertical,
+  Clock,
+  FileText,
+  Calendar,
+  MessageSquare,
+  CheckCircle2,
+  AlertCircle,
+  UserPlus,
+  Pencil,
+  Trash2,
+  X,
+  Send,
+  Activity,
+  TrendingUp,
+  Target,
+  Folder
+} from 'lucide-react';
 import DocumentList from '../components/DocumentList';
 
 const WorkspaceDetail = () => {
   const { workspaceId } = useParams();
   const { user, logout } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
 
   const [workspace, setWorkspace] = useState(null);
@@ -782,40 +792,59 @@ const WorkspaceDetail = () => {
 
   const getActivityIcon = (type) => {
     switch (type) {
-      case 'document': return DocumentTextIcon;
-      case 'task': return CheckCircleIcon;
-      case 'comment': return ChatBubbleLeftRightIcon;
-      case 'member': return UserGroupIcon;
-      default: return ExclamationCircleIcon;
+      case 'document': return FileText;
+      case 'task': return CheckCircle2;
+      case 'comment': return MessageSquare;
+      case 'member': return Users;
+      default: return AlertCircle;
     }
   };
 
+  // Theme classes
+  const textClass = isDark ? 'text-white' : 'text-slate-800';
+  const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
+  const bgClass = isDark
+    ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
+    : 'bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50';
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading workspace...</p>
-        </div>
-      </div>
+      <GlassPageContainer>
+        <GlassHeader>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className={`animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4 ${isDark ? 'border-blue-400' : 'border-blue-600'}`}></div>
+              <p className={textSecondaryClass}>Loading workspace...</p>
+            </div>
+          </div>
+        </GlassHeader>
+      </GlassPageContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <ExclamationCircleIcon className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Workspace</h3>
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={() => navigate('/workspaces')}
-            className="btn-primary"
-          >
-            Back to Workspaces
-          </button>
-        </div>
-      </div>
+      <GlassPageContainer>
+        <GlassHeader>
+          <GlassCard className="max-w-md mx-auto my-20">
+            <div className="text-center p-8">
+              <AlertCircle className={`w-16 h-16 mx-auto mb-4 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+              <h3 className={`text-lg font-medium mb-2 ${textClass}`}>Error Loading Workspace</h3>
+              <p className={`mb-6 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{error}</p>
+              <button
+                onClick={() => navigate('/workspaces')}
+                className={`px-6 py-2 rounded-full font-medium transition-all ${
+                  isDark
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                }`}
+              >
+                Back to Workspaces
+              </button>
+            </div>
+          </GlassCard>
+        </GlassHeader>
+      </GlassPageContainer>
     );
   }
 
@@ -827,130 +856,151 @@ const WorkspaceDetail = () => {
   const memberUsers = workspaceMembers.map(m => m.user);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate('/workspaces')}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeftIcon className="w-5 h-5" />
-            </button>
-            <div className="flex items-center space-x-3">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: workspace.color }}
-              >
-                <BriefcaseIcon className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">{workspace.name}</h1>
-                <p className="text-sm text-gray-500">{workspace.memberCount} member{workspace.memberCount !== 1 ? 's' : ''}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            {isOwnerOrAdmin() && (
-              <button className="btn-secondary flex items-center space-x-2">
-                <Cog6ToothIcon className="w-4 h-4" />
-                <span>Settings</span>
-              </button>
-            )}
-            {isOwnerOrAdmin() && (
-              <button
-                onClick={() => setIsAddMemberModalOpen(true)}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <UserPlusIcon className="w-4 h-4" />
-                <span>Invite</span>
-              </button>
-            )}
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => navigate('/profile')}
-                className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"
-              >
-                {user?.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={`${user.firstName} ${user.lastName}`}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
-                      {user?.firstName?.[0]}{user?.lastName?.[0]}
-                    </span>
-                  </div>
-                )}
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
-                </div>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded hover:bg-gray-100"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="border-t border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            {[
-              { id: 'overview', name: 'Overview', icon: BriefcaseIcon },
-              { id: 'posts', name: 'Posts', icon: ChatBubbleLeftRightIcon },
-              { id: 'tasks', name: 'Tasks', icon: CheckCircleIcon },
-              { id: 'documents', name: 'Documents', icon: DocumentTextIcon },
-              { id: 'members', name: 'Members', icon: UserGroupIcon },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
+    <GlassPageContainer>
+      <GlassHeader>
+        {/* Workspace Header */}
+        <GlassCard className="mb-4 sm:mb-6">
+          <div className="flex flex-col gap-4 p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                  onClick={() => navigate('/workspaces')}
+                  className={`p-2 rounded-full transition-colors flex-shrink-0 ${
+                    isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                  }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.name}</span>
+                  <ArrowLeft className={`w-5 h-5 ${textClass}`} />
                 </button>
-              );
-            })}
-          </nav>
-        </div>
-      </header>
+                <div
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
+                  style={{ backgroundColor: workspace.color || '#3B82F6' }}
+                >
+                  <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className={`text-lg sm:text-2xl font-bold truncate ${textClass}`}>{workspace.name}</h1>
+                  <p className={`text-xs sm:text-sm truncate ${textSecondaryClass}`}>
+                    {workspace.memberCount} member{workspace.memberCount !== 1 ? 's' : ''}
+                    {workspace.description && (
+                      <span className="hidden md:inline ml-2">• {workspace.description}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
 
-      {/* Main Content */}
-      <main className="p-6">
+              <div className="flex items-center gap-2">
+                {isOwnerOrAdmin() && (
+                <>
+                  <button
+                    onClick={() => setIsAddMemberModalOpen(true)}
+                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full font-medium transition-all text-sm ${
+                      isDark
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                    }`}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Invite</span>
+                  </button>
+                  <button
+                    className={`p-2 rounded-full transition-colors ${
+                      isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                    }`}
+                  >
+                    <Settings className={`w-5 h-5 ${textClass}`} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className={`border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+            <nav className="flex space-x-1 px-2 sm:px-6 overflow-x-auto scrollbar-hide">
+              {[
+                { id: 'overview', name: 'Overview', icon: Activity },
+                { id: 'posts', name: 'Posts', icon: MessageSquare },
+                { id: 'tasks', name: 'Tasks', icon: CheckCircle2 },
+                { id: 'documents', name: 'Documents', icon: FileText },
+                { id: 'members', name: 'Members', icon: Users },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 sm:gap-2 py-3 sm:py-4 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
+                      isActive
+                        ? isDark
+                          ? 'border-blue-400 text-blue-400'
+                          : 'border-blue-600 text-blue-600'
+                        : isDark
+                        ? 'border-transparent text-slate-400 hover:text-slate-200'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{tab.name}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </GlassCard>
+
+        {/* Main Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               {/* Workspace Description */}
               {workspace.description && (
-                <div className="card">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">About</h3>
-                  <p className="text-gray-700">{workspace.description}</p>
-                </div>
+                <GlassCard>
+                  <h3 className={`text-lg font-semibold mb-3 ${textClass}`}>About</h3>
+                  <p className={textSecondaryClass}>{workspace.description}</p>
+                </GlassCard>
               )}
 
+              {/* Quick Stats */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <GlassCard className="text-center p-3 sm:p-6">
+                  <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
+                    <Target className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  </div>
+                  <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {tasks.length}
+                  </div>
+                  <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Total Tasks</div>
+                </GlassCard>
+                <GlassCard className="text-center p-3 sm:p-6">
+                  <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
+                    <CheckCircle2 className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
+                  </div>
+                  <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+                    {tasks.filter(t => t.status === 'done').length}
+                  </div>
+                  <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Completed</div>
+                </GlassCard>
+                <GlassCard className="text-center p-3 sm:p-6">
+                  <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
+                    <Folder className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
+                  </div>
+                  <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
+                    {documents.length}
+                  </div>
+                  <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Documents</div>
+                </GlassCard>
+              </div>
+
               {/* Recent Activity */}
-              <div className="card">
+              <GlassCard>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                  <h3 className={`text-lg font-semibold ${textClass}`}>Recent Activity</h3>
+                  <button className={`text-sm font-medium transition-colors ${
+                    isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                  }`}>
                     View all
                   </button>
                 </div>
@@ -958,79 +1008,79 @@ const WorkspaceDetail = () => {
                   {recentActivity.map((activity) => {
                     const Icon = getActivityIcon(activity.type);
                     return (
-                      <div key={activity.id} className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-xs font-semibold">
+                      <div key={activity.id} className="flex items-start gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'
+                          }`}
+                        >
+                          <span className="text-white text-sm font-semibold">
                             {activity.avatar}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900">
+                          <p className={`text-sm ${textClass}`}>
                             <span className="font-medium">{activity.user}</span>{' '}
                             {activity.action}{' '}
                             <span className="font-medium">{activity.item}</span>
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                          <p className={`text-xs mt-1 ${textSecondaryClass}`}>{activity.time}</p>
                         </div>
+                        <Icon className={`w-5 h-5 mt-1 ${textSecondaryClass}`} />
                       </div>
                     );
                   })}
                 </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="card text-center">
-                  <div className="text-2xl font-bold text-blue-600">{tasks.length}</div>
-                  <div className="text-sm text-gray-600">Total Tasks</div>
-                </div>
-                <div className="card text-center">
-                  <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'done').length}</div>
-                  <div className="text-sm text-gray-600">Completed</div>
-                </div>
-                <div className="card text-center">
-                  <div className="text-2xl font-bold text-orange-600">{documents.length}</div>
-                  <div className="text-sm text-gray-600">Documents</div>
-                </div>
-              </div>
+              </GlassCard>
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Workspace Info */}
-              <div className="card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Workspace Info</h3>
+              <GlassCard>
+                <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Workspace Info</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Owner:</span>
-                    <span className="text-gray-900">{workspace.owner.firstName} {workspace.owner.lastName}</span>
+                    <span className={textSecondaryClass}>Owner:</span>
+                    <span className={textClass}>{workspace.owner.firstName} {workspace.owner.lastName}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Created:</span>
-                    <span className="text-gray-900">{new Date(workspace.createdAt).toLocaleDateString()}</span>
+                    <span className={textSecondaryClass}>Created:</span>
+                    <span className={textClass}>{new Date(workspace.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Last Activity:</span>
-                    <span className="text-gray-900">{new Date(workspace.lastActivity).toLocaleDateString()}</span>
+                    <span className={textSecondaryClass}>Last Activity:</span>
+                    <span className={textClass}>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Visibility:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${workspace.settings?.isPublic
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
-                      }`}>
+                    <span className={textSecondaryClass}>Visibility:</span>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        workspace.settings?.isPublic
+                          ? isDark
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-green-100 text-green-800'
+                          : isDark
+                          ? 'bg-slate-700/50 text-slate-300'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
                       {workspace.settings?.isPublic ? 'Public' : 'Private'}
                     </span>
                   </div>
                 </div>
-              </div>
+              </GlassCard>
 
               {/* Quick Actions */}
-              <div className="card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <GlassCard>
+                <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Quick Actions</h3>
                 <div className="space-y-2">
-                  <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-                    <PlusIcon className="w-4 h-4" />
+                  <button
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                      isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <Plus className="w-4 h-4" />
                     <span>Create Task</span>
                   </button>
                   <button
@@ -1040,42 +1090,52 @@ const WorkspaceDetail = () => {
                         document.getElementById('document-upload')?.click();
                       }, 100);
                     }}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                      isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
                   >
-                    <DocumentTextIcon className="w-4 h-4" />
+                    <FileText className="w-4 h-4" />
                     <span>Upload Document</span>
                   </button>
-                  <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-                    <CalendarDaysIcon className="w-4 h-4" />
+                  <button
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                      isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
                     <span>Schedule Meeting</span>
                   </button>
                   {isOwnerOrAdmin() && (
                     <button
                       onClick={() => setIsAddMemberModalOpen(true)}
-                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                        isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                      }`}
                     >
-                      <UserPlusIcon className="w-4 h-4" />
+                      <UserPlus className="w-4 h-4" />
                       <span>Invite Member</span>
                     </button>
                   )}
                 </div>
-              </div>
+              </GlassCard>
             </div>
           </div>
         )}
 
         {activeTab === 'posts' && (
-          <div className="max-w-4xl mx-auto space-y-4">
+          <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
             {/* Create Post Form */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <GlassCard>
               <form onSubmit={handleCreatePost}>
                 <div className="p-4">
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
                       {user?.avatar ? (
                         <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <div className={`w-full h-full flex items-center justify-center ${
+                          isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                        }`}>
                           <span className="text-white text-sm font-semibold">
                             {user?.firstName?.[0]}{user?.lastName?.[0]}
                           </span>
@@ -1089,7 +1149,7 @@ const WorkspaceDetail = () => {
                         onMentionsChange={handleNewPostMentionsChange}
                         members={workspaceMembers}
                         placeholder="Start a conversation..."
-                        className="w-full px-0 py-0 border-0 focus:ring-0 resize-none text-gray-900 placeholder-gray-400"
+                        className={`w-full px-0 py-0 border-0 focus:ring-0 resize-none placeholder-gray-400 bg-transparent ${textClass}`}
                         rows={3}
                         disabled={createPostLoading}
                         maxLength={5000}
@@ -1097,57 +1157,69 @@ const WorkspaceDetail = () => {
                     </div>
                   </div>
                 </div>
-                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between rounded-b-lg">
-                  <span className="text-xs text-gray-500">
+                <div className={`px-4 py-3 border-t flex items-center justify-between rounded-b-lg ${
+                  isDark ? 'bg-slate-900/30 border-white/10' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className={`text-xs ${textSecondaryClass}`}>
                     {newPostContent.length}/5000
                   </span>
                   <button
                     type="submit"
                     disabled={!newPostContent.trim() || createPostLoading}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isDark
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                    }`}
                   >
                     {createPostLoading ? 'Posting...' : 'Post'}
                   </button>
                 </div>
               </form>
-            </div>
+            </GlassCard>
 
             {/* Posts List */}
             {postsLoading && (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-3 text-sm text-gray-500">Loading posts...</p>
+                <div className={`animate-spin rounded-full h-10 w-10 border-b-2 mx-auto ${
+                  isDark ? 'border-blue-400' : 'border-blue-600'
+                }`}></div>
+                <p className={`mt-3 text-sm ${textSecondaryClass}`}>Loading posts...</p>
               </div>
             )}
 
             {postsError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-700 text-sm">{postsError}</p>
-              </div>
+              <GlassCard className={`p-4 ${isDark ? 'bg-red-900/20 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
+                <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>{postsError}</p>
+              </GlassCard>
             )}
 
             {!postsLoading && !postsError && posts.length === 0 && (
-              <div className="text-center py-16">
-                <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
-                <p className="text-gray-500">Be the first to share an update!</p>
-              </div>
+              <GlassCard className="text-center py-16">
+                <MessageSquare className={`w-16 h-16 mx-auto mb-4 ${textSecondaryClass}`} />
+                <h3 className={`text-lg font-medium mb-2 ${textClass}`}>No posts yet</h3>
+                <p className={textSecondaryClass}>Be the first to share an update!</p>
+              </GlassCard>
             )}
 
             {!postsLoading && !postsError && posts.length > 0 && (
               <div className="space-y-3">
                 {posts.map((post) => (
-                  <div 
+                  <GlassCard
                     key={post._id} 
-                    className="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 hover:shadow-md transition-shadow"
+                    className={`border-l-4 hover:shadow-lg transition-shadow ${
+                      isDark ? 'border-orange-500' : 'border-orange-500'
+                    }`}
                   >
                     <div className="p-5">
-                      <div className="flex items-start space-x-3">
+                      <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
                           {post.author?.avatar ? (
                             <img src={post.author.avatar} alt={`${post.author.firstName} ${post.author.lastName}`} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                            <div className={`w-full h-full flex items-center justify-center ${
+                              isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                            }`}>
                               <span className="text-white text-sm font-semibold">
                                 {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
                               </span>
@@ -1157,10 +1229,10 @@ const WorkspaceDetail = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
                             <div>
-                              <h4 className="font-semibold text-gray-900 text-sm">
+                              <h4 className={`font-semibold text-sm ${textClass}`}>
                                 {post.author?.firstName} {post.author?.lastName}
                               </h4>
-                              <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                              <div className={`flex items-center gap-2 text-xs mt-0.5 ${textSecondaryClass}`}>
                                 <span>
                                   {new Date(post.createdAt).toLocaleDateString('en-US', { 
                                     month: 'numeric', 
@@ -1179,7 +1251,7 @@ const WorkspaceDetail = () => {
                                 {post.updatedAt !== post.createdAt && (
                                   <>
                                     <span>•</span>
-                                    <span className="text-blue-600">Edited</span>
+                                    <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>Edited</span>
                                   </>
                                 )}
                               </div>
@@ -1188,16 +1260,24 @@ const WorkspaceDetail = () => {
                               post.author?.email === user.email) && (
                               <div className="relative">
                                 {editingPost === post._id ? (
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center gap-2">
                                     <button
                                       onClick={() => handleUpdatePost(post._id)}
-                                      className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                      className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                        isDark
+                                          ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/20'
+                                          : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                                      }`}
                                     >
                                       Save
                                     </button>
                                     <button
                                       onClick={cancelEditingPost}
-                                      className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                                      className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                        isDark
+                                          ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                                      }`}
                                     >
                                       Cancel
                                     </button>
@@ -1208,22 +1288,34 @@ const WorkspaceDetail = () => {
                                       e.stopPropagation();
                                       setDropdownOpen(dropdownOpen === post._id ? null : post._id);
                                     }}
-                                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                                    className={`p-1.5 rounded transition-colors ${
+                                      isDark
+                                        ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                    }`}
                                   >
-                                    <EllipsisVerticalIcon className="w-5 h-5" />
+                                    <MoreVertical className="w-5 h-5" />
                                   </button>
                                 )}
                                 {dropdownOpen === post._id && (
-                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                  <div className={`absolute right-0 mt-1 w-36 rounded-lg shadow-lg border z-10 ${
+                                    isDark
+                                      ? 'bg-slate-800/95 backdrop-blur-xl border-white/10'
+                                      : 'bg-white border-gray-200'
+                                  }`}>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         startEditingPost(post);
                                         setDropdownOpen(null);
                                       }}
-                                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-t-lg transition-colors ${
+                                        isDark
+                                          ? 'text-slate-200 hover:bg-white/5'
+                                          : 'text-gray-700 hover:bg-gray-100'
+                                      }`}
                                     >
-                                      <PencilIcon className="w-4 h-4" />
+                                      <Pencil className="w-4 h-4" />
                                       <span>Edit</span>
                                     </button>
                                     <button
@@ -1232,9 +1324,13 @@ const WorkspaceDetail = () => {
                                         handleDeletePost(post._id);
                                         setDropdownOpen(null);
                                       }}
-                                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-b-lg transition-colors ${
+                                        isDark
+                                          ? 'text-red-400 hover:bg-red-900/20'
+                                          : 'text-red-600 hover:bg-red-50'
+                                      }`}
                                     >
-                                      <TrashIcon className="w-4 h-4" />
+                                      <Trash2 className="w-4 h-4" />
                                       <span>Delete</span>
                                     </button>
                                   </div>
@@ -1264,7 +1360,9 @@ const WorkspaceDetail = () => {
                                 mentions={post.mentions}
                                 mentionsEveryone={post.mentionsEveryone}
                                 members={memberUsers}
-                                className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap"
+                                className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                                  isDark ? 'text-slate-200' : 'text-gray-800'
+                                }`}
                               />
                             </div>
                           )}
@@ -1296,7 +1394,7 @@ const WorkspaceDetail = () => {
                           onClick={() => toggleComments(post._id)}
                           className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
                         >
-                          <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                          <MessageSquare className="w-5 h-5" />
                           <span>
                             {commentCounts[post._id] || 0} {commentCounts[post._id] === 1 ? 'comment' : 'comments'}
                           </span>
@@ -1517,7 +1615,7 @@ const WorkspaceDetail = () => {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </GlassCard>
                 ))}
               </div>
             )}
@@ -1540,7 +1638,7 @@ const WorkspaceDetail = () => {
                   <option value="done">Done</option>
                 </select>
                 <button onClick={openTaskModal} className="btn-primary flex items-center space-x-2">
-                  <PlusIcon className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                   <span>New Task</span>
                 </button>
               </div>
@@ -1649,7 +1747,7 @@ const WorkspaceDetail = () => {
                   onClick={() => setIsAddMemberModalOpen(true)}
                   className="btn-primary flex items-center space-x-2"
                 >
-                  <UserPlusIcon className="w-4 h-4" />
+                  <UserPlus className="w-4 h-4" />
                   <span>Invite Member</span>
                 </button>
               )}
@@ -1657,7 +1755,7 @@ const WorkspaceDetail = () => {
 
             <div className="card">
               <div className="space-y-4">
-                {workspace.members.map((member) => (
+                {workspace.members.filter(member => member.user).map((member) => (
                   <div key={member._id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
                       {member.user.avatar ? (
@@ -1716,7 +1814,6 @@ const WorkspaceDetail = () => {
             </div>
           </div>
         )}
-      </main>
 
       {/* Add Member Modal */}
       <AddMemberModal
@@ -1828,54 +1925,74 @@ const WorkspaceDetail = () => {
       )}
       {/* Task Creation Modal */}
       {isTaskModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <GlassCard className="max-w-md w-full">
             <form onSubmit={handleCreateTask}>
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">New Task</h2>
+              <div className={`flex items-center justify-between p-6 border-b ${
+                isDark ? 'border-white/10' : 'border-slate-200'
+              }`}>
+                <h2 className={`text-xl font-semibold ${textClass}`}>New Task</h2>
                 <button
                   type="button"
                   onClick={() => setIsTaskModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >×</button>
+                  className={textSecondaryClass}
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <label className={`block text-sm font-medium mb-1 ${textClass}`}>Title</label>
                   <input
                     value={newTask.title}
                     onChange={e => setNewTask(t => ({ ...t, title: e.target.value }))}
                     required
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isDark
+                        ? 'bg-slate-800/50 border-white/10 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
                     placeholder="Task title"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className={`block text-sm font-medium mb-1 ${textClass}`}>Description</label>
                   <textarea
                     value={newTask.description}
                     onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
                     rows={3}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isDark
+                        ? 'bg-slate-800/50 border-white/10 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
                     placeholder="Optional description"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <label className={`block text-sm font-medium mb-1 ${textClass}`}>Due Date</label>
                     <input
                       type="date"
                       value={newTask.dueDate}
                       onChange={e => setNewTask(t => ({ ...t, dueDate: e.target.value }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDark
+                          ? 'bg-slate-800/50 border-white/10 text-white'
+                          : 'bg-white border-slate-300 text-slate-900'
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <label className={`block text-sm font-medium mb-1 ${textClass}`}>Priority</label>
                     <select
                       value={newTask.priority}
                       onChange={e => setNewTask(t => ({ ...t, priority: e.target.value }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDark
+                          ? 'bg-slate-800/50 border-white/10 text-white'
+                          : 'bg-white border-slate-300 text-slate-900'
+                      }`}
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -1884,24 +2001,39 @@ const WorkspaceDetail = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+              <div className={`flex items-center justify-end gap-3 p-6 border-t ${
+                isDark ? 'border-white/10' : 'border-slate-200'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setIsTaskModalOpen(false)}
-                  className="btn-secondary"
+                  className={`px-4 py-2 rounded-full font-medium transition-colors ${
+                    isDark
+                      ? 'bg-slate-700/50 hover:bg-slate-700 text-white'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
                   disabled={creatingTask}
-                >Cancel</button>
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
-                  className="btn-primary"
+                  className={`px-4 py-2 rounded-full font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isDark
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                  }`}
                   disabled={creatingTask || !newTask.title}
-                >{creatingTask ? 'Creating...' : 'Create Task'}</button>
+                >
+                  {creatingTask ? 'Creating...' : 'Create Task'}
+                </button>
               </div>
             </form>
-          </div>
+          </GlassCard>
         </div>
       )}
-    </div>
+      </GlassHeader>
+    </GlassPageContainer>
   );
 };
 
