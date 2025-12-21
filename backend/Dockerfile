@@ -8,7 +8,7 @@ WORKDIR /app
 COPY backend/package*.json ./
 
 # Install dependencies (including dev dependencies for nodemon)
-RUN npm install
+RUN npm install --force
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
