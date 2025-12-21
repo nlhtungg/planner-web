@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConnectionProvider } from './context/ConnectionContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ChatbotProvider from './components/ChatbotProvider';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ActivateAccount from './pages/ActivateAccount';
@@ -35,7 +36,9 @@ function App() {
               path="/home"
               element={
                 <ProtectedRoute>
-                  <Home />
+                  <ChatbotProvider>
+                    <Home />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -43,7 +46,9 @@ function App() {
               path="/workspaces"
               element={
                 <ProtectedRoute>
-                  <Workspaces />
+                  <ChatbotProvider>
+                    <Workspaces />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -51,7 +56,9 @@ function App() {
               path="/workspace/:workspaceId"
               element={
                 <ProtectedRoute>
-                  <WorkspaceDetail />
+                  <ChatbotProvider>
+                    <WorkspaceDetail />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -59,7 +66,9 @@ function App() {
               path="/profile"
               element={
                 <ProtectedRoute>
-                  <Profile />
+                  <ChatbotProvider>
+                    <Profile />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -67,7 +76,9 @@ function App() {
               path="/user/:userId"
               element={
                 <ProtectedRoute>
-                  <UserProfile />
+                  <ChatbotProvider>
+                    <UserProfile />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -75,7 +86,9 @@ function App() {
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <ChatbotProvider>
+                    <Dashboard />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -83,7 +96,9 @@ function App() {
               path="/calendar"
               element={
                 <ProtectedRoute>
-                  <Calendar />
+                  <ChatbotProvider>
+                    <Calendar />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -91,7 +106,9 @@ function App() {
               path="/tasks/:id"
               element={
                 <ProtectedRoute>
-                  <TaskDetail />
+                  <ChatbotProvider>
+                    <TaskDetail />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -99,7 +116,9 @@ function App() {
               path="/documents/:id"
               element={
                 <ProtectedRoute>
-                  <DocumentEditor />
+                  <ChatbotProvider>
+                    <DocumentEditor />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -107,7 +126,9 @@ function App() {
               path="/messages"
               element={
                 <ProtectedRoute>
-                  <Messages />
+                  <ChatbotProvider>
+                    <Messages />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -115,7 +136,9 @@ function App() {
               path="/connections"
               element={
                 <ProtectedRoute>
-                  <Connections />
+                  <ChatbotProvider>
+                    <Connections />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />
@@ -123,7 +146,9 @@ function App() {
               path="/messages/:userId"
               element={
                 <ProtectedRoute>
-                  <ChatRoom />
+                  <ChatbotProvider>
+                    <ChatRoom />
+                  </ChatbotProvider>
                 </ProtectedRoute>
               }
             />

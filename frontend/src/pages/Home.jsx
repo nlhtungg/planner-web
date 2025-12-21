@@ -4,6 +4,7 @@ import { useConnection } from '../context/ConnectionContext';
 import { useNavigate } from 'react-router-dom';
 import workspaceService from '../services/workspaceService';
 import WorkspaceListItem from '../components/WorkspaceListItem';
+import ChatbotModal from '../components/ChatbotModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import {
   HomeIcon,
@@ -21,6 +22,7 @@ import {
   ExclamationTriangleIcon,
   Bars3Icon,
   XMarkIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 const Home = () => {
@@ -30,6 +32,7 @@ const Home = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSection, setActiveSection] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -136,6 +139,15 @@ const Home = () => {
                   {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
                 </p>
               </div>
+              {/* AI Chatbot Button */}
+              <button
+                onClick={() => setChatbotOpen(true)}
+                className="relative p-2.5 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all shadow-md hover:shadow-lg group"
+                title="AI Chatbot Assistant"
+              >
+                <SparklesIcon className="w-6 h-6 animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
+              </button>
               <button className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
                 <BellIcon className="w-6 h-6" />
               </button>
@@ -447,6 +459,9 @@ const Home = () => {
           </div>
         </main>
       </div>
+
+      {/* AI Chatbot Modal */}
+      <ChatbotModal isOpen={chatbotOpen} onClose={() => setChatbotOpen(false)} />
     </div>
   );
 };
