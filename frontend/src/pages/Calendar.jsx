@@ -90,7 +90,7 @@ const Calendar = () => {
       setError(''); // Clear previous errors
 
       const params = {};
-      if (workspaceFilter) params.workspaceId = workspaceFilter;
+      if (workspaceFilter) params.workspace = workspaceFilter;
       const eventsResponse = await getCalendarEvents(params);
       setEvents(eventsResponse.data.events || []);
     } catch (error) {
