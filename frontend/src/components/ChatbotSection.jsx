@@ -16,6 +16,7 @@ import {
   EyeIcon,
   BriefcaseIcon,
   FolderIcon,
+  ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 
 const ChatbotSection = () => {
@@ -36,20 +37,36 @@ const ChatbotSection = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
   const [workspaceDocuments, setWorkspaceDocuments] = useState([]);
   const [loadingWorkspaceDocs, setLoadingWorkspaceDocs] = useState(false);
+  const [chatSessions, setChatSessions] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const pollingIntervalRef = useRef(null);
 
   useEffect(() => {
     loadDocuments();
-    setSessionId(`session_${Date.now()}`);
-    setMessages([
-      {
-        role: 'assistant',
-        content: 'Xin chào! Tôi là trợ lý AI của bạn. Bạn có thể upload file PDF hoặc URL để tôi học và trả lời câu hỏi về nội dung đó.\n\n📤 Vui lòng upload tài liệu trước khi chat!',
-        timestamp: new Date(),
-      },
-    ]);
+    loadChatSessions();
+    
+    // Load saved session from localStorage
+    const savedSessionId = localStorage.getItem('chatbot_session_id');
+    if (savedSessionId) {
+      // Try to load history for saved session
+      loadChatHistory(savedSessionId);
+    } else {
+      // Start new session
+      const newSessionId = `session_${Date.now()}`;
+      setSessionId(newSessionId);
+      localStorage.setItem('chatbot_session_id', newSessionId);
+      setMessages([
+        {
+          role: 'assistant',
+          content: 'Xin chào! Tôi là trợ lý AI của bạn. Bạn có thể upload file PDF hoặc URL để tôi học và trả lời câu hỏi về nội dung đó.\n\n📤 Vui lòng upload tài liệu trước khi chat!',
+          timestamp: new Date(),
+        },
+      ]);
+    }
+    
     startPolling();
     
     return () => stopPolling();
@@ -149,7 +166,9 @@ const ChatbotSection = () => {
             timestamp: new Date(),
           },
         ]);
-        setSessionId(response.data.sessionId);
+        const newSessionId = response.data.sessionId;
+        setSessionId(newSessionId);
+        localStorage.setItem('chatbot_session_id', newSessionId);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -317,6 +336,84 @@ const ChatbotSection = () => {
       loadWorkspaceDocuments(selectedWorkspace);
     }
   }, [selectedWorkspace]);
+
+  const loadChatSessions = async () => {
+    try {
+      setLoadingSessions(true);
+      const response = await chatbotService.getChatSessions();
+      if (response.success) {
+        setChatSessions(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading chat sessions:', error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const loadChatHistory = async (sessionId) => {
+    try {
+      const response = await chatbotService.getChatHistory(sessionId);
+      if (response.success) {
+        if (response.data.messages.length > 0) {
+          setMessages(response.data.messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            sources: msg.sources,
+            timestamp: new Date(msg.timestamp)
+          })));
+        } else {
+          // Session exists but no messages yet
+          setMessages([
+            {
+              role: 'assistant',
+              content: 'Xin chào! Tôi là trợ lý AI của bạn. Bạn có thể upload file PDF hoặc URL để tôi học và trả lời câu hỏi về nội dung đó.\n\n📤 Vui lòng upload tài liệu trước khi chat!',
+              timestamp: new Date(),
+            },
+          ]);
+        }
+        setSessionId(sessionId);
+        localStorage.setItem('chatbot_session_id', sessionId);
+        setShowHistory(false);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      // If session not found, start new session
+      startNewChat();
+    }
+  };
+
+  const startNewChat = () => {
+    const newSessionId = `session_${Date.now()}`;
+    setSessionId(newSessionId);
+    localStorage.setItem('chatbot_session_id', newSessionId);
+    setMessages([
+      {
+        role: 'assistant',
+        content: 'Xin chào! Tôi là trợ lý AI của bạn. Bạn có thể upload file PDF hoặc URL để tôi học và trả lời câu hỏi về nội dung đó.\n\n📤 Vui lòng upload tài liệu trước khi chat!',
+        timestamp: new Date(),
+      },
+    ]);
+    setShowHistory(false);
+    loadChatSessions(); // Refresh sessions list
+  };
+
+  const handleDeleteSession = async (sessionIdToDelete) => {
+    if (!confirm('Bạn có chắc muốn xóa lịch sử chat này?')) return;
+
+    try {
+      await chatbotService.deleteSession(sessionIdToDelete);
+      loadChatSessions();
+      
+      // If deleting current session, start new chat
+      if (sessionIdToDelete === sessionId) {
+        startNewChat();
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      alert('Không thể xóa lịch sử chat');
+    }
+  };
 
   return (
     <div className="flex h-[calc(100vh-80px)] bg-gray-50">
@@ -549,6 +646,85 @@ const ChatbotSection = () => {
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
+        {/* Chat Header */}
+        <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={startNewChat}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Chat
+            </button>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <ChatBubbleLeftIcon className="w-4 h-4" />
+              History
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Session: {sessionId.substring(0, 20)}...
+          </p>
+        </div>
+
+        {/* History Panel */}
+        {showHistory && (
+          <div className="border-b border-gray-200 bg-gray-50 p-4 max-h-60 overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-gray-900">Chat History</h4>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {loadingSessions ? (
+              <div className="text-center py-4">
+                <ArrowPathIcon className="w-6 h-6 text-blue-600 animate-spin mx-auto" />
+              </div>
+            ) : chatSessions.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">Chưa có lịch sử chat</p>
+            ) : (
+              <div className="space-y-2">
+                {chatSessions.map((session) => (
+                  <div
+                    key={session.sessionId}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      session.sessionId === sessionId
+                        ? 'bg-blue-50 border-blue-300'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        onClick={() => loadChatHistory(session.sessionId)}
+                        className="flex-1 text-left"
+                      >
+                        <p className="text-sm text-gray-900 line-clamp-2">
+                          {session.lastMessage || 'Empty chat'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {session.messageCount} messages • {new Date(session.lastActivity).toLocaleDateString()}
+                        </p>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSession(session.sessionId)}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((message, idx) => (
