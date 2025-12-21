@@ -322,25 +322,24 @@ const Connections = () => {
           break;
         }
         case 'send': {
-          await connectionService.sendRequest(id);
+          const response = await connectionService.sendRequest(id);
           showSuccess('Friend request sent!');
-          processedActionsRef.current.add(`send-${id}`);
-
-          const targetUser = searchResults.find(u => u._id === id);
-          if (targetUser) {
+          setSearchResults(prev => prev.filter(u => u._id !== id));
+          
+          // Add the new request to sent requests immediately with the real data from API
+          if (response.data) {
             setSentRequests(prev => {
               const exists = prev.find(req => {
                 const recipientId = req.recipient?._id || req.recipient;
                 return recipientId === id;
               });
               if (exists) return prev;
-              return [{
-                _id: `temp-${Date.now()}`,
-                recipient: targetUser,
-                createdAt: new Date().toISOString()
-              }, ...prev];
+              return [response.data, ...prev];
             });
-            setSearchResults(prev => prev.filter(u => u._id !== id));
+          } else {
+            // Fallback: refetch sent requests if no data returned
+            const sentRes = await connectionService.getSentRequests();
+            setSentRequests(sentRes.data || []);
           }
           break;
         }
