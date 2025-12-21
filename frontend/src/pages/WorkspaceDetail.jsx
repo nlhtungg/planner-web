@@ -1627,20 +1627,20 @@ const WorkspaceDetail = () => {
                   <thead>
                     <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
                       <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Task</th>
+                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Actions</th>
                       <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Status</th>
                       <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Priority</th>
                       <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Progress</th>
                       <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Assignee</th>
-                      <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Actions</th>
                       <th className={`text-left py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Due Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tasksLoading && (
-                      <tr><td colSpan="4" className={`py-4 text-center text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Loading tasks...</td></tr>
+                      <tr><td colSpan="7" className={`py-4 text-center text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Loading tasks...</td></tr>
                     )}
                     {tasksError && !tasksLoading && (
-                      <tr><td colSpan="4" className={`py-4 text-center text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>{tasksError}</td></tr>
+                      <tr><td colSpan="7" className={`py-4 text-center text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>{tasksError}</td></tr>
                     )}
                     {!tasksLoading && !tasksError && filteredTasks.map((task) => (
                       <tr key={task._id} className={`border-b ${isDark ? 'border-white/5 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'}`}>
@@ -1679,20 +1679,15 @@ const WorkspaceDetail = () => {
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <div className={`w-24 rounded h-2 overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                                <div
-                                  className="h-2 bg-blue-600"
-                                  style={{ width: `${percentOf(task.loggedHours, task.estimatedHours)}%` }}
-                                  title={`Time: ${task.loggedHours || 0}h / ${task.estimatedHours || 0}h`}
-                                ></div>
-                              </div>
-                              <span className="text-xs text-gray-600">{task.autoProgress || 0}%</span>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-24 rounded h-2 overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                              <div
+                                className="h-2 bg-blue-600"
+                                style={{ width: `${percentOf(task.loggedHours, task.estimatedHours)}%` }}
+                                title={`Time: ${task.loggedHours || 0}h / ${task.estimatedHours || 0}h`}
+                              ></div>
                             </div>
-                            {typeof task.progress === 'number' && task.progress !== task.autoProgress && (
-                              <div className="text-[10px] text-gray-400">Manual: {task.progress}%</div>
-                            )}
+                            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{task.autoProgress || 0}%</span>
                           </div>
                         </td>
                         <td className="py-3 px-4 text-gray-700">
@@ -1708,7 +1703,7 @@ const WorkspaceDetail = () => {
                       </tr>
                     ))}
                     {!tasksLoading && !tasksError && filteredTasks.length === 0 && (
-                      <tr><td colSpan="4" className="py-4 text-center text-sm text-gray-500">No tasks match filters.</td></tr>
+                      <tr><td colSpan="7" className="py-4 text-center text-sm text-gray-500">No tasks match filters.</td></tr>
                     )}
                   </tbody>
                 </table>

@@ -4,6 +4,9 @@ import documentService from '../services/documentService';
 import io from 'socket.io-client';
 import DocumentHistoryAndComments from '../components/DocumentHistoryAndComments';
 import UserFuzzySelect from '../components/UserFuzzySelect';
+import GlassPageContainer from '../components/layout/GlassPageContainer';
+import GlassHeader from '../components/layout/GlassHeader';
+import GlassCard from '../components/layout/GlassCard';
 import { ShareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const DocumentEditor = () => {
@@ -242,62 +245,77 @@ const DocumentEditor = () => {
         alert('Link copied to clipboard!');
     };
 
-    if (!document) return <div className="p-8">Loading editor...</div>;
+    if (!document) return (
+        <GlassPageContainer>
+            <GlassHeader />
+            <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        </GlassPageContainer>
+    );
 
     return (
-        <div className="h-screen flex flex-col bg-gray-50">
-            {/* Toolbar */}
-            <div className="bg-white border-b px-6 py-3 flex justify-between items-center shadow-sm">
-                <div>
-                    <h1 className="text-xl font-bold text-gray-800">{document.title}</h1>
-                    <p className="text-sm text-gray-500">
-                        {saving ? 'Saving...' : 'All changes saved'}
-                    </p>
+        <GlassPageContainer>
+            <GlassHeader />
+            
+            {/* Document Toolbar */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="max-w-[1920px] mx-auto w-full px-6 py-4">
+                    <GlassCard className="mb-6" padding="p-4">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold text-primary">{document.title}</h1>
+                                <p className="text-sm text-secondary mt-1">
+                                    {saving ? 'Saving...' : 'All changes saved'}
+                                </p>
+                            </div>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => setShowShareModal(true)}
+                                    className="btn-secondary flex items-center space-x-2"
+                                >
+                                    <ShareIcon className="h-4 w-4" />
+                                    <span>Share</span>
+                                </button>
+                                <button
+                                    onClick={() => navigate(-1)}
+                                    className="btn-secondary"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="btn-primary"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </GlassCard>
                 </div>
-                <div className="flex space-x-3">
-                    <button
-                        onClick={() => setShowShareModal(true)}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center space-x-2"
-                    >
-                        <ShareIcon className="h-4 w-4" />
-                        <span>Share</span>
-                    </button>
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                    >
-                        Back
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
-                        Save
-                    </button>
-                </div>
-            </div>
 
-            {/* Main Layout */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Editor/Preview Area */}
-                <div className="flex-1 p-8 overflow-y-auto">
-                    <div className="max-w-4xl mx-auto h-full">
-                        {document.isEditable ? (
-                            <textarea
-                                value={content}
-                                onChange={handleChange}
-                                disabled={!canEdit}
-                                readOnly={!canEdit}
-                                className={`w-full h-full p-8 bg-white shadow-lg rounded-lg border-none focus:ring-0 resize-none font-mono text-lg leading-relaxed ${!canEdit ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                                placeholder={canEdit ? "Start typing..." : "You don't have permission to edit this document"}
-                            />
-                        ) : (
-                            <div className="bg-white shadow-lg rounded-lg p-8 h-full flex flex-col">
-                                {/* PDF Preview */}
-                                {document.fileType?.includes('pdf') ? (
-                                    <iframe
-                                        src={document.fileUrl}
-                                        className="w-full flex-1 border-0 min-h-[600px]"
+                {/* Main Layout */}
+                <div className="flex-1 flex overflow-hidden px-6 pb-6">
+                    <div className="max-w-[1920px] mx-auto w-full flex gap-6">
+                        {/* Editor/Preview Area */}
+                        <GlassCard className="flex-1 overflow-hidden flex flex-col" padding="p-0">
+                            <div className="flex-1 overflow-y-auto p-8">
+                                {document.isEditable ? (
+                                    <textarea
+                                        value={content}
+                                        onChange={handleChange}
+                                        disabled={!canEdit}
+                                        readOnly={!canEdit}
+                                        className={`w-full h-full p-8 rounded-2xl bg-white/30 dark:bg-slate-900/30 backdrop-blur-xl border border-white/20 focus:ring-2 focus:ring-blue-500/50 resize-none font-mono text-lg leading-relaxed text-primary placeholder-secondary/50 ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        placeholder={canEdit ? "Start typing..." : "You don't have permission to edit this document"}
+                                    />
+                                ) : (
+                                    <div className="rounded-2xl backdrop-blur-xl p-8 h-full flex flex-col">
+                                    {/* PDF Preview */}
+                                    {document.fileType?.includes('pdf') ? (
+                                        <iframe
+                                            src={document.fileUrl}
+                                            className="w-full flex-1 border-0 min-h-[600px] rounded-lg"
                                         title={document.title}
                                     />
                                 ) : document.fileType?.includes('image') ? (
@@ -306,7 +324,7 @@ const DocumentEditor = () => {
                                         <img
                                             src={document.fileUrl}
                                             alt={document.title}
-                                            className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                                            className="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-lg"
                                         />
                                     </div>
                                 ) : document.fileType?.includes('video') ? (
@@ -315,7 +333,7 @@ const DocumentEditor = () => {
                                         <video
                                             src={document.fileUrl}
                                             controls
-                                            className="max-w-full max-h-[70vh] rounded-lg shadow-md"
+                                            className="max-w-full max-h-[70vh] rounded-2xl shadow-lg"
                                         />
                                     </div>
                                 ) : (document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword')) ? (
@@ -324,21 +342,21 @@ const DocumentEditor = () => {
                                         {docxLoading ? (
                                             <div className="flex items-center justify-center h-full">
                                                 <div className="text-center space-y-4">
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                                                    <p className="text-gray-500">Loading document preview...</p>
+                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                                                    <p className="text-secondary">Loading document preview...</p>
                                                 </div>
                                             </div>
                                         ) : docxHtml ? (
-                                            <div className="bg-white p-8 rounded-lg shadow-sm">
+                                            <div className="bg-white/20 dark:bg-slate-900/20 p-8 rounded-2xl">
                                                 <div
-                                                    className="prose prose-lg max-w-none"
+                                                    className="prose prose-lg prose-slate max-w-none"
                                                     dangerouslySetInnerHTML={{ __html: docxHtml }}
                                                 />
-                                                <div className="mt-8 pt-4 border-t flex justify-center">
+                                                <div className="mt-8 pt-4 border-t border-white/10 flex justify-center">
                                                     <a
                                                         href={document.fileUrl}
                                                         download={document.title}
-                                                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
+                                                        className="btn-primary flex items-center space-x-2"
                                                     >
                                                         <span>⬇️</span>
                                                         <span>Download Original</span>
@@ -348,11 +366,11 @@ const DocumentEditor = () => {
                                         ) : (
                                             <div className="flex flex-col items-center justify-center h-full space-y-4">
                                                 <div className="text-6xl">📄</div>
-                                                <p className="text-gray-500">Unable to preview document</p>
+                                                <p className="text-secondary">Unable to preview document</p>
                                                 <a
                                                     href={document.fileUrl}
                                                     download={document.title}
-                                                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                                    className="btn-primary"
                                                 >
                                                     Download File
                                                 </a>
@@ -363,7 +381,7 @@ const DocumentEditor = () => {
                                     /* Audio Preview */
                                     <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                                         <div className="text-8xl">🎵</div>
-                                        <h3 className="text-xl font-semibold text-gray-800">{document.title}</h3>
+                                        <h3 className="text-xl font-semibold text-primary">{document.title}</h3>
                                         <audio
                                             src={document.fileUrl}
                                             controls
@@ -372,7 +390,7 @@ const DocumentEditor = () => {
                                         <a
                                             href={document.fileUrl}
                                             download={document.title}
-                                            className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
+                                            className="btn-primary flex items-center space-x-2"
                                         >
                                             <span>⬇️</span>
                                             <span>Download Audio</span>
@@ -392,9 +410,8 @@ const DocumentEditor = () => {
 
                                         {/* File Info */}
                                         <div className="text-center space-y-2">
-                                            <h3 className="text-2xl font-bold text-gray-800">{document.title}</h3>
-                                            <div className="text-gray-500 space-y-1">
-                                                {document.fileType && (
+                                            <h3 className="text-2xl font-bold text-primary">{document.title}</h3>
+                                            <div className="text-secondary space-y-1">\n                                                {document.fileType && (
                                                     <p className="text-sm">
                                                         Type: <span className="font-medium">{
                                                             document.fileType.includes('wordprocessingml') || document.fileType.includes('msword') ? 'Microsoft Word Document' :
@@ -423,7 +440,7 @@ const DocumentEditor = () => {
                                         </div>
 
                                         {/* Info Message */}
-                                        <p className="text-gray-400 text-sm max-w-md text-center">
+                                        <p className="text-secondary text-sm max-w-md text-center">
                                             Preview is not available for this file type in the browser.
                                             Please download the file to view its contents.
                                         </p>
@@ -432,7 +449,7 @@ const DocumentEditor = () => {
                                         <a
                                             href={document.fileUrl}
                                             download={document.title}
-                                            className="px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center space-x-3"
+                                            className="btn-primary text-lg shadow-lg hover:shadow-xl flex items-center space-x-3"
                                         >
                                             <span className="text-2xl">⬇️</span>
                                             <span>Download File</span>
@@ -442,10 +459,11 @@ const DocumentEditor = () => {
                             </div>
                         )}
                     </div>
-                </div>
+                        </GlassCard>
 
-                {/* Sidebar */}
-                <DocumentHistoryAndComments
+                        {/* Sidebar: History and Comments */}
+                        <GlassCard className="w-96 flex-shrink-0 overflow-hidden flex flex-col" padding="p-0">
+                            <DocumentHistoryAndComments
                     document={document}
                     onRestoreVersion={(version) => {
                         if (window.confirm('Restore this version? current changes will be lost.')) {
@@ -466,34 +484,37 @@ const DocumentEditor = () => {
                             }
                         } catch (err) {
                             alert('Failed to add comment');
-                        }
-                    }}
-                />
+                            }
+                        }}
+                    />
+                </GlassCard>
+                    </div>
+                </div>
             </div>
 
             {/* Share Modal */}
             {showShareModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold">Share Document</h2>
-                            <button onClick={() => setShowShareModal(false)}>
-                                <XMarkIcon className="h-6 w-6 text-gray-500 hover:text-gray-700" />
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <GlassCard className="w-full max-w-md">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-primary">Share Document</h2>
+                            <button onClick={() => setShowShareModal(false)} className="p-2 hover:bg-white/10 rounded-lg transition-all">
+                                <XMarkIcon className="h-6 w-6 text-secondary" />
                             </button>
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {/* Copy Link Section */}
-                            <div className="border-b pb-4">
+                            <div className="border-b border-white/10 pb-4">
                                 <div className="flex items-center justify-between mb-2">
-                                    <label className="text-sm font-medium text-gray-700">
+                                    <label className="text-sm font-medium text-primary">
                                         Link Sharing
                                     </label>
                                     <button
                                         onClick={handleTogglePublic}
-                                        className={`px-3 py-1 rounded text-sm ${document.isPublic
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-gray-100 text-gray-700'
+                                        className={`px-3 py-1 rounded-lg text-sm transition-all ${document.isPublic
+                                            ? 'glass-pill bg-green-500/20 text-green-400 border border-green-500/30'
+                                            : 'glass-pill hover:bg-white/10 text-secondary'
                                             }`}
                                     >
                                         {document.isPublic ? 'Public' : 'Private'}
@@ -505,17 +526,17 @@ const DocumentEditor = () => {
                                             type="text"
                                             value={`${window.location.origin}/documents/${id}`}
                                             readOnly
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm"
+                                            className="input-field flex-1 text-sm"
                                         />
                                         <button
                                             onClick={handleCopyLink}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                                            className="btn-primary text-sm"
                                         >
                                             Copy
                                         </button>
                                     </div>
                                 )}
-                                <p className="text-xs text-gray-500 mt-2">
+                                <p className="text-xs text-secondary mt-2">
                                     {document.isPublic
                                         ? 'Anyone with the link can view this document'
                                         : 'Only people you share with can access'}
@@ -524,10 +545,10 @@ const DocumentEditor = () => {
 
                             {/* Share with Specific Users */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-medium text-primary mb-2">
                                     Share with Specific Users (View Only)
                                 </label>
-                                <p className="text-xs text-gray-500 mb-2">
+                                <p className="text-xs text-secondary mb-2">
                                     Only workspace members can edit. Shared users can view and download.
                                 </p>
                                 <UserFuzzySelect
@@ -538,18 +559,18 @@ const DocumentEditor = () => {
 
                             {/* Currently Shared With */}
                             {document.sharedWith && document.sharedWith.length > 0 && (
-                                <div className="mt-6">
-                                    <h3 className="text-sm font-medium text-gray-700 mb-2">Shared With</h3>
+                                <div>
+                                    <h3 className="text-sm font-medium text-primary mb-2">Shared With</h3>
                                     <div className="space-y-2">
                                         {document.sharedWith.map((share) => (
-                                            <div key={share.user._id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <div key={share.user._id} className="flex justify-between items-center p-3 glass-pill hover:bg-white/10 rounded-lg transition-all">
                                                 <div>
-                                                    <p className="font-medium">{share.user.firstName} {share.user.lastName}</p>
-                                                    <p className="text-sm text-gray-500">{share.permission === 'edit' ? 'Can edit' : 'Can view'}</p>
+                                                    <p className="font-medium text-primary">{share.user.firstName} {share.user.lastName}</p>
+                                                    <p className="text-sm text-secondary">{share.permission === 'edit' ? 'Can edit' : 'Can view'}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => handleUnshare(share.user._id)}
-                                                    className="text-red-600 hover:text-red-800 text-sm"
+                                                    className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors"
                                                 >
                                                     Remove
                                                 </button>
@@ -559,10 +580,10 @@ const DocumentEditor = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </GlassCard>
                 </div>
             )}
-        </div>
+        </GlassPageContainer>
     );
 };
 

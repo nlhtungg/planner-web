@@ -8,6 +8,9 @@ import groupService from '../services/groupService';
 import socketService from '../services/socketService';
 import ToastContainer from '../components/ToastContainer';
 import useToast from '../utils/useToast';
+import GlassPageContainer from '../components/layout/GlassPageContainer';
+import GlassHeader from '../components/layout/GlassHeader';
+import GlassCard from '../components/layout/GlassCard';
 import clsx from 'clsx';
 import {
   MagnifyingGlassIcon,
@@ -1109,473 +1112,316 @@ const Messages = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4 sm:gap-6 justify-between flex-wrap">
-            {/* Left: Menu + Logo */}
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <button
-                className="md:hidden p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                aria-label="Open sidebar"
-                onClick={() => setSidebarOpen(true)}
-              >
-                <Bars3Icon className="w-6 h-6" />
-              </button>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-                <span className="text-white font-bold text-lg">P</span>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">Planner</h1>
-            </div>
-
-            {/* Middle: Search (full-width on mobile) */}
-            <div className="relative flex-1 min-w-[200px] w-full order-last sm:order-none">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search workspaces, people, or content..."
-                className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
-
-            {/* Right: Date/Time + User */}
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div className="text-right px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-xl hidden sm:block">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
-                </p>
-              </div>
-              <button className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
-                <BellIcon className="w-6 h-6" />
-              </button>
-              <div className="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-4 sm:pl-6">
-                <button 
-                  onClick={() => navigate('/profile')}
-                  className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl px-3 py-2 transition-colors"
-                >
-                  <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-blue-100">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-white text-base font-semibold">
-                        {user?.firstName?.[0]}{user?.lastName?.[0]}
-                      </span>
-                    )}
+    <GlassPageContainer>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
+      {/* Glass Header */}
+      <GlassHeader activeNav="messages" />
+      
+      {/* Messages Content - using glass design language */}
+      <div className="flex-1 overflow-hidden">
+        <div className="max-w-[1920px] mx-auto px-6 py-6 h-full">
+          <div className="flex gap-6 h-full">
+            {/* Left Sidebar - Conversations List */}
+            <GlassCard className="w-96 flex flex-col" padding="p-0">
+              {/* Conversations Header */}
+              <div className="p-6 border-b border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-primary">Messages</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowCreateGroupModal(true)}
+                      className="p-2 glass-pill hover:bg-white/20 text-primary rounded-xl transition-all"
+                      title="Create Group"
+                    >
+                      <UserGroupIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setShowSearchModal(true)}
+                      className="p-2 glass-pill hover:bg-white/20 text-primary rounded-xl transition-all"
+                      title="Start Chat"
+                    >
+                      <PlusIcon className="w-5 h-5" />
+                    </button>
                   </div>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {user?.firstName} {user?.lastName}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+                </div>
+              </div>
+
+              {/* Conversations List */}
+              <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                   </div>
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar (desktop) */}
-        <aside className="hidden md:block w-72 bg-white dark:bg-gray-800 shadow-sm h-screen sticky top-0 border-r border-gray-200 dark:border-gray-700">
-          <nav className="p-6 space-y-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.id === 'messages';
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => navigate(item.path)}
-                  className={clsx(
-                    'w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all',
-                    isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold shadow-sm'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium'
-                  )}
-                >
-                  <Icon className="w-6 h-6" />
-                  <span className="text-base">{item.name}</span>
-                  {item.id === 'connections' && pendingRequestsCount > 0 && (
-                    <span className="ml-auto bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
-                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Mobile sidebar overlay */}
-        {sidebarOpen && (
-          <div className="md:hidden fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/30 dark:bg-black/50" onClick={() => setSidebarOpen(false)}></div>
-            <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 p-6 flex flex-col">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold">P</span>
+                ) : allConversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <ChatBubbleLeftRightIcon className="w-16 h-16 text-secondary/50 mb-4" />
+                    <p className="text-secondary mb-4">No conversations yet</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowSearchModal(true)}
+                        className="btn-primary"
+                      >
+                        Start a chat
+                      </button>
+                      <button
+                        onClick={() => setShowCreateGroupModal(true)}
+                        className="btn-secondary flex items-center gap-2"
+                      >
+                        <UserGroupIcon className="w-5 h-5" />
+                        Create Group
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">Planner</span>
-                </div>
-                <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setSidebarOpen(false)}>
-                  <XMarkIcon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                </button>
+                ) : (
+                  <>
+                    {allConversations.map((item) => {
+                      const isGroup = item.type === 'group';
+                      
+                      if (isGroup) {
+                        const group = item;
+                        const groupUnreadCount = group.unreadCount ? (group.unreadCount[user._id] || 0) : 0;
+                        
+                        const formatGroupLastMessage = () => {
+                          if (!group.lastMessage) return `${group.members?.length || 0} members`;
+                          if (group.lastMessageSender) {
+                            const isMe = group.lastMessageSender._id === user._id;
+                            const senderName = isMe ? 'Me' : group.lastMessageSender.firstName;
+                            return `${senderName}: ${group.lastMessage}`;
+                          }
+                          return group.lastMessage;
+                        };
+                        
+                        return (
+                          <button
+                            key={`group-${group._id}`}
+                            onClick={() => handleSelectGroup(group)}
+                            className={clsx(
+                              'w-full p-4 hover:bg-white/10 border-b border-white/10 flex items-start space-x-3 transition-all',
+                              selectedGroupId === group._id && 'bg-white/20'
+                            )}
+                          >
+                            <div className="flex-shrink-0 relative">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-lg">
+                                <UserGroupIcon className="w-6 h-6" />
+                              </div>
+                              {groupUnreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
+                                  {groupUnreadCount > 9 ? '9+' : groupUnreadCount}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className={clsx(
+                                  'text-base',
+                                  groupUnreadCount > 0 ? 'font-semibold text-primary' : 'font-normal text-secondary'
+                                )}>
+                                  {group.name}
+                                </p>
+                                <span className="text-xs text-secondary">
+                                  {group.lastMessageAt && moment(group.lastMessageAt).fromNow()}
+                                </span>
+                              </div>
+                              <p className={clsx(
+                                'text-sm truncate',
+                                groupUnreadCount > 0 ? 'font-medium text-primary' : 'text-secondary'
+                              )}>
+                                {formatGroupLastMessage()}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      } else {
+                        const conversation = item;
+                        const otherUser = getOtherUser(conversation);
+                        const unreadCount = getUnreadCount(conversation);
+                        
+                        const formatLastMessage = () => {
+                          if (!conversation.lastMessage) return 'No messages yet';
+                          if (conversation.lastMessageSender) {
+                            const isMe = conversation.lastMessageSender._id === user._id;
+                            const senderName = isMe ? 'Me' : conversation.lastMessageSender.firstName;
+                            return `${senderName}: ${conversation.lastMessage}`;
+                          }
+                          return conversation.lastMessage;
+                        };
+                        
+                        return (
+                          <button
+                            key={conversation._id}
+                            onClick={() => handleSelectConversation(otherUser)}
+                            className={clsx(
+                              'w-full p-4 hover:bg-white/10 border-b border-white/10 flex items-start space-x-3 transition-all',
+                              selectedUserId === otherUser._id && 'bg-white/20'
+                            )}
+                          >
+                            <div className="flex-shrink-0 relative">
+                              {otherUser.avatar ? (
+                                <img
+                                  src={otherUser.avatar}
+                                  alt={`${otherUser.firstName} ${otherUser.lastName}`}
+                                  className="w-12 h-12 rounded-full object-cover shadow-lg"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-lg">
+                                  {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
+                                </div>
+                              )}
+                              {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
+                                  {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className={clsx(
+                                  'text-base',
+                                  unreadCount > 0 ? 'font-semibold text-primary' : 'font-normal text-secondary'
+                                )}>
+                                  {otherUser.firstName} {otherUser.lastName}
+                                </p>
+                                <span className="text-xs text-secondary">
+                                  {moment(conversation.lastMessageAt).fromNow()}
+                                </span>
+                              </div>
+                              <p className={clsx(
+                                'text-sm truncate',
+                                unreadCount > 0 ? 'font-medium text-primary' : 'text-secondary'
+                              )}>
+                                {formatLastMessage()}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      }
+                    })}
+                  </>
+                )}
               </div>
-              <nav className="space-y-1">
-                {sidebarItems.map((item) => {
-                  const Icon = item.icon;
-                  const handleClick = () => {
-                    navigate(item.path);
-                    setSidebarOpen(false);
-                  };
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={handleClick}
-                      className={clsx(
-                        'w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-left transition-all',
-                        item.id === 'messages'
-                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold shadow-sm'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium'
-                      )}
-                    >
-                      <Icon className="w-6 h-6" />
-                      <span className="text-base">{item.name}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        )}
+            </GlassCard>
 
-        {/* Main Content - Messages */}
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 flex">
-      {/* Sidebar - Conversations List */}
-      <div className="w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h1>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowCreateGroupModal(true)}
-                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                title="Create Group"
-              >
-                <UserGroupIcon className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setShowSearchModal(true)}
-                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                title="Start Chat"
-              >
-                <PlusIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : allConversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mb-4" />
-              <p className="text-gray-500">No conversations yet</p>
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={() => setShowSearchModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Start a chat
-                </button>
-                <button
-                  onClick={() => setShowCreateGroupModal(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <UserGroupIcon className="w-5 h-5" />
-                  Create Group
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Combined list - Groups and Direct Messages sorted by last message */}
-              {allConversations.map((item) => {
-                const isGroup = item.type === 'group';
-                
-                if (isGroup) {
-                  // Group item
-                  const group = item;
-                  
-                  // Get unread count for group
-                  const groupUnreadCount = group.unreadCount ? (group.unreadCount[user._id] || 0) : 0;
-                  
-                  // Format last message with sender name for groups
-                  const formatGroupLastMessage = () => {
-                    if (!group.lastMessage) return `${group.members?.length || 0} members`;
-                    
-                    if (group.lastMessageSender) {
-                      const isMe = group.lastMessageSender._id === user._id;
-                      const senderName = isMe ? 'Me' : group.lastMessageSender.firstName;
-                      return `${senderName}: ${group.lastMessage}`;
-                    }
-                    return group.lastMessage;
-                  };
-                  
-                  return (
-                    <button
-                      key={`group-${group._id}`}
-                      onClick={() => handleSelectGroup(group)}
-                      className={clsx(
-                        'w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 flex items-start space-x-3 transition-colors',
-                        selectedGroupId === group._id && 'bg-green-50 dark:bg-green-900/20'
-                      )}
-                    >
-                      {/* Group Icon */}
-                      <div className="flex-shrink-0 relative">
-                        <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white">
-                          <UserGroupIcon className="w-6 h-6" />
-                        </div>
-                        {groupUnreadCount > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                            {groupUnreadCount > 9 ? '9+' : groupUnreadCount}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0 text-left">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className={clsx(
-                            groupUnreadCount > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'font-normal text-gray-700 dark:text-gray-300'
-                          )}>
-                            {group.name}
-                          </p>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {group.lastMessageAt && moment(group.lastMessageAt).fromNow()}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className={clsx(
-                            'text-sm truncate',
-                            groupUnreadCount > 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
-                          )}>
-                            {formatGroupLastMessage()}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                } else {
-                  // Direct Message item
-                  const conversation = item;
-                  const otherUser = getOtherUser(conversation);
-                  const unreadCount = getUnreadCount(conversation);
-                  
-                  // Format last message with sender name
-                  const formatLastMessage = () => {
-                    if (!conversation.lastMessage) return 'No messages yet';
-                    
-                    if (conversation.lastMessageSender) {
-                      const isMe = conversation.lastMessageSender._id === user._id;
-                      const senderName = isMe ? 'Me' : conversation.lastMessageSender.firstName;
-                      return `${senderName}: ${conversation.lastMessage}`;
-                    }
-                    return conversation.lastMessage;
-                  };
-                  
-                  return (
-                    <button
-                      key={conversation._id}
-                      onClick={() => handleSelectConversation(otherUser)}
-                      className={clsx(
-                        'w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 flex items-start space-x-3 transition-colors',
-                        selectedUserId === otherUser._id && 'bg-blue-50 dark:bg-blue-900/20'
-                      )}
-                    >
-                      {/* Avatar */}
-                      <div className="flex-shrink-0 relative">
-                        {otherUser.avatar ? (
-                          <img
-                            src={otherUser.avatar}
-                            alt={`${otherUser.firstName} ${otherUser.lastName}`}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                            {otherUser.firstName?.[0]}{otherUser.lastName?.[0]}
-                          </div>
-                        )}
-                        {unreadCount > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0 text-left">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className={clsx(
-                            unreadCount > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'font-normal text-gray-700 dark:text-gray-300'
-                          )}>
-                            {otherUser.firstName} {otherUser.lastName}
-                          </p>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {moment(conversation.lastMessageAt).fromNow()}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className={clsx(
-                            'text-sm truncate',
-                            unreadCount > 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
-                          )}>
-                            {formatLastMessage()}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                }
-              })}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Chat Room - Right Side */}
-      <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 h-screen">
-        {!selectedUserId && !selectedGroupId ? (
-          <div className="flex items-center justify-center h-full">
-            {/* Empty when no conversation selected */}
-          </div>
-        ) : (
-          <>
-            {/* Chat Header - Fixed */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4" style={{ backgroundColor: theme === 'dark' ? undefined : (selectedGroup ? '#10b98110' : conversationSettings.themeColor + '10') }}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {selectedGroup ? (
-                    <>
-                      <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white">
-                        <UserGroupIcon className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {selectedGroup.name}
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {selectedGroup.members?.length || 0} members
-                        </p>
-                      </div>
-                    </>
-                  ) : selectedUser && (
-                    <>
-                      {selectedUser.avatar ? (
-                        <img
-                          src={selectedUser.avatar}
-                          alt={`${selectedUser.firstName} ${selectedUser.lastName}`}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                          {selectedUser.firstName?.[0]}{selectedUser.lastName?.[0]}
-                        </div>
-                      )}
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {conversationSettings.nickname || `${selectedUser.firstName} ${selectedUser.lastName}`}
-                        </h2>
-                        {isTyping && (
-                          <p className="text-sm text-blue-600 dark:text-blue-400">typing...</p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center space-x-2">
-                  {/* Pinned Messages Button */}
-                  <button
-                    onClick={() => setShowPinnedMessages(true)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative"
-                    title="Pinned messages"
-                  >
-                    <BookmarkIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    {messages.filter(m => m.isPinned).length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                        {messages.filter(m => m.isPinned).length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setShowMessageSearch(true)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                    title="Search messages"
-                  >
-                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  </button>
-                  {!selectedGroup && (
-                    <button
-                      onClick={() => setShowSettings(true)}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                      title="Settings"
-                    >
-                      <Cog6ToothIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Messages - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-              {!loadingMore && hasMore && messages.length > 0 && (
-                <div className="flex justify-center mb-4">
-                  <button
-                    onClick={loadMoreMessages}
-                    disabled={loadingMore}
-                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-sm"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                        <span className="text-sm">Loading...</span>
-                      </>
-                    ) : (
-                      <span className="text-sm font-medium">Load older messages</span>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {loadingMessages ? (
+            {/* Right Side - Chat Room */}
+            <GlassCard className="flex-1 flex flex-col" padding="p-0">
+              {!selectedUserId && !selectedGroupId ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <p>No messages yet. Start the conversation!</p>
+                  <div className="text-center">
+                    <ChatBubbleLeftRightIcon className="w-24 h-24 text-secondary/50 mx-auto mb-4" />
+                    <p className="text-xl text-secondary">Select a conversation to start messaging</p>
+                  </div>
                 </div>
               ) : (
-                messages.map((message, index) => {
-                  // System notification messages
-                  if (message.isSystemMessage) {
+                <>
+                  {/* Chat Header */}
+                  <div className="flex-shrink-0 glass-pill backdrop-blur-xl border-b border-white/10 px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        {selectedGroup ? (
+                          <>
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-lg">
+                              <UserGroupIcon className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-semibold text-primary">
+                                {selectedGroup.name}
+                              </h2>
+                              <p className="text-sm text-secondary">
+                                {selectedGroup.members?.length || 0} members
+                              </p>
+                            </div>
+                          </>
+                        ) : selectedUser && (
+                          <>
+                            {selectedUser.avatar ? (
+                              <img
+                                src={selectedUser.avatar}
+                                alt={`${selectedUser.firstName} ${selectedUser.lastName}`}
+                                className="w-10 h-10 rounded-full object-cover shadow-lg"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-lg">
+                                {selectedUser.firstName?.[0]}{selectedUser.lastName?.[0]}
+                              </div>
+                            )}
+                            <div>
+                              <h2 className="text-lg font-semibold text-primary">
+                                {conversationSettings.nickname || `${selectedUser.firstName} ${selectedUser.lastName}`}
+                              </h2>
+                              {isTyping && (
+                                <p className="text-sm text-blue-500">typing...</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setShowPinnedMessages(true)}
+                          className="p-2 hover:bg-white/10 rounded-full transition-all relative"
+                          title="Pinned messages"
+                        >
+                          <BookmarkIcon className="w-5 h-5 text-secondary" />
+                          {messages.filter(m => m.isPinned).length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
+                              {messages.filter(m => m.isPinned).length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setShowMessageSearch(true)}
+                          className="p-2 hover:bg-white/10 rounded-full transition-all"
+                          title="Search messages"
+                        >
+                          <MagnifyingGlassIcon className="w-5 h-5 text-secondary" />
+                        </button>
+                        {!selectedGroup && (
+                          <button
+                            onClick={() => setShowSettings(true)}
+                            className="p-2 hover:bg-white/10 rounded-full transition-all"
+                            title="Settings"
+                          >
+                            <Cog6ToothIcon className="w-5 h-5 text-secondary" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {!loadingMore && hasMore && messages.length > 0 && (
+                      <div className="flex justify-center mb-4">
+                        <button
+                          onClick={loadMoreMessages}
+                          disabled={loadingMore}
+                          className="px-4 py-2 glass-pill hover:bg-white/20 text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg"
+                        >
+                          {loadingMore ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              <span className="text-sm">Loading...</span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-medium">Load older messages</span>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {loadingMessages ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex items-center justify-center h-full text-secondary">
+                        <p>No messages yet. Start the conversation!</p>
+                      </div>
+                    ) : (
+                      messages.map((message, index) => {
+                        // System notification messages
+                        if (message.isSystemMessage) {
+
                     console.log('🔔 Rendering system message:', message.content);
                     
                     // Handler to jump to related message
@@ -1601,7 +1447,7 @@ const Messages = () => {
                       >
                         <button
                           onClick={handleNotificationClick}
-                          className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-full shadow-sm hover:bg-blue-100 hover:shadow-md transition-all cursor-pointer"
+                          className="px-4 py-2 glass-pill hover:bg-white/20 text-primary shadow-sm hover:shadow-md transition-all cursor-pointer"
                         >
                           <p className="text-sm text-blue-700 font-medium text-center">
                             {message.content}
@@ -2092,28 +1938,31 @@ const Messages = () => {
             </div>
           </>
         )}
-      </div>
+      </GlassCard>
+    </div>
+  </div>
+</div>
 
       {/* Settings Modal */}
       {showSettings && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassCard className="max-w-md w-full">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Conversation Settings</h3>
+            <div className="flex items-center justify-between pb-6 border-b border-white/10">
+              <h3 className="text-xl font-bold text-primary">Conversation Settings</h3>
               <button
                 onClick={() => setShowSettings(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 rounded-lg transition-all"
               >
-                <XMarkIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <XMarkIcon className="w-5 h-5 text-secondary" />
               </button>
             </div>
 
             {/* Settings Form */}
-            <div className="p-6 space-y-6">
+            <div className="pt-6 space-y-6">
               {/* Nickname */}
               <div>
-                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                <label className="flex items-center space-x-2 text-sm font-medium text-primary mb-2">
                   <UserCircleIcon className="w-5 h-5" />
                   <span>Nickname</span>
                 </label>
@@ -2122,14 +1971,14 @@ const Messages = () => {
                   value={conversationSettings.nickname}
                   onChange={(e) => setConversationSettings({ ...conversationSettings, nickname: e.target.value })}
                   placeholder={`${selectedUser.firstName} ${selectedUser.lastName}`}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input-field"
                 />
-                <p className="text-xs text-gray-500 mt-1">Set a custom name for this conversation</p>
+                <p className="text-xs text-secondary mt-1">Set a custom name for this conversation</p>
               </div>
 
               {/* Theme Color */}
               <div>
-                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                <label className="flex items-center space-x-2 text-sm font-medium text-primary mb-2">
                   <PaintBrushIcon className="w-5 h-5" />
                   <span>Theme Color</span>
                 </label>
@@ -2138,7 +1987,7 @@ const Messages = () => {
                     type="color"
                     value={conversationSettings.themeColor}
                     onChange={(e) => setConversationSettings({ ...conversationSettings, themeColor: e.target.value })}
-                    className="w-16 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    className="w-16 h-10 rounded-lg glass-pill cursor-pointer"
                   />
                   <div className="flex-1">
                     <input
@@ -2146,16 +1995,16 @@ const Messages = () => {
                       value={conversationSettings.themeColor}
                       onChange={(e) => setConversationSettings({ ...conversationSettings, themeColor: e.target.value })}
                       placeholder="#3B82F6"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                      className="input-field font-mono text-sm"
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Choose a color for your messages</p>
+                <p className="text-xs text-secondary mt-1">Choose a color for your messages</p>
               </div>
 
               {/* Preview */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs font-medium text-gray-700 mb-2">Preview:</p>
+              <div className="glass-pill rounded-lg p-4">
+                <p className="text-xs font-medium text-primary mb-2">Preview:</p>
                 <div className="flex justify-end">
                   <div 
                     className="px-4 py-2 rounded-2xl text-white text-sm"
@@ -2168,32 +2017,32 @@ const Messages = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end space-x-3 pt-6 border-t border-white/10">
               <button
                 onClick={() => setShowSettings(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="btn-secondary"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateSettings}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="btn-primary"
               >
-                Save Settings
+                Save Changes
               </button>
             </div>
-          </div>
+          </GlassCard>
         </div>
       )}
 
       {/* Message Search Modal */}
       {showMessageSearch && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-end justify-end z-50">
-          <div className="bg-white dark:bg-gray-800 h-full w-full max-w-md shadow-2xl flex flex-col">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-end z-50">
+          <GlassCard className="h-full w-full max-w-md flex flex-col" rounded="rounded-none">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
-                <MagnifyingGlassPlusIcon className="w-6 h-6" />
+            <div className="flex items-center justify-between pb-6 border-b border-white/10">
+              <h3 className="text-xl font-bold text-primary flex items-center space-x-2">
+                <MagnifyingGlassPlusIcon className="w-6 h-6 text-blue-500" />
                 <span>Search Messages</span>
               </h3>
               <button
@@ -2209,30 +2058,30 @@ const Messages = () => {
             </div>
 
             {/* Search Input */}
-            <div className="p-6 border-b border-gray-200">
+            <div className="py-6 border-b border-white/10">
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-secondary" />
                 <input
                   type="text"
                   placeholder="Search in conversation..."
                   value={messageSearchQuery}
                   onChange={(e) => setMessageSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input-field pl-10"
                   autoFocus
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-2">Type to search in real-time</p>
+              <p className="text-xs text-secondary mt-2">Type to search in real-time</p>
             </div>
 
             {/* Search Results */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto py-6">
               {searchedMessages.length === 0 && messageSearchQuery.trim().length >= 2 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center text-secondary py-8">
+                  <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No messages found</p>
                 </div>
               ) : searchedMessages.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-secondary py-8">
                   <p>Search for messages in this conversation</p>
                 </div>
               ) : (
@@ -2281,7 +2130,7 @@ const Messages = () => {
                 </div>
               )}
             </div>
-          </div>
+          </GlassCard>
         </div>
       )}
 
@@ -2625,9 +2474,7 @@ const Messages = () => {
           </div>
         </div>
       )}
-        </div>
-      </div>
-    </div>
+    </GlassPageContainer>
   );
 };
 
