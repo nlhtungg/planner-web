@@ -597,16 +597,6 @@ const Calendar = () => {
                     <p className="text-gray-600">Loading calendar...</p>
                   </div>
                 </div>
-              ) : events.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <CalendarDaysIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 font-medium mb-2">No events found</p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Click on a date to create your first event
-                    </p>
-                  </div>
-                </div>
               ) : (
                 <BigCalendar
                   localizer={localizer}

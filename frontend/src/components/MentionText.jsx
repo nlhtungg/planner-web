@@ -11,7 +11,7 @@ const MentionText = ({ content, mentions = [], mentionsEveryone = false, members
   // Create a map of user IDs to user objects for quick lookup
   const memberMap = React.useMemo(() => {
     const map = new Map();
-    members.forEach(member => {
+    members.filter(member => member).forEach(member => {
       map.set(member._id, member);
     });
     return map;

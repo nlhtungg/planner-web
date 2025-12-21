@@ -6,6 +6,10 @@
   body {
     @apply bg-gray-50 text-gray-900;
   }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
 }
 
 @layer components {
@@ -53,6 +57,70 @@
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
   }
+  
+  /* FestiveSuite Glassmorphism Utilities */
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl;
+  }
+  
+  .glass-pill {
+    @apply bg-white/30 backdrop-blur-md border border-white/20 rounded-full;
+  }
+  
+  .glass-input {
+    @apply bg-white/40 backdrop-blur-md border border-white/30 rounded-full;
+  }
+  
+  .text-primary {
+    @apply text-slate-800;
+  }
+  
+  .text-secondary {
+    @apply text-slate-500;
+  }
+
+  /* Thin dark scrollbar (scoped) */
+  .dashboard-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+
+  .dashboard-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dashboard-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dashboard-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .dashboard-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+    background-clip: content-box;
+  }
+
+  /* Mascot movement (Home page ambient effect) */
+  .mascot-walk-path {
+    animation: mascotWalk 22s linear infinite;
+    will-change: transform;
+  }
+
+  .mascot-bob {
+    animation: mascotBob 0.7s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .reindeer-idle {
+    animation: reindeerIdle 1.1s ease-in-out infinite;
+    will-change: transform;
+  }
 }
 
 @keyframes slideIn {
@@ -74,5 +142,43 @@
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes mascotWalk {
+  0% {
+    transform: translate(-60px, 72px);
+  }
+  25% {
+    transform: translate(calc(100vw - 110px), 72px);
+  }
+  55% {
+    transform: translate(calc(100vw - 110px), calc(100vh - 210px));
+  }
+  85% {
+    transform: translate(40px, calc(100vh - 210px));
+  }
+  100% {
+    transform: translate(-60px, 72px);
+  }
+}
+
+@keyframes mascotBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes reindeerIdle {
+  0%,
+  100% {
+    transform: translateY(-50%) translateX(0);
+  }
+  50% {
+    transform: translateY(calc(-50% - 2px)) translateX(0);
   }
 }

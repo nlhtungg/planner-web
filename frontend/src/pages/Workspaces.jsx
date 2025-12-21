@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
@@ -32,10 +33,10 @@ const Workspaces = () => {
   const [activeView, setActiveView] = useState('my-workspaces'); // 'my-workspaces' or 'discover'
   const [myWorkspaces, setMyWorkspaces] = useState([]);
   const [publicWorkspaces, setPublicWorkspaces] = useState([]);
-  const [filteredPublicWorkspaces, setFilteredPublicWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(null);
@@ -83,26 +84,9 @@ const Workspaces = () => {
     { value: '#F97316', name: 'Orange' },
   ];
 
-  useEffect(() => {
-    fetchWorkspaces();
-  }, []);
-
-  useEffect(() => {
-    // Filter public workspaces based on search query
-    if (searchQuery.trim() === '') {
-      setFilteredPublicWorkspaces(publicWorkspaces);
-    } else {
-      const filtered = publicWorkspaces.filter(workspace =>
-        workspace.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        workspace.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        workspace.owner.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        workspace.owner.lastName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredPublicWorkspaces(filtered);
-    }
-  }, [searchQuery, publicWorkspaces]);
-
-  const fetchWorkspaces = async () => {
+  const fetchWorkspaces = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       // Fetch all workspaces (including public ones)
       const response = await workspaceService.getMyWorkspaces(true);
@@ -143,17 +127,55 @@ const Workspaces = () => {
         
         setMyWorkspaces(userWorkspaces);
         setPublicWorkspaces(publicNonMemberWorkspaces);
-        setFilteredPublicWorkspaces(publicNonMemberWorkspaces);
       } else {
-        setError(response.message);
+        const errorMsg = response.message || 'Failed to fetch workspaces';
+        setError(errorMsg);
       }
     } catch (error) {
-      setError('Failed to fetch workspaces');
       console.error('Fetch workspaces error:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to fetch workspaces';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchWorkspaces();
+  }, [fetchWorkspaces]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Memoized filtered public workspaces
+  const filteredPublicWorkspaces = useMemo(() => {
+    if (debouncedSearchQuery.trim() === '') {
+      return publicWorkspaces;
+    }
+    
+    const query = debouncedSearchQuery.toLowerCase();
+    return publicWorkspaces.filter(workspace =>
+      workspace.name.toLowerCase().includes(query) ||
+      workspace.description?.toLowerCase().includes(query) ||
+      workspace.owner.firstName?.toLowerCase().includes(query) ||
+      workspace.owner.lastName?.toLowerCase().includes(query)
+    );
+  }, [debouncedSearchQuery, publicWorkspaces]);
+
+  // Memoized workspace statistics
+  const workspaceStats = useMemo(() => ({
+    totalWorkspaces: myWorkspaces.length,
+    publicAvailable: filteredPublicWorkspaces.length,
+    hasSearchQuery: debouncedSearchQuery.trim() !== ''
+  }), [myWorkspaces.length, filteredPublicWorkspaces.length, debouncedSearchQuery]);
 
   const handleLogout = async () => {
     await logout();
@@ -254,7 +276,6 @@ const Workspaces = () => {
         if (joinedWorkspace) {
           setMyWorkspaces(prev => [response.data, ...prev]);
           setPublicWorkspaces(prev => prev.filter(ws => ws._id !== workspaceId));
-          setFilteredPublicWorkspaces(prev => prev.filter(ws => ws._id !== workspaceId));
         }
         alert('Successfully joined the workspace!');
       }
@@ -283,6 +304,25 @@ const Workspaces = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Error Banner with Retry */}
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-4 mt-4 rounded-r-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <ExclamationCircleIcon className="h-5 w-5 text-red-500 mr-2" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+            <button
+              onClick={fetchWorkspaces}
+              className="ml-4 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm font-medium transition-colors"
+              aria-label="Retry loading workspaces"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
@@ -309,6 +349,7 @@ const Workspaces = () => {
                 type="text"
                 placeholder="Search workspaces, people, or content..."
                 className="pl-12 pr-4 py-2.5 w-full sm:w-96 bg-gray-100 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                aria-label="Search workspaces, people, or content"
               />
             </div>
 
@@ -322,7 +363,10 @@ const Workspaces = () => {
                   {currentTime.toLocaleDateString('en-US', { weekday: 'long' })}
                 </p>
               </div>
-              <button className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
+              <button 
+                className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+                aria-label="Notifications"
+              >
                 <BellIcon className="w-6 h-6" />
               </button>
               <div className="flex items-center gap-3 border-l border-gray-200 pl-4 sm:pl-6">
@@ -518,6 +562,8 @@ const Workspaces = () => {
                             setDropdownOpen(dropdownOpen === workspace._id ? null : workspace._id);
                           }}
                           className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                          aria-label="Workspace options menu"
+                          aria-expanded={dropdownOpen === workspace._id}
                         >
                           <EllipsisVerticalIcon className="w-5 h-5" />
                         </button>
@@ -573,6 +619,7 @@ const Workspaces = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Search public workspaces..."
+                    aria-label="Search public workspaces"
                   />
                 </div>
               </div>
@@ -702,13 +749,14 @@ const Workspaces = () => {
 
       {/* Create Workspace Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="create-workspace-title">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Create Workspace</h2>
+              <h2 id="create-workspace-title" className="text-xl font-semibold text-gray-900">Create Workspace</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label="Close create workspace modal"
               >
                 ×
               </button>
@@ -751,6 +799,8 @@ const Workspaces = () => {
                         className={`w-8 h-8 rounded-full border-2 ${createForm.color === color.value ? 'border-gray-400' : 'border-gray-200'}`}
                         style={{ backgroundColor: color.value }}
                         onClick={() => setCreateForm({ ...createForm, color: color.value })}
+                        aria-label={`Select ${color.name} color`}
+                        aria-pressed={createForm.color === color.value}
                       />
                     ))}
                   </div>
@@ -794,13 +844,14 @@ const Workspaces = () => {
 
       {/* Edit Workspace Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="edit-workspace-title">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Edit Workspace</h2>
+              <h2 id="edit-workspace-title" className="text-xl font-semibold text-gray-900">Edit Workspace</h2>
               <button
                 onClick={() => setIsEditModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label="Close edit workspace modal"
               >
                 ×
               </button>
@@ -884,6 +935,11 @@ const Workspaces = () => {
       )}
     </div>
   );
+};
+
+Workspaces.propTypes = {
+  // This component receives props from React Router and context providers
+  // No direct props expected
 };
 
 export default Workspaces;

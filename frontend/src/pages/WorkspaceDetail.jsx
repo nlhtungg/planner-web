@@ -1657,7 +1657,7 @@ const WorkspaceDetail = () => {
 
             <div className="card">
               <div className="space-y-4">
-                {workspace.members.map((member) => (
+                {workspace.members.filter(member => member.user).map((member) => (
                   <div key={member._id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
                       {member.user.avatar ? (
