@@ -45,6 +45,27 @@ router.delete(
   chatbotController.deleteDocument
 );
 
+// Get user's workspaces
+router.get(
+  '/knowledge-base/workspaces',
+  authenticateToken,
+  chatbotController.getUserWorkspaces
+);
+
+// Get documents in a workspace
+router.get(
+  '/knowledge-base/workspaces/:workspaceId/documents',
+  authenticateToken,
+  chatbotController.getWorkspaceDocuments
+);
+
+// Import document from workspace
+router.post(
+  '/knowledge-base/import-from-workspace',
+  authenticateToken,
+  chatbotController.importFromWorkspace
+);
+
 /**
  * Chat Routes
  */

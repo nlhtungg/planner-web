@@ -19,7 +19,8 @@ import {
   PencilIcon,
   TrashIcon,
   ExclamationCircleIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -67,6 +68,7 @@ const Workspaces = () => {
   const sidebarItems = [
     { id: 'home', name: 'Home', icon: HomeIcon, path: '/home' },
     { id: 'workspaces', name: 'Workspaces', icon: BriefcaseIcon, path: '/workspaces', active: true },
+    { id: 'ai-assistant', name: 'AI Assistant', icon: SparklesIcon, path: '/home?section=ai-assistant' },
     { id: 'connections', name: 'Connections', icon: UserGroupIcon, path: '/connections', active: false },
     { id: 'messages', name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages', active: false },
     { id: 'calendar', name: 'Calendar', icon: CalendarDaysIcon, path: '/calendar', active: false },

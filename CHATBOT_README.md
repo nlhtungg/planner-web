@@ -86,7 +86,6 @@ DELETE /api/chatbot/chat/sessions/:sessionId
 
 File `.env` đã có:
 ```env
-GOOGLE_API_KEY=AIzaSyAoRJsalD8u6er22bLjr4loDMK65wOgZ0w
 CHROMA_URL=http://chromadb:8000
 ```
 

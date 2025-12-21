@@ -34,7 +34,14 @@ const knowledgeBaseSchema = new mongoose.Schema({
     mimeType: String,
     pageCount: Number,
     url: String,
-    scrapedAt: Date
+    scrapedAt: Date,
+    originalFilename: String
+  },
+  fileUrl: {
+    type: String // MinIO URL for PDF files
+  },
+  objectName: {
+    type: String // MinIO object name for deletion
   },
   chromaCollectionId: {
     type: String,

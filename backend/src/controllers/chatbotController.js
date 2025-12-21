@@ -2,6 +2,10 @@ const KnowledgeBase = require('../models/KnowledgeBase');
 const ChatHistory = require('../models/ChatHistory');
 const geminiService = require('../services/geminiService');
 const documentProcessorService = require('../services/documentProcessorService');
+const minioService = require('../services/minioService');
+const Workspace = require('../models/Workspace');
+const Document = require('../models/Document');
+const axios = require('axios');
 
 /**
  * Generate unique session ID
@@ -33,6 +37,7 @@ class ChatbotController {
       let documentData;
       let source;
       let metadata = {};
+      let minioResult = null;
 
       // Process based on type
       if (type === 'pdf') {
@@ -43,10 +48,19 @@ class ChatbotController {
           });
         }
 
+        // Upload PDF to MinIO
+        minioResult = await minioService.uploadChatbotDocument(
+          userId,
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+
         source = req.file.filename || req.file.originalname;
         metadata = {
           fileSize: req.file.size,
-          mimeType: req.file.mimetype
+          mimeType: req.file.mimetype,
+          originalFilename: req.file.originalname
         };
 
         documentData = await documentProcessorService.processDocument(
@@ -82,6 +96,8 @@ class ChatbotController {
           chunkCount: documentData.metadata.chunkCount,
           originalFilename: type === 'pdf' ? req.file.originalname : url
         },
+        fileUrl: minioResult ? minioResult.url : null,
+        objectName: minioResult ? minioResult.objectName : null,
         chromaCollectionId: `kb_user_${userId}`,
         status: 'processing'
       });
@@ -182,6 +198,16 @@ class ChatbotController {
           success: false,
           message: 'Document not found'
         });
+      }
+
+      // Delete from MinIO if it's a PDF with file URL
+      if (document.type === 'pdf' && document.objectName) {
+        try {
+          await minioService.deleteChatbotDocument(document.objectName);
+        } catch (error) {
+          console.error('Error deleting file from MinIO:', error);
+          // Continue with deletion even if MinIO delete fails
+        }
       }
 
       await document.deleteOne();
@@ -360,6 +386,240 @@ class ChatbotController {
       res.status(500).json({
         success: false,
         message: 'Failed to get chat sessions'
+      });
+    }
+  }
+
+  /**
+   * Get user's workspaces
+   */
+  async getUserWorkspaces(req, res) {
+    try {
+      const userId = req.user._id;
+
+      const workspaces = await Workspace.find({
+        $or: [
+          { owner: userId },
+          { 'members.user': userId }
+        ],
+        isActive: true
+      })
+      .select('name description color owner')
+      .sort({ lastActivity: -1 });
+
+      res.json({
+        success: true,
+        data: workspaces
+      });
+    } catch (error) {
+      console.error('Error fetching workspaces:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch workspaces'
+      });
+    }
+  }
+
+  /**
+   * Get documents in a workspace
+   */
+  async getWorkspaceDocuments(req, res) {
+    try {
+      const userId = req.user._id;
+      const { workspaceId } = req.params;
+
+      // Check if user has access to workspace
+      const workspace = await Workspace.findOne({
+        _id: workspaceId,
+        $or: [
+          { owner: userId },
+          { 'members.user': userId }
+        ]
+      });
+
+      if (!workspace) {
+        return res.status(404).json({
+          success: false,
+          message: 'Workspace not found or no access'
+        });
+      }
+
+      // Get documents with file attachments
+      const documents = await Document.find({
+        workspace: workspaceId,
+        fileUrl: { $ne: null },
+        fileType: { $regex: /pdf|document|text|image/i }
+      })
+      .select('title fileUrl fileType fileSize fileCategory createdAt')
+      .populate('createdBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+      res.json({
+        success: true,
+        data: documents
+      });
+    } catch (error) {
+      console.error('Error fetching workspace documents:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch documents'
+      });
+    }
+  }
+
+  /**
+   * Import document from workspace
+   */
+  async importFromWorkspace(req, res) {
+    try {
+      const userId = req.user._id;
+      const { documentId } = req.body;
+
+      if (!documentId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Document ID is required'
+        });
+      }
+
+      // Get document and check access
+      const document = await Document.findById(documentId).populate('workspace');
+      
+      if (!document) {
+        return res.status(404).json({
+          success: false,
+          message: 'Document not found'
+        });
+      }
+
+      // Check workspace access
+      const workspace = await Workspace.findOne({
+        _id: document.workspace._id,
+        $or: [
+          { owner: userId },
+          { 'members.user': userId }
+        ]
+      });
+
+      if (!workspace) {
+        return res.status(403).json({
+          success: false,
+          message: 'No access to this document'
+        });
+      }
+
+      let documentData;
+      let metadata = {};
+      let minioResult = null;
+
+      // Check if it's a PDF
+      if (document.fileType && document.fileType.includes('pdf')) {
+        // Download file from MinIO
+        try {
+          // Replace localhost with minio service name for Docker internal network
+          const internalFileUrl = document.fileUrl.replace('http://localhost:9000', 'http://minio:9000');
+          
+          const response = await axios.get(internalFileUrl, {
+            responseType: 'arraybuffer'
+          });
+
+          const fileBuffer = Buffer.from(response.data);
+
+          // Upload to chatbot bucket
+          minioResult = await minioService.uploadChatbotDocument(
+            userId,
+            fileBuffer,
+            document.title + '.pdf',
+            'application/pdf'
+          );
+
+          metadata = {
+            fileSize: fileBuffer.length,
+            mimeType: 'application/pdf',
+            originalFilename: document.title,
+            importedFrom: 'workspace',
+            workspaceId: workspace._id,
+            workspaceName: workspace.name
+          };
+
+          documentData = await documentProcessorService.processDocument(
+            fileBuffer,
+            'pdf'
+          );
+        } catch (error) {
+          console.error('Error downloading document:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to download document'
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Only PDF documents are supported for import'
+        });
+      }
+
+      // Create knowledge base entry
+      const knowledgeBase = new KnowledgeBase({
+        userId,
+        title: document.title,
+        type: 'pdf',
+        source: document.fileUrl,
+        content: documentData.text,
+        metadata: {
+          ...metadata,
+          pageCount: documentData.metadata.pageCount,
+          chunkCount: documentData.metadata.chunkCount
+        },
+        fileUrl: minioResult ? minioResult.url : null,
+        objectName: minioResult ? minioResult.objectName : null,
+        chromaCollectionId: `kb_user_${userId}`,
+        status: 'processing'
+      });
+
+      await knowledgeBase.save();
+
+      // Process in background
+      setImmediate(async () => {
+        try {
+          console.log('\\n🚀 [BACKGROUND] Processing imported document:', knowledgeBase._id);
+          
+          const documentIds = await geminiService.addDocumentToVectorDB(
+            userId,
+            knowledgeBase._id.toString(),
+            documentData.chunks
+          );
+
+          knowledgeBase.documentIds = documentIds;
+          knowledgeBase.status = 'ready';
+          await knowledgeBase.save();
+
+          console.log('\\n✅ [SUCCESS] Imported document ready!');
+        } catch (error) {
+          console.error('Error processing imported document:', error);
+          knowledgeBase.status = 'failed';
+          knowledgeBase.error = error.message;
+          await knowledgeBase.save();
+        }
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Document imported and processing',
+        data: {
+          id: knowledgeBase._id,
+          title: knowledgeBase.title,
+          type: knowledgeBase.type,
+          status: knowledgeBase.status
+        }
+      });
+    } catch (error) {
+      console.error('Error importing document:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to import document'
       });
     }
   }
