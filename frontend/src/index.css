@@ -17,20 +17,40 @@
     @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
   
+  html.dark .btn-primary {
+    @apply bg-blue-500 hover:bg-blue-600;
+  }
+  
   .btn-secondary {
     @apply bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors;
+  }
+  
+  html.dark .btn-secondary {
+    @apply bg-gray-700 text-gray-200 hover:bg-gray-600;
   }
   
   .btn-google {
     @apply bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2;
   }
   
+  html.dark .btn-google {
+    @apply bg-gray-800 text-gray-200 border-gray-600 hover:bg-gray-700;
+  }
+  
   .input-field {
     @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
   }
   
+  html.dark .input-field {
+    @apply bg-gray-800 border-gray-600 text-white placeholder-gray-400;
+  }
+  
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
+  }
+  
+  html.dark .card {
+    @apply bg-gray-800 shadow-xl;
   }
   
   .error-message {
@@ -63,25 +83,49 @@
     @apply bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl;
   }
   
+  html.dark .glass-card {
+    @apply bg-slate-900/60 border-white/10 shadow-[0_18px_55px_rgba(0,0,0,0.55)];
+  }
+  
   .glass-pill {
     @apply bg-white/30 backdrop-blur-md border border-white/20 rounded-full;
+  }
+  
+  html.dark .glass-pill {
+    @apply bg-slate-900/35 border-white/10;
   }
   
   .glass-input {
     @apply bg-white/40 backdrop-blur-md border border-white/30 rounded-full;
   }
   
+  html.dark .glass-input {
+    @apply bg-slate-900/40 border-white/20 text-white placeholder-slate-400;
+  }
+  
   .text-primary {
     @apply text-slate-800;
+  }
+  
+  html.dark .text-primary {
+    @apply text-white;
   }
   
   .text-secondary {
     @apply text-slate-500;
   }
+  
+  html.dark .text-secondary {
+    @apply text-slate-300/70;
+  }
 
-  /* Thin dark scrollbar (scoped) */
+  /* Thin scrollbar (theme-aware) */
   .dashboard-scroll {
     scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+  }
+
+  html.dark .dashboard-scroll {
     scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   }
 
@@ -95,15 +139,23 @@
   }
 
   .dashboard-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.16);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
+  html.dark .dashboard-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
   .dashboard-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.22);
     background-clip: content-box;
+  }
+
+  html.dark .dashboard-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
   }
 
   /* Mascot movement (Home page ambient effect) */
@@ -137,7 +189,8 @@
     background: rgba(0, 0, 0, 0.05);
   }
 
-  html[data-theme='dark'] .calendar-wrapper .rbc-off-range-bg {
+  /* OLD: html[data-theme='dark'] - replaced with .dark for Tailwind consistency */
+  html.dark .calendar-wrapper .rbc-off-range-bg {
     background: rgba(255, 255, 255, 0.03);
   }
 

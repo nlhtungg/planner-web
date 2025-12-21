@@ -54,13 +54,11 @@ const Calendar = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Theme classes
-  const textClass = isDark ? 'text-white' : 'text-slate-800';
-  const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
-  const glassCardClass = isDark ? 'bg-slate-900/40' : 'bg-white/60';
-  const inputClass = isDark
-    ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-400 focus:border-white/20 focus:shadow-[0_0_18px_rgba(255,255,255,0.08)]'
-    : 'bg-white/40 border-white/30 text-slate-800 placeholder:text-slate-500 focus:ring-2 focus:ring-white/50';
+  // OLD: manual ternary theme classes - replaced with CSS utilities
+  // const textClass = isDark ? 'text-white' : 'text-slate-800';
+  // const textSecondaryClass = isDark ? 'text-slate-300/70' : 'text-slate-500';
+  // const glassCardClass = isDark ? 'bg-slate-900/40' : 'bg-white/60';
+  // const inputClass = isDark ? '...' : '...';
 
   useEffect(() => {
     fetchWorkspaces();
@@ -287,29 +285,29 @@ const Calendar = () => {
     const label = () => {
       const date = moment(toolbar.date);
       return (
-        <span className={`text-xl font-bold ${textClass}`}>
+        <span className="text-xl font-bold text-primary">
           {date.format('MMMM YYYY')}
         </span>
       );
     };
 
     return (
-      <div className={`flex items-center justify-between mb-6 pb-4 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-white/10">
         <div className="flex items-center space-x-3">
           <button
             onClick={goToBack}
-            className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+            className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-white/10"
           >
-            <svg className={`w-5 h-5 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
 
           {/* Workspace Filter */}
           <div className="flex items-center space-x-2">
-            <Filter className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+            <Filter className="w-4 h-4 text-gray-500 dark:text-slate-400" />
             <select
-              className={`border px-2 py-1 rounded text-sm ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+              className="border px-2 py-1 rounded text-sm bg-white dark:bg-slate-800 border-gray-300 dark:border-white/10 text-gray-900 dark:text-white"
               value={workspaceFilter}
               onChange={(e) => setWorkspaceFilter(e.target.value)}
             >
@@ -319,20 +317,20 @@ const Calendar = () => {
               ))}
             </select>
             {workspaceFilter && (
-              <button className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-600'}`} onClick={() => setWorkspaceFilter('')}>Clear</button>
+              <button className="text-xs text-blue-600 dark:text-blue-400" onClick={() => setWorkspaceFilter('')}>Clear</button>
             )}
           </div>
           <button
             onClick={goToToday}
-            className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium ${isDark ? 'shadow-[0_0_18px_rgba(59,130,246,0.3)]' : ''}`}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:shadow-[0_0_18px_rgba(59,130,246,0.3)]"
           >
             Today
           </button>
           <button
             onClick={goToNext}
-            className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+            className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-white/10"
           >
-            <svg className={`w-5 h-5 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -354,23 +352,23 @@ const Calendar = () => {
         {/* Search Bar */}
         <div className="relative flex justify-end mb-4 sm:mb-6">
           <div className="relative w-full sm:w-80 md:w-96">
-            <Search className={`w-4 h-4 absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 ${textSecondaryClass}`} />
+            <Search className="w-4 h-4 absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-secondary" />
             <input
               type="text"
-              placeholder="Search events..."
-              className={`backdrop-blur-xl border rounded-full w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm transition-all focus:outline-none ${inputClass}`}
+              placeholder="Search tasks..."
+              className="glass-input backdrop-blur-xl border w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-white/50 dark:focus:shadow-[0_0_18px_rgba(255,255,255,0.08)]"
             />
           </div>
         </div>
 
         {/* Error Banner */}
         {error && (
-          <div className={`mb-4 ${isDark ? 'bg-red-900/40' : 'bg-red-50/80'} backdrop-blur-xl border ${isDark ? 'border-red-500/30' : 'border-red-200'} rounded-2xl p-4`}>
+          <div className="mb-4 bg-red-50/80 dark:bg-red-900/40 backdrop-blur-xl border border-red-200 dark:border-red-500/30 rounded-2xl p-4">
             <div className="flex items-center justify-between">
-              <p className={`text-sm ${isDark ? 'text-red-200' : 'text-red-700'}`}>{error}</p>
+              <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
               <button
                 onClick={() => setError('')}
-                className={`text-sm ${isDark ? 'text-red-200 hover:text-white' : 'text-red-600 hover:text-red-800'}`}
+                className="text-sm text-red-600 dark:text-red-200 hover:text-red-800 dark:hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -381,14 +379,14 @@ const Calendar = () => {
         {/* Main Content */}
         <GlassCard className="flex flex-col flex-1 overflow-hidden calendar-wrapper">
           <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-2xl font-bold ${textClass}`}>Calendar</h2>
+            <h2 className="text-2xl font-bold text-primary">Calendar</h2>
             <button
               onClick={() => {
                 setModalMode('create');
                 setFormData({ title: '', description: '', dueDate: '', priority: 'medium', status: 'todo' });
                 setShowModal(true);
               }}
-              className={`flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all ${isDark ? 'shadow-[0_0_22px_rgba(59,130,246,0.35)]' : 'shadow-lg'}`}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-medium transition-all shadow-lg dark:shadow-[0_0_22px_rgba(59,130,246,0.35)]"
             >
               <Plus className="w-4 h-4" />
               <span>Add Event</span>
@@ -397,11 +395,11 @@ const Calendar = () => {
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDark ? 'border-white' : 'border-blue-600'}`}></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-white"></div>
             </div>
           ) : (
             <div className="dashboard-scroll flex-1 overflow-auto">
-              <div className={`${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl p-4`} style={{ minHeight: '700px' }}>
+              <div className="glass-card backdrop-blur-xl border rounded-2xl p-4" style={{ minHeight: '700px' }}>
                 <BigCalendar
                   localizer={localizer}
                   events={events}
@@ -433,7 +431,7 @@ const Calendar = () => {
           <div className={`rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto ${isDark ? 'bg-slate-900 border border-white/10' : 'bg-white'}`}>
             {/* Modal Header */}
             <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <h2 className={`text-2xl font-bold ${textClass}`}>
+              <h2 className="text-2xl font-bold text-primary">
                 {modalMode === 'create' ? 'Create New Task' : 'Edit Task'}
               </h2>
               <button
