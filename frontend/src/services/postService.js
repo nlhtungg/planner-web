@@ -21,6 +21,18 @@ class PostService {
     }
   }
 
+  // Get recent posts with limit (for overview)
+  async getRecentPosts(workspaceId, limit = 5) {
+    try {
+      const response = await api.get(`/workspaces/${workspaceId}/posts`, {
+        params: { limit }
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Update a post
   async updatePost(workspaceId, postId, postData) {
     try {

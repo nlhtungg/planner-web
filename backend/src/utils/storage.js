@@ -39,11 +39,9 @@ const uploadFile = async (fileBuffer, fileName, mimeType, workspaceId, folderPat
     }
 };
 
-// Get file URL
+// Get file URL - use relative path for proxy compatibility
 const getFileUrl = (objectName) => {
-    const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
-    const host = process.env.MINIO_PUBLIC_HOST || 'localhost:9000';
-    return `${protocol}://${host}/${BUCKET_NAME}/${objectName}`;
+    return `/minio/${BUCKET_NAME}/${objectName}`;
 };
 
 // Delete file from MinIO

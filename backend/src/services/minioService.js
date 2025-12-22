@@ -7,7 +7,7 @@ dns.setDefaultResultOrder('ipv4first');
 class MinioService {
   constructor() {
     this.userMediaBucket = 'user-media';
-   this.messageMediaBucket = 'message-media';
+    this.messageMediaBucket = 'message-media';
     this.chatbotDocumentsBucket = 'chatbot-documents';
     this.client = new Client({
       endPoint: process.env.MINIO_ENDPOINT || 'minio',
@@ -27,19 +27,19 @@ class MinioService {
       const userBucketExists = await this.client.bucketExists(this.userMediaBucket);
       const messageBucketExists = await this.client.bucketExists(this.messageMediaBucket);
       const chatbotBucketExists = await this.client.bucketExists(this.chatbotDocumentsBucket);
-      
+
       if (userBucketExists) {
         console.log(`✅ MinIO connected successfully - ${this.userMediaBucket} bucket is ready`);
       } else {
         console.log(`⚠️  MinIO bucket ${this.userMediaBucket} not found`);
       }
-      
+
       if (messageBucketExists) {
         console.log(`✅ MinIO ${this.messageMediaBucket} bucket is ready`);
       } else {
         console.log(`⚠️  MinIO bucket ${this.messageMediaBucket} not found`);
       }
-      
+
       if (chatbotBucketExists) {
         console.log(`✅ MinIO ${this.chatbotDocumentsBucket} bucket is ready`);
       } else {
@@ -56,7 +56,7 @@ class MinioService {
       const fileExtension = fileName.split('.').pop();
       const objectName = `${userId}/avatar.${fileExtension}`;
       console.log('📂 Object name:', objectName);
-      
+
       const metaData = {
         'Content-Type': mimeType,
         'Cache-Control': 'max-age=86400' // 24 hours
@@ -73,10 +73,10 @@ class MinioService {
       );
       console.log('✅ MinIO upload successful');
 
-      // Generate the public URL
-      const publicUrl = `http://localhost:${process.env.MINIO_PORT || 9000}/${this.userMediaBucket}/${objectName}`;
+      // Generate relative URL for proxy compatibility
+      const publicUrl = `/minio/${this.userMediaBucket}/${objectName}`;
       console.log('🔗 Generated public URL:', publicUrl);
-      
+
       return {
         success: true,
         url: publicUrl,
@@ -93,7 +93,7 @@ class MinioService {
       // List all objects in the user's folder
       const objectsList = [];
       const stream = this.client.listObjects(this.userMediaBucket, `${userId}/`, false);
-      
+
       for await (const obj of stream) {
         objectsList.push(obj.name);
       }
@@ -113,13 +113,13 @@ class MinioService {
   async getAvatarUrl(userId, fileName) {
     try {
       const objectName = `${userId}/${fileName}`;
-      
+
       // Check if object exists
       await this.client.statObject(this.userMediaBucket, objectName);
-      
-      // Generate public URL - use localhost for external access since MinIO is exposed on host port 9000
-      const publicUrl = `http://localhost:${process.env.MINIO_PORT || 9000}/${this.userMediaBucket}/${objectName}`;
-      
+
+      // Generate relative URL for proxy compatibility
+      const publicUrl = `/minio/${this.userMediaBucket}/${objectName}`;
+
       return publicUrl;
     } catch (error) {
       console.error('Error getting avatar URL:', error);
@@ -136,15 +136,15 @@ class MinioService {
       console.log('   User:', userId);
       console.log('   File:', fileName);
       console.log('   Type:', mimeType);
-      console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
-      
+      console.log('   Size:', (fileBuffer.length / 1024).toFixed(2), 'KB');
+
       // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
       // Only remove dangerous characters, keep Unicode (Vietnamese) characters
       const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
       console.log('   Object:', objectName);
-      
+
       // Encode filename for Content-Disposition header
       const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
@@ -162,11 +162,11 @@ class MinioService {
         metaData
       );
 
-      // Generate the public URL
-      const publicUrl = `http://localhost:${process.env.MINIO_PORT || 9000}/${this.messageMediaBucket}/${objectName}`;
+      // Generate relative URL for proxy compatibility
+      const publicUrl = `/minio/${this.messageMediaBucket}/${objectName}`;
       console.log('   ✅ Upload complete!');
       console.log('   🔗 URL:', publicUrl);
-      
+
       return {
         success: true,
         url: publicUrl,
@@ -190,15 +190,15 @@ class MinioService {
       console.log('   User:', userId);
       console.log('   File:', fileName);
       console.log('   Type:', mimeType);
-      console.log('   Size:', (fileBuffer.length/1024).toFixed(2), 'KB');
-      
+      console.log('   Size:', (fileBuffer.length / 1024).toFixed(2), 'KB');
+
       // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
       // Only remove dangerous characters, keep Unicode (Vietnamese) characters
       const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
       console.log('   Object:', objectName);
-      
+
       // Encode filename for Content-Disposition header
       const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
@@ -216,11 +216,11 @@ class MinioService {
         metaData
       );
 
-      // Generate the public URL
-      const publicUrl = `http://localhost:${process.env.MINIO_PORT || 9000}/${this.chatbotDocumentsBucket}/${objectName}`;
+      // Generate relative URL for proxy compatibility
+      const publicUrl = `/minio/${this.chatbotDocumentsBucket}/${objectName}`;
       console.log('   ✅ Upload complete!');
       console.log('   🔗 URL:', publicUrl);
-      
+
       return {
         success: true,
         url: publicUrl,
