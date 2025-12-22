@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import socketService from '../services/socketService';
 import connectionService from '../services/connectionService';
 import { useAuth } from './AuthContext';
+import { useSocket } from './SocketContext';
 
 const ConnectionContext = createContext();
 
@@ -15,6 +16,7 @@ export const useConnection = () => {
 
 export const ConnectionProvider = ({ children }) => {
   const { user } = useAuth();
+  const { socketReady } = useSocket();
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   // Fetch initial count
@@ -35,9 +37,16 @@ export const ConnectionProvider = ({ children }) => {
 
   // Listen to socket events
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id || !socketReady) {
+      console.log('⏳ ConnectionProvider: Waiting for socket ready...', { user: !!user, socketReady });
+      return;
+    }
 
-    const socket = socketService.connect();
+    const socket = socketService.socket;
+    if (!socket) {
+      console.warn('⚠️ ConnectionProvider: Socket still null despite socketReady');
+      return;
+    }
 
     const handleFriendRequestReceived = () => {
       setPendingRequestsCount(prev => prev + 1);
@@ -63,13 +72,15 @@ export const ConnectionProvider = ({ children }) => {
     socket.on('friend-request-rejected', handleRequestRejected);
     socket.on('friend-request-cancelled', handleRequestCancelled);
 
+    console.log('✅ ConnectionProvider: Socket listeners registered');
+
     return () => {
       socket.off('friend-request-received', handleFriendRequestReceived);
       socket.off('friend-request-accepted', handleRequestAccepted);
       socket.off('friend-request-rejected', handleRequestRejected);
       socket.off('friend-request-cancelled', handleRequestCancelled);
     };
-  }, [user]);
+  }, [user, socketReady]);
 
   const refreshCount = async () => {
     if (!user?._id) return;

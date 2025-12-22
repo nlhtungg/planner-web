@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConnectionProvider } from './context/ConnectionContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -27,8 +28,9 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <ConnectionProvider>
-            <ToastProvider>
+          <SocketProvider>
+            <ConnectionProvider>
+              <ToastProvider>
               <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/login" element={<Login />} />
@@ -159,8 +161,9 @@ function App() {
               }
             />
           </Routes>
-            </ToastProvider>
-          </ConnectionProvider>
+              </ToastProvider>
+            </ConnectionProvider>
+          </SocketProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

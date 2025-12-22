@@ -68,7 +68,11 @@ const Connections = () => {
 
   // Socket listeners
   useEffect(() => {
-    const socket = socketService.connect();
+    const socket = socketService.socket;
+    if (!socket) {
+      console.warn('⚠️ Socket not connected yet');
+      return;
+    }
 
     // Helper to check if we already processed this action locally
     const wasProcessedLocally = (actionKey) => {

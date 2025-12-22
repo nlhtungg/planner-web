@@ -164,9 +164,10 @@ const WorkspaceDetail = () => {
 
   // Socket.io real-time updates
   useEffect(() => {
-    // Connect to socket and join workspace
-    socketService.connect();
-    socketService.joinWorkspace(workspaceId);
+    // Socket already connected via SocketProvider, just join workspace
+    if (socketService.socket) {
+      socketService.joinWorkspace(workspaceId);
+    }
 
     // Handle new post
     const handleNewPost = (post) => {

@@ -9,35 +9,75 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.currentWorkspaceId = null;
+    this.currentUserId = null;
+    this.registeredListeners = new Map(); // Track listeners to prevent leaks
   }
 
-  connect() {
-    if (!this.socket) {
-      console.log('Initializing socket connection to:', SOCKET_URL);
-      this.socket = io(SOCKET_URL, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5
-      });
-
-      this.socket.on('connect', () => {
-        console.log('✅ Socket connected:', this.socket.id);
-        // Rejoin workspace if was previously in one
-        if (this.currentWorkspaceId) {
-          console.log('Rejoining workspace:', this.currentWorkspaceId);
-          this.joinWorkspace(this.currentWorkspaceId);
-        }
-      });
-
-      this.socket.on('disconnect', () => {
-        console.log('❌ Socket disconnected');
-      });
-
-      this.socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-      });
+  /**
+   * Initialize socket connection with JWT authentication
+   * @param {string} userId - Current user's ID
+   * @param {string} token - JWT access token
+   */
+  connect(userId, token) {
+    // If already connected with same userId, just return
+    if (this.socket && this.currentUserId === userId) {
+      return this.socket;
     }
+
+    // Disconnect old socket if exists
+    if (this.socket) {
+      this.disconnect();
+    }
+
+    if (!token) {
+      console.error('❌ Cannot connect socket: token required');
+      return null;
+    }
+
+    console.log('Initializing socket connection to:', SOCKET_URL);
+    this.currentUserId = userId;
+
+    this.socket = io(SOCKET_URL, {
+      auth: { token }, // Send JWT in handshake
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
+
+    this.socket.on('connect', () => {
+      console.log(`✅ Socket connected: ${this.socket.id} (userId: ${this.currentUserId})`);
+      
+      // Auto-rejoin rooms on reconnect
+      if (this.currentWorkspaceId) {
+        console.log('♻️ Rejoining workspace:', this.currentWorkspaceId);
+        this.joinWorkspace(this.currentWorkspaceId);
+      }
+      
+      // User room is auto-joined by server, just wait for ACK
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('❌ Socket disconnected');
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message);
+    });
+
+    // Listen for ACK events (debugging)
+    this.socket.on('joined-workspace', ({ workspaceId, roomSize }) => {
+      console.log(`✅ ACK: Joined workspace-${workspaceId} (${roomSize} clients)`);
+    });
+
+    this.socket.on('joined-chat', ({ userId, roomSize }) => {
+      console.log(`✅ ACK: Joined user-${userId} chat room (${roomSize} clients)`);
+    });
+
+    this.socket.on('error', (error) => {
+      console.error('⚠️ Socket error:', error.message);
+    });
+
     return this.socket;
   }
 
@@ -46,8 +86,47 @@ class SocketService {
       if (this.currentWorkspaceId) {
         this.leaveWorkspace(this.currentWorkspaceId);
       }
+      this.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
+      this.currentUserId = null;
+      this.currentWorkspaceId = null;
+      console.log('🔌 Socket disconnected and cleaned up');
+    }
+  }
+
+  /**
+   * Register a listener with tracking to prevent duplicates
+   * @param {string} event - Event name
+   * @param {Function} callback - Callback function
+   */
+  _registerListener(event, callback) {
+    if (!this.socket) return;
+
+    // Check if already registered
+    const key = `${event}`;
+    if (this.registeredListeners.has(key)) {
+      console.warn(`⚠️ Listener for '${event}' already registered, skipping`);
+      return;
+    }
+
+    this.socket.on(event, callback);
+    this.registeredListeners.set(key, callback);
+    console.log(`👂 Registered listener: ${event}`);
+  }
+
+  /**
+   * Unregister a specific listener
+   * @param {string} event - Event name
+   */
+  _unregisterListener(event) {
+    const key = `${event}`;
+    const callback = this.registeredListeners.get(key);
+    
+    if (callback && this.socket) {
+      this.socket.off(event, callback);
+      this.registeredListeners.delete(key);
+      console.log(`🔇 Unregistered listener: ${event}`);
     }
   }
 
@@ -74,79 +153,50 @@ class SocketService {
     }
   }
 
-  // Post events
+  // Post events - Fixed: store callback reference properly
   onNewPost(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
-        console.log('📬 Received new-post event:', data);
-        callback(data);
-      };
-      this.socket.on('new-post', wrappedCallback);
-      console.log('Listening for new-post events');
+      this._registerListener('new-post', callback);
     }
   }
 
   onUpdatePost(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
-        console.log('📝 Received update-post event:', data);
-        callback(data);
-      };
-      this.socket.on('update-post', wrappedCallback);
-      console.log('Listening for update-post events');
+      this._registerListener('update-post', callback);
     }
   }
 
   onDeletePost(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
-        console.log('🗑️ Received delete-post event:', data);
-        callback(data);
-      };
-      this.socket.on('delete-post', wrappedCallback);
-      console.log('Listening for delete-post events');
+      this._registerListener('delete-post', callback);
     }
   }
 
   // Comment events
   onNewComment(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
-        console.log('💬 Received new-comment event:', data);
-        callback(data);
-      };
-      this.socket.on('new-comment', wrappedCallback);
-      console.log('Listening for new-comment events');
+      this._registerListener('new-comment', callback);
     }
   }
 
   onUpdateComment(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
-        console.log('✏️ Received update-comment event:', data);
-        callback(data);
-      };
-      this.socket.on('update-comment', wrappedCallback);
-      console.log('Listening for update-comment events');
+      this._registerListener('update-comment', callback);
     }
   }
 
   onDeleteComment(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
-        console.log('🗑️ Received delete-comment event:', data);
-        callback(data);
-      };
-      this.socket.on('delete-comment', wrappedCallback);
-      console.log('Listening for delete-comment events');
+      this._registerListener('delete-comment', callback);
     }
   }
 
-  // Chat methods
+  // Chat methods - no longer needed as user room is auto-joined by server
   joinChat(userId) {
+    // Kept for backward compatibility, but server auto-joins on connect
     if (this.socket && userId) {
       this.socket.emit('join-chat', userId);
-      console.log('🔵 Socket: Joined chat room for user:', userId);
+      console.log('🔵 Socket: Manually joining chat room for user:', userId);
     }
   }
 
@@ -158,15 +208,19 @@ class SocketService {
   }
 
   // Remove listeners
-  off(event, callback) {
-    if (this.socket) {
-      this.socket.off(event, callback);
-    }
+  off(event) {
+    this._unregisterListener(event);
   }
 
   removeAllListeners() {
     if (this.socket) {
-      this.socket.removeAllListeners();
+      // Unregister all tracked listeners
+      for (const [key, callback] of this.registeredListeners.entries()) {
+        const event = key;
+        this.socket.off(event, callback);
+      }
+      this.registeredListeners.clear();
+      console.log('🧹 Removed all listeners');
     }
   }
 }
