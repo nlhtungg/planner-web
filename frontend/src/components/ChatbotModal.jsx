@@ -496,7 +496,7 @@ const ChatbotModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50 p-4">
       <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden`}>
         {/* Header */}
         <div className={`flex items-center justify-between p-4 border-b ${isDark ? 'border-gray-700 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600' : 'border-gray-200 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600'} text-white rounded-t-2xl shadow-lg`}>
