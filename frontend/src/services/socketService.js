@@ -1,8 +1,9 @@
 import { io } from 'socket.io-client';
 
-// Remove /api suffix for Socket.io connection (Socket.io connects to root, not /api)
-const SOCKET_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace('/api', '');
-
+// Use relative path to work with Vite proxy and ngrok tunneling
+// Empty string or '/' means: use current origin + default /socket.io path
+// Vite proxy will forward /socket.io requests to localhost:3001
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '/';
 console.log('Socket URL:', SOCKET_URL);
 
 class SocketService {
