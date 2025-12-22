@@ -36,6 +36,7 @@ import {
   PaperClipIcon,
   GifIcon,
   SparklesIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid';
@@ -1112,7 +1113,7 @@ const Messages = () => {
   };
 
   return (
-    <GlassPageContainer>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       {/* Glass Header */}
@@ -1120,10 +1121,14 @@ const Messages = () => {
       
       {/* Messages Content - using glass design language */}
       <div className="flex-1 overflow-hidden">
-        <div className="max-w-[1920px] mx-auto px-6 py-6 h-full">
-          <div className="flex gap-6 h-full">
+        <div className="h-full">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-full">
             {/* Left Sidebar - Conversations List */}
-            <GlassCard className="w-96 flex flex-col" padding="p-0">
+            {/* Hide on mobile when chat is selected, show on large screens always */}
+            <GlassCard className={clsx(
+              "w-full lg:w-96 flex flex-col",
+              (selectedUserId || selectedGroupId) && "hidden lg:flex"
+            )} padding="p-0">
               {/* Conversations Header */}
               <div className="p-6 border-b border-white/10">
                 <div className="flex items-center justify-between mb-4">
@@ -1317,6 +1322,19 @@ const Messages = () => {
                   <div className="flex-shrink-0 glass-pill backdrop-blur-xl border-b border-white/10 px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
+                        {/* Back button for mobile */}
+                        <button
+                          onClick={() => {
+                            setSelectedUserId(null);
+                            setSelectedUser(null);
+                            setSelectedGroupId(null);
+                            setSelectedGroup(null);
+                          }}
+                          className="lg:hidden p-2 hover:bg-white/10 rounded-full transition-all"
+                          title="Back to conversations"
+                        >
+                          <ArrowLeftIcon className="w-5 h-5 text-secondary" />
+                        </button>
                         {selectedGroup ? (
                           <>
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-lg">
