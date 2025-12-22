@@ -247,11 +247,8 @@ const Messages = () => {
   useEffect(() => {
     fetchConversations();
     
-    // Connect and join chat room
-    socketService.connect();
-    if (user?._id) {
-      socketService.joinChat(user._id);
-    }
+    // Socket is auto-connected via SocketProvider and user room auto-joined by server
+    // No need to manually connect or joinChat
 
     // Check if user was passed from navigation (from Connections page)
     if (location.state?.selectUser) {
@@ -266,7 +263,11 @@ const Messages = () => {
     }
 
     // Get socket instance for listeners
-    const socket = socketService.connect();
+    const socket = socketService.socket;
+    if (!socket) {
+      console.warn('⚠️ Socket not yet connected');
+      return;
+    }
 
     // Define handler inline
     const onNewMessage = (message) => {
@@ -951,9 +952,8 @@ const Messages = () => {
       setNewMessage('');
       setSelectedFiles([]);
       
-      if (selectedUserId) {
-        const socket = socketService.connect();
-        socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
+      if (selectedUserId && socketService.socket) {
+        socketService.socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
       }
     } catch (error) {
       console.error('❌ Error sending message:', error);
@@ -964,17 +964,18 @@ const Messages = () => {
   };
 
   const handleTyping = () => {
-    if (!selectedUserId) return;
+    if (!selectedUserId || !socketService.socket) return;
     
-    const socket = socketService.connect();
-    socket.emit('typing', { senderId: user._id, receiverId: selectedUserId });
+    socketService.socket.emit('typing', { senderId: user._id, receiverId: selectedUserId });
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
+      if (socketService.socket) {
+        socketService.socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
+      }
     }, 1000);
   };
 

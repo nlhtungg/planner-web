@@ -30,8 +30,17 @@ const io = require('socket.io')(server, {
   }
 });
 
+// Socket authentication middleware
+const socketAuthMiddleware = require('./middlewares/socketAuth');
+io.use(socketAuthMiddleware);
+
 io.on('connection', (socket) => {
-  console.log('👤 User connected:', socket.id);
+  console.log(`👤 User connected: ${socket.id} (userId: ${socket.userId})`);
+
+  // Auto-join user's personal chat room on connection
+  const userRoom = `user-${socket.userId}`;
+  socket.join(userRoom);
+  console.log(`💬 Auto-joined chat room: ${userRoom}`);
 
   // Join workspace room for real-time updates
   socket.on('join-workspace', (workspaceId) => {
@@ -41,6 +50,9 @@ io.on('connection', (socket) => {
     // Log all clients in the room for debugging
     const room = io.sockets.adapter.rooms.get(`workspace-${workspaceId}`);
     console.log(`   Total clients in workspace-${workspaceId}:`, room ? room.size : 0);
+    
+    // Send ACK to client
+    socket.emit('joined-workspace', { workspaceId, roomSize: room ? room.size : 0 });
   });
 
   socket.on('leave-workspace', (workspaceId) => {
@@ -48,13 +60,28 @@ io.on('connection', (socket) => {
     console.log(`❌ User ${socket.id} left workspace-${workspaceId}`);
   });
 
-  // Chat events
+  // Chat events - validate userId matches authenticated user
   socket.on('join-chat', (userId) => {
-    socket.join(`user-${userId}`);
-    console.log(`💬 User ${socket.id} joined chat room user-${userId}`);
+    // Security: only allow joining own chat room
+    if (userId !== socket.userId) {
+      console.warn(`⚠️ User ${socket.userId} attempted to join chat room for ${userId}`);
+      socket.emit('error', { message: 'Cannot join another user\'s chat room' });
+      return;
+    }
+    
+    const chatRoom = `user-${userId}`;
+    socket.join(chatRoom);
+    console.log(`💬 User ${socket.id} joined chat room ${chatRoom}`);
+    
+    // Send ACK to client
+    const room = io.sockets.adapter.rooms.get(chatRoom);
+    socket.emit('joined-chat', { userId, roomSize: room ? room.size : 0 });
   });
 
   socket.on('leave-chat', (userId) => {
+    if (userId !== socket.userId) {
+      return; // Silently ignore invalid requests
+    }
     socket.leave(`user-${userId}`);
     console.log(`💬 User ${socket.id} left chat room user-${userId}`);
   });
