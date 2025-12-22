@@ -3,6 +3,7 @@ const ChatHistory = require('../models/ChatHistory');
 const geminiService = require('../services/geminiService');
 const documentProcessorService = require('../services/documentProcessorService');
 const minioService = require('../services/minioService');
+const workspaceInsightService = require('../services/workspaceInsightService');
 const Workspace = require('../models/Workspace');
 const Document = require('../models/Document');
 const axios = require('axios');
@@ -270,20 +271,8 @@ class ChatbotController {
         selectedDocumentIds
       );
 
-      // Get source documents
+      // No sources needed
       const sourceKnowledgeBases = [];
-      if (result.sources && result.sources.length > 0) {
-        const docIds = [...new Set(result.sources.map(s => s.documentId))];
-        const docs = await KnowledgeBase.find({
-          _id: { $in: docIds }
-        }).select('_id title type');
-
-        sourceKnowledgeBases.push(...docs.map(doc => ({
-          knowledgeBaseId: doc._id,
-          title: doc.title,
-          relevance: result.sources.find(s => s.documentId === doc._id.toString())?.relevance || 0
-        })));
-      }
 
       // Add user message
       chatHistory.messages.push({
@@ -306,8 +295,7 @@ class ChatbotController {
         success: true,
         data: {
           response: result.response,
-          sessionId: currentSessionId,
-          sources: sourceKnowledgeBases
+          sessionId: currentSessionId
         }
       });
     } catch (error) {
@@ -643,6 +631,116 @@ class ChatbotController {
       res.status(500).json({
         success: false,
         message: 'Failed to delete session'
+      });
+    }
+  }
+
+  /**
+   * Index workspace for insights (RAG)
+   */
+  async indexWorkspace(req, res) {
+    try {
+      const userId = req.user._id;
+      const { workspaceId } = req.params;
+
+      if (!workspaceId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Workspace ID is required'
+        });
+      }
+
+      const result = await workspaceInsightService.indexWorkspace(workspaceId, userId);
+
+      res.json({
+        success: true,
+        message: 'Workspace indexed successfully',
+        data: result
+      });
+    } catch (error) {
+      console.error('Error indexing workspace:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to index workspace'
+      });
+    }
+  }
+
+  /**
+   * Chat about workspace (Workspace Insights)
+   */
+  async chatWorkspaceInsight(req, res) {
+    try {
+      const userId = req.user._id;
+      const { workspaceId, message, sessionId } = req.body;
+
+      if (!workspaceId || !message || !message.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Workspace ID and message are required'
+        });
+      }
+
+      const currentSessionId = sessionId || `ws_${workspaceId}_${generateSessionId()}`;
+
+      // Get chat history
+      let chatHistory = await ChatHistory.findOne({
+        userId,
+        sessionId: currentSessionId
+      });
+
+      if (!chatHistory) {
+        chatHistory = new ChatHistory({
+          userId,
+          sessionId: currentSessionId,
+          messages: [],
+          metadata: { workspaceId }
+        });
+      }
+
+      // Get conversation history
+      const conversationHistory = chatHistory.messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Query workspace insight
+      const result = await workspaceInsightService.queryWorkspaceInsight(
+        workspaceId,
+        userId,
+        message.trim(),
+        conversationHistory
+      );
+
+      // Add user message
+      chatHistory.messages.push({
+        role: 'user',
+        content: message.trim(),
+        timestamp: new Date()
+      });
+
+      // Add assistant response
+      chatHistory.messages.push({
+        role: 'assistant',
+        content: result.response,
+        timestamp: new Date()
+      });
+
+      await chatHistory.save();
+
+      res.json({
+        success: true,
+        data: {
+          response: result.response,
+          sessionId: currentSessionId,
+          sources: result.sources
+        }
+      });
+    } catch (error) {
+      console.error('Error in workspace insight chat:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to generate workspace insight'
       });
     }
   }

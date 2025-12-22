@@ -101,4 +101,22 @@ router.delete(
   chatbotController.deleteSession
 );
 
+/**
+ * Workspace Insights Routes
+ */
+
+// Index workspace for insights (RAG)
+router.post(
+  '/workspace-insights/:workspaceId/index',
+  authenticateToken,
+  chatbotController.indexWorkspace
+);
+
+// Chat about workspace (Workspace Insights)
+router.post(
+  '/workspace-insights/chat',
+  authenticateToken,
+  chatbotController.chatWorkspaceInsight
+);
+
 module.exports = router;

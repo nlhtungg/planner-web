@@ -87,8 +87,8 @@ const GlassHeader = ({ activeNav = '', children }) => {
             )}
           </button>
 
-          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg ${isDark ? 'bg-gradient-to-br from-amber-700 to-orange-800' : 'bg-gradient-to-br from-red-600 to-green-600'}`}>
-            <span className="text-white font-bold text-base sm:text-lg">F</span>
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg ${isDark ? 'bg-gradient-to-br from-blue-600 to-purple-700' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
+            <span className="text-white font-bold text-xs sm:text-sm">FS</span>
           </div>
           <span className="text-primary font-bold text-lg sm:text-xl hidden sm:block">FestiveSuite</span>
         </div>
@@ -156,7 +156,7 @@ const GlassHeader = ({ activeNav = '', children }) => {
             <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-slate-700/70 border border-white/10' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
               {user?.avatar ? (
                 <img
-                  src={`${user.avatar}?t=${Date.now()}`}
+                  src={user.avatar}
                   alt="Profile"
                   className="w-full h-full rounded-full object-cover"
                 />

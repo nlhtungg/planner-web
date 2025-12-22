@@ -603,11 +603,11 @@ const ChatbotSection = () => {
                   </div>
                   
                   <div className="flex items-center gap-1">
-                    {doc.type === 'pdf' && doc.fileUrl && (
+                    {doc.status === 'ready' && (
                       <button
                         onClick={() => setViewingDocument(doc)}
                         className="p-2 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg hover:bg-blue-50"
-                        title="View PDF"
+                        title="Xem nội dung"
                       >
                         <EyeIcon className="w-4 h-4" />
                       </button>
@@ -615,6 +615,7 @@ const ChatbotSection = () => {
                     <button
                       onClick={() => handleDeleteDocument(doc._id)}
                       className="p-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg hover:bg-red-50"
+                      title="Xóa"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
@@ -856,25 +857,114 @@ const ChatbotSection = () => {
         </div>
       </div>
 
-      {/* PDF Viewer Modal */}
+      {/* Document Viewer Modal */}
       {viewingDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">{viewingDocument.title}</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <DocumentTextIcon className="w-6 h-6" />
+                <div>
+                  <h3 className="text-lg font-bold truncate max-w-md">{viewingDocument.title}</h3>
+                  <p className="text-xs text-green-100">
+                    {viewingDocument.type.toUpperCase()} • {viewingDocument.metadata?.pageCount ? `${viewingDocument.metadata.pageCount} pages` : 'Web content'}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setViewingDocument(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
-                <XMarkIcon className="w-6 h-6 text-gray-600" />
+                <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <iframe
-                src={viewingDocument.fileUrl}
-                className="w-full h-full border-0"
-                title={viewingDocument.title}
-              />
+
+            {/* Document Content */}
+            {viewingDocument.type === 'pdf' && viewingDocument.fileUrl ? (
+              // PDF Full View
+              <div className="flex-1 overflow-hidden bg-gray-900">
+                <iframe
+                  src={viewingDocument.fileUrl}
+                  className="w-full h-full border-0"
+                  title={viewingDocument.title}
+                />
+              </div>
+            ) : (
+              // URL/Text Content View
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-4">
+                  {/* Document Info Card */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">📄 Thông tin tài liệu</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-gray-600">Loại:</span>
+                        <span className="ml-2 font-medium text-gray-900">{viewingDocument.type}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Trạng thái:</span>
+                        <span className="ml-2 font-medium text-green-600">✓ {viewingDocument.status}</span>
+                      </div>
+                      {viewingDocument.metadata?.chunkCount && (
+                        <div>
+                          <span className="text-gray-600">Chunks:</span>
+                          <span className="ml-2 font-medium text-gray-900">{viewingDocument.metadata.chunkCount}</span>
+                        </div>
+                      )}
+                      {viewingDocument.source && (
+                        <div className="col-span-2">
+                          <span className="text-gray-600">Nguồn:</span>
+                          <span className="ml-2 font-medium text-gray-900 break-all">{viewingDocument.source}</span>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <span className="text-gray-600">Ngày tạo:</span>
+                        <span className="ml-2 font-medium text-gray-900">
+                          {new Date(viewingDocument.createdAt).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content Preview */}
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">📝 Nội dung văn bản</h4>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto bg-gray-50 p-3 rounded">
+                      {viewingDocument.content ? (
+                        <p>{viewingDocument.content.substring(0, 3000)}{viewingDocument.content.length > 3000 ? '...\n\n[Còn tiếp...]' : ''}</p>
+                      ) : (
+                        <p className="text-gray-500 italic">Nội dung đang được xử lý...</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Open URL Button (only for URL type) */}
+                  {viewingDocument.source && viewingDocument.type === 'url' && (
+                    <div>
+                      <a
+                        href={viewingDocument.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        <DocumentArrowUpIcon className="w-4 h-4" />
+                        Mở URL gốc
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <button
+                onClick={() => setViewingDocument(null)}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

@@ -276,10 +276,6 @@ const Profile = () => {
         setAvatarFile(null);
         setAvatarPreview(null);
         setSuccess('Avatar uploaded successfully!');
-
-        // Force re-render by adding timestamp to avoid browser cache
-        const urlWithTimestamp = `${response.data.data.avatarUrl}?t=${Date.now()}`;
-        console.log('🔄 URL with cache buster:', urlWithTimestamp);
       }
     } catch (error) {
       console.error('Avatar upload error:', error);
@@ -356,7 +352,7 @@ const Profile = () => {
                         />
                       ) : user?.avatar ? (
                         <img
-                          src={`${user.avatar}?t=${Date.now()}`}
+                          src={user.avatar}
                           alt="Avatar"
                           className="w-full h-full object-cover"
                           onError={(e) => {

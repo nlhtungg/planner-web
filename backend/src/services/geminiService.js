@@ -95,12 +95,13 @@ class GeminiService {
       console.log(`✅ [EMBEDDING] Generated ${embeddings.length} embeddings in ${embeddingTime}s`);
 
       // Prepare data for ChromaDB
-      const ids = chunks.map((_, idx) => `${documentId}_chunk_${idx}`);
+      const ids = chunks.map((chunk, idx) => chunk.id || `${documentId}_chunk_${idx}`);
       const documents = chunks.map(chunk => chunk.text);
       const metadatas = chunks.map((chunk, idx) => ({
         documentId,
         chunkIndex: idx,
-        pageNumber: chunk.pageNumber || 0
+        pageNumber: chunk.pageNumber || 0,
+        ...(chunk.metadata || {}) // Preserve additional metadata from chunks
       }));
 
       // Add to ChromaDB
@@ -203,7 +204,7 @@ class GeminiService {
       if (relevantChunks.length > 0) {
         context = 'Dựa vào thông tin sau để trả lời câu hỏi:\n\n';
         relevantChunks.forEach((chunk, idx) => {
-          context += `[Nguồn ${idx + 1}]:\n${chunk.text}\n\n`;
+          context += `${chunk.text}\n\n`;
           sources.push({
             documentId: chunk.metadata.documentId,
             chunkIndex: chunk.metadata.chunkIndex,
@@ -219,8 +220,7 @@ Quy tắc:
 1. Trả lời bằng tiếng Việt, súc tích và rõ ràng
 2. Nếu có context từ tài liệu, ưu tiên sử dụng thông tin đó
 3. Nếu không tìm thấy thông tin trong tài liệu, hãy thông báo và đưa ra câu trả lời chung
-4. Trích dẫn nguồn khi có thể (vd: "Theo tài liệu...")
-5. Nếu không chắc chắn, hãy nói rõ
+4. Nếu không chắc chắn, hãy nói rõ
 
 ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy trả lời dựa trên kiến thức chung.'}`;
 
@@ -251,7 +251,7 @@ ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy tr�
 
       return {
         response,
-        sources: sources.slice(0, 3) // Return top 3 sources
+        sources: []
       };
     } catch (error) {
       console.error('Error generating chat response:', error);
@@ -270,6 +270,35 @@ ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy tr�
     } catch (error) {
       console.error('Error deleting collection:', error);
       // Don't throw - collection might not exist
+    }
+  }
+
+  /**
+   * Generate text response using Gemini (for workspace insights)
+   */
+  async generateText(prompt, chatHistory = []) {
+    try {
+      // Build chat messages
+      const messages = [];
+
+      // Add chat history (last 5 messages)
+      const recentHistory = chatHistory.slice(-5);
+      recentHistory.forEach(msg => {
+        messages.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      });
+
+      // Generate response
+      const chat = this.chatModel.startChat({ history: messages });
+      const result = await chat.sendMessage(prompt);
+      const response = result.response.text();
+
+      return response;
+    } catch (error) {
+      console.error('Error generating text with Gemini:', error);
+      throw error;
     }
   }
 }
