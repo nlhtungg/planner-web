@@ -115,6 +115,10 @@ function App() {
               }
             />
             <Route
+              path="/tasks"
+              element={<Navigate to="/workspaces" replace />}
+            />
+            <Route
               path="/documents/:id"
               element={
                 <ProtectedRoute>

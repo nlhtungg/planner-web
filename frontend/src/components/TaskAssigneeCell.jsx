@@ -163,13 +163,13 @@ const TaskAssigneeCell = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden right-0 sm:left-0">
-          <div className="p-2 border-b border-gray-100 bg-gray-50">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Assign to</h4>
+        <div className="absolute z-[9999] mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden right-0 sm:left-0">
+          <div className="p-2 border-b border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-slate-700/50">
+            <h4 className="text-xs font-semibold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Assign to</h4>
           </div>
 
           {canSearch && (
-            <div className="p-2 border-b border-gray-100 bg-white space-y-2">
+            <div className="p-2 border-b border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800 space-y-2">
               <input
                 type="text"
                 value={searchQuery}
@@ -187,7 +187,7 @@ const TaskAssigneeCell = ({
                   }
                 }}
                 placeholder="Assign by name, email, or username..."
-                className="w-full border rounded px-2 py-1 text-sm"
+                className="input-field text-sm"
                 disabled={loading}
               />
 
@@ -199,13 +199,13 @@ const TaskAssigneeCell = ({
                     disabled={loading || isAssigned(currentUserId)}
                     className={`w-full flex items-center px-2 py-2 text-sm text-left transition-colors rounded ${
                       isAssigned(currentUserId)
-                        ? 'opacity-50 cursor-default bg-gray-50'
-                        : 'hover:bg-gray-50'
+                        ? 'opacity-50 cursor-default bg-gray-50 dark:bg-slate-700/50'
+                        : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'
                     }`}
                   >
-                    <span className="font-medium text-gray-900">Assign to me</span>
+                    <span className="font-medium text-primary">Assign to me</span>
                     {isAssigned(currentUserId) && (
-                      <span className="text-xs text-green-600 font-medium ml-2">Assigned</span>
+                      <span className="text-xs text-green-500 font-medium ml-2">Assigned</span>
                     )}
                   </button>
                 )}
@@ -213,7 +213,7 @@ const TaskAssigneeCell = ({
                 {searchQuery.trim().length >= 2 && (
                   <div className="max-h-44 overflow-y-auto">
                     {searchLoading ? (
-                      <div className="px-2 py-2 text-sm text-gray-500">Searching...</div>
+                      <div className="px-2 py-2 text-sm text-secondary">Searching...</div>
                     ) : searchItems.length > 0 ? (
                       searchItems.map((u) => {
                         const userId = u._id || u.id;
@@ -225,24 +225,24 @@ const TaskAssigneeCell = ({
                             onClick={() => !assigned && userId && handleAssign(userId)}
                             disabled={assigned || loading}
                             className={`w-full flex items-center px-2 py-2 text-sm text-left transition-colors rounded ${
-                              assigned ? 'opacity-50 cursor-default bg-gray-50' : 'hover:bg-gray-50'
+                              assigned ? 'opacity-50 cursor-default bg-gray-50 dark:bg-slate-700/50' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'
                             }`}
                           >
                             <div className="w-7 h-7 rounded-full overflow-hidden mr-2 flex-shrink-0">
                               {u.avatar ? (
                                 <img src={u.avatar} alt={u.displayName || u.firstName} className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
+                                <div className="w-full h-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-slate-300 text-xs font-bold">
                                   {(u.displayName || u.firstName || '?').slice(0, 1)}
                                 </div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 truncate">{u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim()}</p>
-                              <p className="text-xs text-gray-500 truncate">{u.email || u.username || ''}</p>
+                              <p className="font-medium text-primary truncate">{u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim()}</p>
+                              <p className="text-xs text-secondary truncate">{u.email || u.username || ''}</p>
                             </div>
                             {assigned && (
-                              <span className="text-xs text-green-600 font-medium ml-2">Assigned</span>
+                              <span className="text-xs text-green-500 font-medium ml-2">Assigned</span>
                             )}
                           </button>
                         );
@@ -250,7 +250,7 @@ const TaskAssigneeCell = ({
                     ) : (
                       <button
                         type="button"
-                        className="w-full text-left px-2 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded"
+                        className="w-full text-left px-2 py-2 text-sm text-secondary hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded"
                         disabled={loading}
                         onClick={() => handleAssignByIdentifier(searchQuery)}
                         title="Assign by identifier (email/username)"
@@ -273,26 +273,26 @@ const TaskAssigneeCell = ({
                   onClick={() => !assigned && handleAssign(member.user._id)}
                   disabled={assigned || loading}
                   className={`w-full flex items-center px-4 py-2 text-sm text-left transition-colors ${
-                    assigned ? 'opacity-50 cursor-default bg-gray-50' : 'hover:bg-gray-50'
+                    assigned ? 'opacity-50 cursor-default bg-gray-50 dark:bg-slate-700/50' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'
                   }`}
                 >
                   <div className="w-8 h-8 rounded-full overflow-hidden mr-3 flex-shrink-0">
                     {member.user.avatar ? (
                       <img src={member.user.avatar} alt={member.user.firstName} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
+                      <div className="w-full h-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-slate-300 text-xs font-bold">
                         {member.user.firstName?.[0]}{member.user.lastName?.[0]}
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
+                    <p className="font-medium text-primary truncate">
                       {member.user.firstName} {member.user.lastName}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">{member.user.email}</p>
+                    <p className="text-xs text-secondary truncate">{member.user.email}</p>
                   </div>
                   {assigned && (
-                    <span className="text-xs text-green-600 font-medium ml-2">Assigned</span>
+                    <span className="text-xs text-green-500 font-medium ml-2">Assigned</span>
                   )}
                 </button>
               );

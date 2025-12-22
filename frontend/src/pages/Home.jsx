@@ -124,9 +124,15 @@ const Home = () => {
     ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
     : 'bg-gradient-to-br from-slate-50 via-rose-50 to-emerald-50';
 
+  // OLD: manual theme classes - prefer CSS utilities (text-primary, text-secondary, glass-card, glass-pill)
+  // const textClass = darkMode ? 'text-white' : 'text-slate-800';
+  // const textSecondaryClass = darkMode ? 'text-slate-300/70' : 'text-slate-500';
+  // const glassCardClass = darkMode ? 'bg-slate-900/40' : 'bg-white/60';
+  // const glassPillClass = darkMode ? 'bg-slate-900/35' : 'bg-white/30';
+  //
+  // TODO: Refactor Home.jsx to use <GlassHeader> component instead of custom header
   const textClass = darkMode ? 'text-white' : 'text-slate-800';
   const textSecondaryClass = darkMode ? 'text-slate-300/70' : 'text-slate-500';
-
   const glassCardClass = darkMode
     ? 'bg-slate-900/40'
     : 'bg-white/60';

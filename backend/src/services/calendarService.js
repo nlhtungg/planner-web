@@ -18,7 +18,7 @@ class CalendarService {
     const query = {
       $or: [
         { isPersonal: true, createdBy: userId }, // Personal tasks
-        { workspace: { $in: workspaceIds } } // Workspace tasks
+        { workspace: { $in: workspaceIds }, assignees: userId } // Workspace tasks assigned to user
       ]
     };
 
