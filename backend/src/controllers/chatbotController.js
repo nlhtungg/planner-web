@@ -271,20 +271,8 @@ class ChatbotController {
         selectedDocumentIds
       );
 
-      // Get source documents
+      // No sources needed
       const sourceKnowledgeBases = [];
-      if (result.sources && result.sources.length > 0) {
-        const docIds = [...new Set(result.sources.map(s => s.documentId))];
-        const docs = await KnowledgeBase.find({
-          _id: { $in: docIds }
-        }).select('_id title type');
-
-        sourceKnowledgeBases.push(...docs.map(doc => ({
-          knowledgeBaseId: doc._id,
-          title: doc.title,
-          relevance: result.sources.find(s => s.documentId === doc._id.toString())?.relevance || 0
-        })));
-      }
 
       // Add user message
       chatHistory.messages.push({
@@ -307,8 +295,7 @@ class ChatbotController {
         success: true,
         data: {
           response: result.response,
-          sessionId: currentSessionId,
-          sources: sourceKnowledgeBases
+          sessionId: currentSessionId
         }
       });
     } catch (error) {

@@ -899,28 +899,6 @@ const ChatbotModal = ({ isOpen, onClose }) => {
                       </ReactMarkdown>
                     </div>
 
-                    {/* Sources */}
-                    {message.sources && message.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <div className="flex items-center gap-1 mb-2">
-                          <DocumentTextIcon className="w-4 h-4 text-blue-600" />
-                          <span className="text-xs font-semibold text-gray-700">Nguồn tham khảo:</span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {message.sources.map((source, sIdx) => (
-                            <div
-                              key={sIdx}
-                              className="flex items-start gap-2 bg-blue-50 rounded-lg px-3 py-2 border border-blue-100"
-                            >
-                              <span className="text-blue-600 font-bold text-xs mt-0.5">•</span>
-                              <span className="text-xs text-gray-700 font-medium flex-1">
-                                {source.title}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Timestamp */}
                     <div className={`flex items-center gap-1 mt-2 ${

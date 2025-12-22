@@ -204,7 +204,7 @@ class GeminiService {
       if (relevantChunks.length > 0) {
         context = 'Dựa vào thông tin sau để trả lời câu hỏi:\n\n';
         relevantChunks.forEach((chunk, idx) => {
-          context += `[Nguồn ${idx + 1}]:\n${chunk.text}\n\n`;
+          context += `${chunk.text}\n\n`;
           sources.push({
             documentId: chunk.metadata.documentId,
             chunkIndex: chunk.metadata.chunkIndex,
@@ -220,8 +220,7 @@ Quy tắc:
 1. Trả lời bằng tiếng Việt, súc tích và rõ ràng
 2. Nếu có context từ tài liệu, ưu tiên sử dụng thông tin đó
 3. Nếu không tìm thấy thông tin trong tài liệu, hãy thông báo và đưa ra câu trả lời chung
-4. Trích dẫn nguồn khi có thể (vd: "Theo tài liệu...")
-5. Nếu không chắc chắn, hãy nói rõ
+4. Nếu không chắc chắn, hãy nói rõ
 
 ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy trả lời dựa trên kiến thức chung.'}`;
 
@@ -252,7 +251,7 @@ ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy tr�
 
       return {
         response,
-        sources: sources.slice(0, 3) // Return top 3 sources
+        sources: []
       };
     } catch (error) {
       console.error('Error generating chat response:', error);
