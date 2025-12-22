@@ -312,7 +312,7 @@ const Home = () => {
               <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-700/70 border border-white/10' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
                 {user?.avatar ? (
                   <img
-                    src={`${user.avatar}?t=${Date.now()}`}
+                    src={user.avatar}
                     alt="Profile"
                     className="w-full h-full rounded-full object-cover"
                   />
