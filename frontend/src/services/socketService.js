@@ -77,33 +77,34 @@ class SocketService {
   // Post events
   onNewPost(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
+      // Remove existing listener first to prevent duplicates
+      this.socket.off('new-post');
+      this.socket.on('new-post', (data) => {
         console.log('📬 Received new-post event:', data);
         callback(data);
-      };
-      this.socket.on('new-post', wrappedCallback);
+      });
       console.log('Listening for new-post events');
     }
   }
 
   onUpdatePost(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
+      this.socket.off('update-post');
+      this.socket.on('update-post', (data) => {
         console.log('📝 Received update-post event:', data);
         callback(data);
-      };
-      this.socket.on('update-post', wrappedCallback);
+      });
       console.log('Listening for update-post events');
     }
   }
 
   onDeletePost(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
+      this.socket.off('delete-post');
+      this.socket.on('delete-post', (data) => {
         console.log('🗑️ Received delete-post event:', data);
         callback(data);
-      };
-      this.socket.on('delete-post', wrappedCallback);
+      });
       console.log('Listening for delete-post events');
     }
   }
@@ -111,33 +112,33 @@ class SocketService {
   // Comment events
   onNewComment(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
+      this.socket.off('new-comment');
+      this.socket.on('new-comment', (data) => {
         console.log('💬 Received new-comment event:', data);
         callback(data);
-      };
-      this.socket.on('new-comment', wrappedCallback);
+      });
       console.log('Listening for new-comment events');
     }
   }
 
   onUpdateComment(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
+      this.socket.off('update-comment');
+      this.socket.on('update-comment', (data) => {
         console.log('✏️ Received update-comment event:', data);
         callback(data);
-      };
-      this.socket.on('update-comment', wrappedCallback);
+      });
       console.log('Listening for update-comment events');
     }
   }
 
   onDeleteComment(callback) {
     if (this.socket) {
-      const wrappedCallback = (data) => {
+      this.socket.off('delete-comment');
+      this.socket.on('delete-comment', (data) => {
         console.log('🗑️ Received delete-comment event:', data);
         callback(data);
-      };
-      this.socket.on('delete-comment', wrappedCallback);
+      });
       console.log('Listening for delete-comment events');
     }
   }
@@ -160,7 +161,11 @@ class SocketService {
   // Remove listeners
   off(event, callback) {
     if (this.socket) {
-      this.socket.off(event, callback);
+      if (callback) {
+        this.socket.off(event, callback);
+      } else {
+        this.socket.off(event);
+      }
     }
   }
 

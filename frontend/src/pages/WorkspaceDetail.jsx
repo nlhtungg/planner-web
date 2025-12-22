@@ -102,6 +102,13 @@ const WorkspaceDetail = () => {
   const [memberToChangeRole, setMemberToChangeRole] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [changingRoleLoading, setChangingRoleLoading] = useState(false);
+  
+  // Settings modal state
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({ name: '', description: '', isPublic: true });
+  const [updatingSettings, setUpdatingSettings] = useState(false);
+  const [deletingWorkspace, setDeletingWorkspace] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Mock data for workspace content
   const recentActivity = [
@@ -153,15 +160,32 @@ const WorkspaceDetail = () => {
   useEffect(() => {
     fetchWorkspace();
     fetchStats();
+    // Don't fetch posts here - let it be fetched when user opens posts tab
+    // This prevents race condition where fetchPosts overwrites newly created posts
   }, [workspaceId]);
 
   useEffect(() => {
     if (activeTab === 'posts') {
-      fetchPosts();
+      fetchPosts(); // Refresh when switching to posts tab
     }
     if (activeTab === 'overview') {
       fetchStats(); // Refresh stats when returning to overview tab
     }
+  }, [activeTab, workspaceId]);
+
+  // Auto-refresh posts every 60 seconds when in posts tab
+  useEffect(() => {
+    if (activeTab !== 'posts') return;
+
+    console.log('🔄 Starting auto-refresh for posts (every 60s)');
+    const intervalId = setInterval(() => {
+      console.log('🔄 Auto-refreshing posts...');
+      fetchPosts();
+    }, 60000); // 60 seconds
+    return () => {
+      console.log('🛑 Stopping auto-refresh for posts');
+      clearInterval(intervalId);
+    };
   }, [activeTab, workspaceId]);
 
   useEffect(() => {
@@ -172,19 +196,39 @@ const WorkspaceDetail = () => {
 
   // Socket.io real-time updates
   useEffect(() => {
+    console.log('🔌 Setting up socket for workspace:', workspaceId);
     // Connect to socket and join workspace
     socketService.connect();
     socketService.joinWorkspace(workspaceId);
 
     // Handle new post
     const handleNewPost = (post) => {
+      console.log('📬 Socket: Received new post:', post._id, post.content?.substring(0, 50));
       setPosts((prevPosts) => {
+        console.log('📝 Current posts before adding:', prevPosts.length);
         // Prevent duplicates - check if post already exists
         if (prevPosts.some(p => p._id === post._id)) {
+          console.log('⚠️ Socket: Duplicate post detected, skipping');
           return prevPosts;
         }
-        return [post, ...prevPosts];
+        const newPosts = [post, ...prevPosts];
+        console.log('✅ Socket: Updated posts count:', newPosts.length);
+        return newPosts;
       });
+      
+      // Initialize comment count and reactions for new post
+      setCommentCounts((prevCounts) => ({
+        ...prevCounts,
+        [post._id]: 0
+      }));
+      
+      setPostReactions((prevReactions) => ({
+        ...prevReactions,
+        [post._id]: {
+          summary: [],
+          userReaction: null
+        }
+      }));
     };
 
     // Handle post update
@@ -214,17 +258,10 @@ const WorkspaceDetail = () => {
           [postId]: [comment, ...existingComments]
         };
       });
-      setCommentCounts((prevCounts) => {
-        const existingComments = postComments[postId] || [];
-        // Only increment if comment is new
-        if (existingComments.some(c => c._id === comment._id)) {
-          return prevCounts;
-        }
-        return {
-          ...prevCounts,
-          [postId]: (prevCounts[postId] || 0) + 1
-        };
-      });
+      setCommentCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: (prevCounts[postId] || 0) + 1
+      }));
     };
 
     // Handle comment update
@@ -259,12 +296,12 @@ const WorkspaceDetail = () => {
 
     // Cleanup on unmount
     return () => {
-      socketService.off('new-post', handleNewPost);
-      socketService.off('update-post', handleUpdatePost);
-      socketService.off('delete-post', handleDeletePost);
-      socketService.off('new-comment', handleNewComment);
-      socketService.off('update-comment', handleUpdateComment);
-      socketService.off('delete-comment', handleDeleteComment);
+      socketService.off('new-post');
+      socketService.off('update-post');
+      socketService.off('delete-post');
+      socketService.off('new-comment');
+      socketService.off('update-comment');
+      socketService.off('delete-comment');
       socketService.leaveWorkspace(workspaceId);
     };
   }, [workspaceId]);
@@ -485,6 +522,44 @@ const WorkspaceDetail = () => {
     }
   };
 
+  // Settings handlers
+  const handleUpdateWorkspace = async (e) => {
+    e.preventDefault();
+    setUpdatingSettings(true);
+    try {
+      const response = await workspaceService.updateWorkspace(workspaceId, {
+        name: settingsForm.name,
+        description: settingsForm.description,
+        settings: { isPublic: settingsForm.isPublic }
+      });
+
+      if (response.success) {
+        setWorkspace(response.data);
+        setIsSettingsModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Update workspace error:', error);
+      alert('Failed to update workspace. Please try again.');
+    } finally {
+      setUpdatingSettings(false);
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    setDeletingWorkspace(true);
+    try {
+      const response = await workspaceService.deleteWorkspace(workspaceId);
+      if (response.success) {
+        navigate('/workspaces');
+      }
+    } catch (error) {
+      console.error('Delete workspace error:', error);
+      alert('Failed to delete workspace. Please try again.');
+    } finally {
+      setDeletingWorkspace(false);
+    }
+  };
+
   // Post handlers
   const fetchPosts = async () => {
     setPostsLoading(true);
@@ -536,6 +611,7 @@ const WorkspaceDetail = () => {
     e.preventDefault();
     if (!newPostContent.trim()) return;
 
+    console.log('🔵 Creating post...', { workspaceId, content: newPostContent.substring(0, 50) });
     setCreatePostLoading(true);
     try {
       const response = await postService.createPost(workspaceId, {
@@ -543,13 +619,32 @@ const WorkspaceDetail = () => {
         mentions: newPostMentions,
         mentionsEveryone: newPostMentionsEveryone
       });
+      console.log('✅ Post created:', response.data._id);
       if (response.success) {
-        setPosts([response.data, ...posts]);
+        // Optimistic update - add immediately for current user using functional update
+        setPosts(prevPosts => {
+          console.log('📝 Current posts count:', prevPosts.length);
+          // Prevent duplicates
+          if (prevPosts.some(p => p._id === response.data._id)) {
+            console.log('⚠️ Duplicate post detected, skipping');
+            return prevPosts;
+          }
+          const newPosts = [response.data, ...prevPosts];
+          console.log('✅ Updated posts count:', newPosts.length);
+          return newPosts;
+        });
+        // Initialize comment count and reactions
+        setCommentCounts(prev => ({ ...prev, [response.data._id]: 0 }));
+        setPostReactions(prev => ({ 
+          ...prev, 
+          [response.data._id]: { summary: [], userReaction: null } 
+        }));
         setNewPostContent('');
         setNewPostMentions([]);
         setNewPostMentionsEveryone(false);
       }
     } catch (error) {
+      console.error('❌ Create post error:', error);
       alert(error.response?.data?.message || 'Failed to create post');
       console.error('Create post error:', error);
     } finally {
@@ -567,7 +662,7 @@ const WorkspaceDetail = () => {
         mentionsEveryone: editPostMentionsEveryone
       });
       if (response.success) {
-        setPosts(posts.map(p => p._id === postId ? response.data : p));
+        setPosts(prev => prev.map(p => p._id === postId ? response.data : p));
         setEditingPost(null);
         setEditPostContent('');
         setEditPostMentions([]);
@@ -585,7 +680,7 @@ const WorkspaceDetail = () => {
     try {
       const response = await postService.deletePost(workspaceId, postId);
       if (response.success) {
-        setPosts(posts.filter(p => p._id !== postId));
+        setPosts(prev => prev.filter(p => p._id !== postId));
       }
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to delete post');
@@ -668,12 +763,24 @@ const WorkspaceDetail = () => {
         newCommentMentionsEveryone[postId] || false
       );
       if (response.success) {
-        const currentComments = postComments[postId] || [];
-        setPostComments({ ...postComments, [postId]: [...currentComments, response.data] });
-        setCommentCounts({ ...commentCounts, [postId]: (commentCounts[postId] || 0) + 1 });
-        setNewCommentContent({ ...newCommentContent, [postId]: '' });
-        setNewCommentMentions({ ...newCommentMentions, [postId]: [] });
-        setNewCommentMentionsEveryone({ ...newCommentMentionsEveryone, [postId]: false });
+        // Optimistic update - add immediately for current user using functional updates
+        setPostComments(prev => {
+          const currentComments = prev[postId] || [];
+          // Prevent duplicates
+          if (currentComments.some(c => c._id === response.data._id)) {
+            return prev;
+          }
+          return { ...prev, [postId]: [response.data, ...currentComments] };
+        });
+        setCommentCounts(prev => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
+        // Initialize comment reaction
+        setCommentReactions(prev => ({ 
+          ...prev, 
+          [response.data._id]: { summary: [], userReaction: null } 
+        }));
+        setNewCommentContent(prev => ({ ...prev, [postId]: '' }));
+        setNewCommentMentions(prev => ({ ...prev, [postId]: [] }));
+        setNewCommentMentionsEveryone(prev => ({ ...prev, [postId]: false }));
       }
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to create comment');
@@ -924,6 +1031,14 @@ const WorkspaceDetail = () => {
                       <span className="hidden sm:inline">Invite</span>
                     </button>
                     <button
+                      onClick={() => {
+                        setSettingsForm({
+                          name: workspace.name,
+                          description: workspace.description || '',
+                          isPublic: workspace.settings?.isPublic ?? true
+                        });
+                        setIsSettingsModalOpen(true);
+                      }}
                       className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
                         }`}
                     >
@@ -1179,7 +1294,11 @@ const WorkspaceDetail = () => {
                           onMentionsChange={handleNewPostMentionsChange}
                           members={workspaceMembers}
                           placeholder="Start a conversation..."
-                          className={`w-full px-0 py-0 border-0 focus:ring-0 resize-none placeholder-gray-400 bg-transparent ${textClass}`}
+                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                            isDark 
+                              ? 'bg-slate-800/50 border-white/10 text-white placeholder-slate-400' 
+                              : 'bg-white border-slate-200 text-slate-900 placeholder-slate-500'
+                          }`}
                           rows={3}
                           disabled={createPostLoading}
                           maxLength={5000}
@@ -1453,10 +1572,10 @@ const WorkspaceDetail = () => {
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between">
                                               <div className="flex-1">
-                                                <h5 className="font-semibold text-gray-900 text-xs">
+                                                <h5 className={`font-semibold text-xs ${textClass}`}>
                                                   {comment.author?.firstName} {comment.author?.lastName}
                                                 </h5>
-                                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                                <div className={`flex items-center space-x-2 text-xs mt-0.5 ${textSecondaryClass}`}>
                                                   <span>
                                                     {new Date(comment.createdAt).toLocaleDateString('en-US', {
                                                       month: 'numeric',
@@ -1560,7 +1679,7 @@ const WorkspaceDetail = () => {
                                                   mentions={comment.mentions}
                                                   mentionsEveryone={comment.mentionsEveryone}
                                                   members={memberUsers}
-                                                  className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap"
+                                                  className={`mt-2 text-xs leading-relaxed whitespace-pre-wrap ${textClass}`}
                                                 />
                                                 {/* Comment reactions */}
                                                 <div className="mt-2 flex items-center space-x-2">
@@ -1609,12 +1728,12 @@ const WorkspaceDetail = () => {
                                         onMentionsChange={handleNewCommentMentionsChange(post._id)}
                                         members={workspaceMembers}
                                         placeholder="Write a comment..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
                                         rows={2}
                                         maxLength={2000}
                                       />
                                       <div className="flex items-center justify-between mt-2">
-                                        <span className="text-xs text-gray-500">
+                                        <span className={`text-xs ${textSecondaryClass}`}>
                                           {(newCommentContent[post._id] || '').length}/2000
                                         </span>
                                         <button
@@ -2050,6 +2169,183 @@ const WorkspaceDetail = () => {
             </GlassCard>
           </div>
         )}
+
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setIsSettingsModalOpen(false)}
+        >
+          <GlassCard 
+            className="w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`p-6 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+              <h2 className={`text-xl font-semibold ${textClass}`}>Workspace Settings</h2>
+            </div>
+            <form onSubmit={handleUpdateWorkspace} className="p-6 space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${textClass}`}>
+                  Workspace Name
+                </label>
+                <input
+                  type="text"
+                  value={settingsForm.name}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                  className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isDark 
+                      ? 'bg-slate-800 border-white/10 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${textClass}`}>
+                  Description
+                </label>
+                <textarea
+                  value={settingsForm.description}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                  className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+                    isDark 
+                      ? 'bg-slate-800 border-white/10 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  rows={3}
+                  placeholder="Describe your workspace..."
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${textClass}`}>
+                  Workspace Type
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSettingsForm({ ...settingsForm, isPublic: true })}
+                    className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
+                      settingsForm.isPublic
+                        ? isDark
+                          ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                          : 'border-blue-500 bg-blue-50 text-blue-600'
+                        : isDark
+                          ? 'border-white/10 bg-slate-800/50 text-slate-400 hover:border-white/20'
+                          : 'border-gray-300 bg-gray-50 text-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-medium">Public</div>
+                    <div className="text-xs mt-1">Anyone can find and join</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsForm({ ...settingsForm, isPublic: false })}
+                    className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
+                      !settingsForm.isPublic
+                        ? isDark
+                          ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                          : 'border-blue-500 bg-blue-50 text-blue-600'
+                        : isDark
+                          ? 'border-white/10 bg-slate-800/50 text-slate-400 hover:border-white/20'
+                          : 'border-gray-300 bg-gray-50 text-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-medium">Private</div>
+                    <div className="text-xs mt-1">Invite only</div>
+                  </button>
+                </div>
+              </div>
+
+              <div className={`pt-4 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsModalOpen(false)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        isDark
+                          ? 'bg-slate-700/50 hover:bg-slate-700 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                      disabled={updatingSettings}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
+                      disabled={updatingSettings || !settingsForm.name}
+                    >
+                      {updatingSettings ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                    disabled={updatingSettings || deletingWorkspace}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </form>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <GlassCard 
+            className="w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <h3 className={`text-lg font-semibold ${textClass}`}>Delete Workspace</h3>
+                  <p className={`text-sm ${textSecondaryClass}`}>This action cannot be undone</p>
+                </div>
+              </div>
+              <p className={`mb-6 ${textClass}`}>
+                Are you sure you want to delete <strong>{workspace?.name}</strong>? All tasks, posts, comments, and documents will be permanently deleted.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    isDark
+                      ? 'bg-slate-700/50 hover:bg-slate-700 text-white'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                  disabled={deletingWorkspace}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteWorkspace}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50"
+                  disabled={deletingWorkspace}
+                >
+                  {deletingWorkspace ? 'Deleting...' : 'Delete Workspace'}
+                </button>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
       {/* Không còn thẻ </GlassHeader> ở đây nữa */}
     </GlassPageContainer>
   );
