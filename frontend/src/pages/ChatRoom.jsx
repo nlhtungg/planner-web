@@ -50,14 +50,15 @@ const ChatRoom = () => {
   useEffect(() => {
     fetchMessages();
     
-    // Connect and join chat room
-    socketService.connect();
-    if (user?._id) {
-      socketService.joinChat(user._id);
-    }
+    // Socket already connected via SocketProvider
+    // User room is auto-joined by server
 
     // Get socket instance for listeners
-    const socket = socketService.connect();
+    const socket = socketService.socket;
+    if (!socket) {
+      console.warn('⚠️ Socket not yet connected');
+      return;
+    }
 
     // Define handlers inline to capture latest state
     const onNewMessage = (message) => {
@@ -195,8 +196,9 @@ const ChatRoom = () => {
       setNewMessage('');
       
       // Stop typing indicator
-      const socket = socketService.connect();
-      socket.emit('stop-typing', { senderId: user._id, receiverId: otherUserId });
+      if (socketService.socket) {
+        socketService.socket.emit('stop-typing', { senderId: user._id, receiverId: otherUserId });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -205,8 +207,9 @@ const ChatRoom = () => {
   };
 
   const handleTyping = () => {
-    const socket = socketService.connect();
-    socket.emit('typing', { senderId: user._id, receiverId: otherUserId });
+    if (!socketService.socket) return;
+    
+    socketService.socket.emit('typing', { senderId: user._id, receiverId: otherUserId });
 
     // Clear previous timeout
     if (typingTimeoutRef.current) {
@@ -215,7 +218,9 @@ const ChatRoom = () => {
 
     // Set timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('stop-typing', { senderId: user._id, receiverId: otherUserId });
+      if (socketService.socket) {
+        socketService.socket.emit('stop-typing', { senderId: user._id, receiverId: otherUserId });
+      }
     }, 1000);
   };
 
