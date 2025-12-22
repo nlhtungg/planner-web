@@ -6,6 +6,9 @@ import { ConnectionProvider } from './context/ConnectionContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ChatbotProvider from './components/ChatbotProvider';
+import AuthenticatedReindeer from './components/AuthenticatedReindeer';
+import SnowOverlay from './components/effects/SnowOverlay';
+import ChristmasDecoration from './components/ChristmasDecoration';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ActivateAccount from './pages/ActivateAccount';
@@ -24,12 +27,24 @@ import Connections from './pages/Connections';
 
 function App() {
   return (
-    <Router>
-      <ThemeProvider>
-        <AuthProvider>
-          <ConnectionProvider>
-            <ToastProvider>
-              <Routes>
+    <>
+      {/* Background xanh xanh + tuyết rơi + viền đỏ xanh Noel */}
+      <ChristmasDecoration />
+      
+      {/* Tuyết rơi toàn màn hình */}
+      <div className="fixed inset-0 pointer-events-none z-[9998]">
+        <SnowOverlay enabled={true} intensity={1.2} />
+      </div>
+      
+      <Router>
+        {/* Tuần lộc Noel - chỉ hiển thị khi đã login */}
+        <AuthenticatedReindeer />
+        
+        <ThemeProvider>
+          <AuthProvider>
+            <ConnectionProvider>
+              <ToastProvider>
+                <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -164,6 +179,7 @@ function App() {
         </AuthProvider>
       </ThemeProvider>
     </Router>
+    </>
   );
 }
 
