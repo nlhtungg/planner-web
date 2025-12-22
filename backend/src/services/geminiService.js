@@ -95,12 +95,13 @@ class GeminiService {
       console.log(`✅ [EMBEDDING] Generated ${embeddings.length} embeddings in ${embeddingTime}s`);
 
       // Prepare data for ChromaDB
-      const ids = chunks.map((_, idx) => `${documentId}_chunk_${idx}`);
+      const ids = chunks.map((chunk, idx) => chunk.id || `${documentId}_chunk_${idx}`);
       const documents = chunks.map(chunk => chunk.text);
       const metadatas = chunks.map((chunk, idx) => ({
         documentId,
         chunkIndex: idx,
-        pageNumber: chunk.pageNumber || 0
+        pageNumber: chunk.pageNumber || 0,
+        ...(chunk.metadata || {}) // Preserve additional metadata from chunks
       }));
 
       // Add to ChromaDB
@@ -270,6 +271,35 @@ ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy tr�
     } catch (error) {
       console.error('Error deleting collection:', error);
       // Don't throw - collection might not exist
+    }
+  }
+
+  /**
+   * Generate text response using Gemini (for workspace insights)
+   */
+  async generateText(prompt, chatHistory = []) {
+    try {
+      // Build chat messages
+      const messages = [];
+
+      // Add chat history (last 5 messages)
+      const recentHistory = chatHistory.slice(-5);
+      recentHistory.forEach(msg => {
+        messages.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      });
+
+      // Generate response
+      const chat = this.chatModel.startChat({ history: messages });
+      const result = await chat.sendMessage(prompt);
+      const response = result.response.text();
+
+      return response;
+    } catch (error) {
+      console.error('Error generating text with Gemini:', error);
+      throw error;
     }
   }
 }
