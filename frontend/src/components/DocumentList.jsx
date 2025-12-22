@@ -14,7 +14,7 @@ import {
     ChevronRight
 } from 'lucide-react';
 
-const DocumentList = () => {
+const DocumentList = ({ onDocumentChange }) => {
     const { workspaceId } = useParams();
     const toast = useToast();
     const { isDark } = useTheme();
@@ -66,6 +66,7 @@ const DocumentList = () => {
             const newDoc = await documentService.uploadDocument(formData);
             setDocuments([newDoc, ...documents]);
             toast.success('File uploaded successfully!');
+            onDocumentChange?.();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to upload file');
         } finally {
@@ -88,6 +89,7 @@ const DocumentList = () => {
             });
             setDocuments([newDoc, ...documents]);
             toast.success('Document created successfully!');
+            onDocumentChange?.();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to create document');
         }
@@ -116,6 +118,7 @@ const DocumentList = () => {
             });
             setDocuments([newFolder, ...documents]);
             toast.success('Folder created successfully!');
+            onDocumentChange?.();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to create folder');
         }
@@ -204,6 +207,7 @@ const DocumentList = () => {
             await documentService.deleteDocument(id);
             setDocuments(documents.filter(doc => doc._id !== id));
             toast.success('Item deleted successfully!');
+            onDocumentChange?.();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to delete item');
         }
