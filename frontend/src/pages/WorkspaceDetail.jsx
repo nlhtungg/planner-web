@@ -117,6 +117,26 @@ const WorkspaceDetail = () => {
   const [documents, setDocuments] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
 
+  // Edit workspace state
+  const [isEditWorkspaceModalOpen, setIsEditWorkspaceModalOpen] = useState(false);
+  const [editWorkspaceForm, setEditWorkspaceForm] = useState({
+    name: '',
+    description: '',
+    color: '#3B82F6',
+    isPublic: false
+  });
+
+  const colorOptions = [
+    { value: '#3B82F6', name: 'Blue' },
+    { value: '#10B981', name: 'Green' },
+    { value: '#8B5CF6', name: 'Purple' },
+    { value: '#F59E0B', name: 'Yellow' },
+    { value: '#EF4444', name: 'Red' },
+    { value: '#06B6D4', name: 'Cyan' },
+    { value: '#84CC16', name: 'Lime' },
+    { value: '#F97316', name: 'Orange' },
+  ];
+
   // Memoized handlers for mention callbacks to prevent infinite re-renders
   const handleNewPostMentionsChange = useCallback((mentions, mentionsEveryone) => {
     setNewPostMentions(mentions);
@@ -341,6 +361,42 @@ const WorkspaceDetail = () => {
 
   const handleUpdateTask = (taskId) => {
     navigate(`/tasks/${taskId}`); // navigate to task detail/edit page if exists
+  };
+
+  // Edit workspace handlers
+  const openEditWorkspaceModal = () => {
+    setEditWorkspaceForm({
+      name: workspace.name,
+      description: workspace.description || '',
+      color: workspace.color,
+      isPublic: workspace.settings?.isPublic || false
+    });
+    setIsEditWorkspaceModalOpen(true);
+  };
+
+  const handleUpdateWorkspace = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const updateData = {
+        name: editWorkspaceForm.name.trim(),
+        description: editWorkspaceForm.description.trim(),
+        color: editWorkspaceForm.color,
+        settings: {
+          isPublic: editWorkspaceForm.isPublic
+        }
+      };
+
+      const response = await workspaceService.updateWorkspace(workspaceId, updateData);
+      
+      if (response.success) {
+        setWorkspace(response.data);
+        setIsEditWorkspaceModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Update workspace error:', error);
+      alert(error.response?.data?.message || 'Failed to update workspace');
+    }
   };
 
   const fetchWorkspace = async () => {
@@ -921,10 +977,12 @@ const WorkspaceDetail = () => {
                       <span className="hidden sm:inline">Invite</span>
                     </button>
                     <button
-                      className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                      onClick={openEditWorkspaceModal}
+                      className={`p-2 rounded-full transition-all ${isDark ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
                         }`}
+                      title="Edit workspace"
                     >
-                      <Settings className={`w-5 h-5 ${textClass}`} />
+                      <Settings className="w-5 h-5" />
                     </button>
                   </>
                 )}
@@ -1065,7 +1123,22 @@ const WorkspaceDetail = () => {
               <div className="space-y-4 sm:space-y-6">
                 {/* Workspace Info */}
                 <GlassCard>
-                  <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Workspace Info</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg font-semibold ${textClass}`}>Workspace Info</h3>
+                    {isOwnerOrAdmin() && (
+                      <button
+                        onClick={openEditWorkspaceModal}
+                        className={`p-1.5 rounded-lg transition-all hover:scale-110 ${
+                          isDark 
+                            ? 'hover:bg-white/10 text-slate-400 hover:text-white' 
+                            : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
+                        }`}
+                        title="Edit workspace"
+                      >
+                        <Settings className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center justify-between">
                       <span className={textSecondaryClass}>Owner:</span>
@@ -1149,11 +1222,11 @@ const WorkspaceDetail = () => {
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4 pb-6">
               {/* Create Post Form */}
-              <GlassCard>
+              <GlassCard className={`${isDark ? 'shadow-xl' : 'shadow-md'} hover:shadow-xl transition-all duration-300`}>
                 <form onSubmit={handleCreatePost}>
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                  <div className="p-5 sm:p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 shadow-md">
                         {user?.avatar ? (
                           <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
                         ) : (
@@ -1166,31 +1239,49 @@ const WorkspaceDetail = () => {
                         )}
                       </div>
                       <div className="flex-1">
-                        <MentionInput
-                          value={newPostContent}
-                          onChange={(value) => setNewPostContent(value)}
-                          onMentionsChange={handleNewPostMentionsChange}
-                          members={workspaceMembers}
-                          placeholder="Start a conversation..."
-                          className={`w-full px-0 py-0 border-0 focus:ring-0 resize-none placeholder-gray-400 bg-transparent ${textClass}`}
-                          rows={3}
-                          disabled={createPostLoading}
-                          maxLength={5000}
-                        />
+                        <div className={`rounded-xl border-2 transition-all duration-200 ${
+                          isDark 
+                            ? 'bg-slate-900/40 border-slate-700/50 focus-within:border-blue-500/50 focus-within:bg-slate-900/60' 
+                            : 'bg-white border-slate-200 focus-within:border-blue-400 focus-within:bg-blue-50/30'
+                        }`}>
+                          <MentionInput
+                            value={newPostContent}
+                            onChange={(value) => setNewPostContent(value)}
+                            onMentionsChange={handleNewPostMentionsChange}
+                            members={workspaceMembers}
+                            placeholder="Start a conversation..."
+                            className={`w-full px-4 py-3 border-0 focus:ring-0 resize-none bg-transparent rounded-xl text-[15px] leading-relaxed ${
+                              isDark 
+                                ? 'text-white placeholder-slate-400' 
+                                : 'text-gray-900 placeholder-gray-500'
+                            }`}
+                            rows={3}
+                            disabled={createPostLoading}
+                            maxLength={5000}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className={`px-4 py-3 border-t flex items-center justify-between rounded-b-lg ${isDark ? 'bg-slate-900/30 border-white/10' : 'bg-slate-50 border-slate-200'
+                  <div className={`px-5 sm:px-6 py-4 border-t flex items-center justify-between rounded-b-lg ${
+                    isDark 
+                      ? 'bg-slate-900/30 border-slate-700/50' 
+                      : 'bg-gradient-to-r from-slate-50 to-blue-50/30 border-slate-200'
                     }`}>
-                    <span className={`text-xs ${textSecondaryClass}`}>
+                    <span className={`text-sm font-medium ${
+                      isDark 
+                        ? 'text-slate-400' 
+                        : 'text-slate-600'
+                    }`}>
                       {newPostContent.length}/5000
                     </span>
                     <button
                       type="submit"
                       disabled={!newPostContent.trim() || createPostLoading}
-                      className={`px-4 py-2 text-sm font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_22px_rgba(59,130,246,0.35)]'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                      className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
+                        isDark
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-[0_0_25px_rgba(59,130,246,0.4)]'
+                          : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30'
                         }`}
                     >
                       {createPostLoading ? 'Posting...' : 'Post'}
@@ -1431,8 +1522,8 @@ const WorkspaceDetail = () => {
                                   {postComments[post._id]?.length > 0 ? (
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
                                       {postComments[post._id].map((comment) => (
-                                        <div key={comment._id} className={`flex items-start space-x-2 rounded-lg p-3 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
-                                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                        <div key={comment._id} className={`flex items-start gap-3 rounded-xl p-4 transition-all hover:shadow-md ${isDark ? 'bg-slate-800/60 hover:bg-slate-800/80' : 'bg-gradient-to-br from-slate-50 to-blue-50/30 hover:from-slate-100 hover:to-blue-50/50'}`}>
+                                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 shadow-sm">
                                             {comment.author?.avatar ? (
                                               <img src={comment.author.avatar} alt={`${comment.author.firstName} ${comment.author.lastName}`} className="w-full h-full object-cover" />
                                             ) : (
@@ -1444,12 +1535,12 @@ const WorkspaceDetail = () => {
                                             )}
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between">
-                                              <div className="flex-1">
-                                                <h5 className="font-semibold text-gray-900 text-xs">
+                                            <div className="flex items-start justify-between gap-2">
+                                              <div className="flex-1 min-w-0">
+                                                <h5 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                                   {comment.author?.firstName} {comment.author?.lastName}
                                                 </h5>
-                                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                                <div className={`flex items-center space-x-2 text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                                                   <span>
                                                     {new Date(comment.createdAt).toLocaleDateString('en-US', {
                                                       month: 'numeric',
@@ -1468,81 +1559,85 @@ const WorkspaceDetail = () => {
                                                   {comment.updatedAt !== comment.createdAt && (
                                                     <>
                                                       <span>•</span>
-                                                      <span className="text-blue-600">Edited</span>
+                                                      <span className={`font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Edited</span>
                                                     </>
                                                   )}
                                                 </div>
                                               </div>
                                               {(comment.author?._id === user._id || comment.author?._id === user.id ||
                                                 comment.author?.email === user.email) && (
-                                                  <div className="relative">
+                                                  <div className="relative flex-shrink-0">
                                                     {editingComment === comment._id ? (
                                                       <div className="flex items-center space-x-1">
                                                         <button
                                                           onClick={() => handleUpdateComment(post._id, comment._id)}
-                                                          className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${isDark ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'}`}
                                                         >
                                                           Save
                                                         </button>
                                                         <button
                                                           onClick={cancelEditingComment}
-                                                          className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                                                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50' : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'}`}
                                                         >
                                                           Cancel
                                                         </button>
                                                       </div>
                                                     ) : (
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setCommentDropdownOpen(commentDropdownOpen === comment._id ? null : comment._id);
-                                                        }}
-                                                        className={`p-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/10' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
-                                                      >
-                                                        <MoreVertical className="w-4 h-4" />
-                                                      </button>
-                                                    )}
-                                                    {commentDropdownOpen === comment._id && (
-                                                      <div className={`absolute right-0 mt-1 w-32 rounded-lg shadow-lg border z-10 ${isDark ? 'bg-slate-800 border-white/10' : 'bg-white border-gray-200'}`}>
+                                                      <>
                                                         <button
                                                           onClick={(e) => {
                                                             e.stopPropagation();
-                                                            startEditingComment(comment);
-                                                            setCommentDropdownOpen(null);
+                                                            setCommentDropdownOpen(commentDropdownOpen === comment._id ? null : comment._id);
                                                           }}
-                                                          className={`w-full flex items-center space-x-2 px-3 py-2 text-xs rounded-t-lg ${isDark ? 'text-slate-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
+                                                          className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                                                         >
-                                                          <PencilIcon className="w-3 h-3" />
-                                                          <span>Edit</span>
+                                                          <MoreVertical className="w-4 h-4" />
                                                         </button>
-                                                        <button
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteComment(post._id, comment._id);
-                                                            setCommentDropdownOpen(null);
-                                                          }}
-                                                          className={`w-full flex items-center space-x-2 px-3 py-2 text-xs rounded-b-lg ${isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-50'}`}
-                                                        >
-                                                          <TrashIcon className="w-3 h-3" />
-                                                          <span>Delete</span>
-                                                        </button>
-                                                      </div>
+                                                        {commentDropdownOpen === comment._id && (
+                                                          <div className={`absolute right-0 mt-1 w-36 rounded-lg shadow-xl border z-50 overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                startEditingComment(comment);
+                                                                setCommentDropdownOpen(null);
+                                                              }}
+                                                              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${isDark ? 'text-slate-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                            >
+                                                              <Pencil className="w-4 h-4" />
+                                                              <span>Edit</span>
+                                                            </button>
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteComment(post._id, comment._id);
+                                                                setCommentDropdownOpen(null);
+                                                              }}
+                                                              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-50'}`}
+                                                            >
+                                                              <Trash2 className="w-4 h-4" />
+                                                              <span>Delete</span>
+                                                            </button>
+                                                          </div>
+                                                        )}
+                                                      </>
                                                     )}
                                                   </div>
                                                 )}
                                             </div>
                                             {editingComment === comment._id ? (
                                               <div className="mt-2">
-                                                <MentionInput
-                                                  value={editCommentContent}
-                                                  onChange={(value) => setEditCommentContent(value)}
-                                                  onMentionsChange={handleEditCommentMentionsChange}
-                                                  members={workspaceMembers}
-                                                  className={`w-full px-2 py-1.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-xs ${isDark ? 'bg-slate-700 border-white/10 text-white' : 'border-gray-300'}`}
-                                                  rows={2}
-                                                  maxLength={2000}
-                                                />
-                                                <span className={`text-xs mt-0.5 block ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                                                <div className={`rounded-lg border-2 transition-all duration-200 ${isDark ? 'bg-slate-900/40 border-slate-700/50 focus-within:border-blue-500/50' : 'bg-white border-slate-200 focus-within:border-blue-400'}`}>
+                                                  <MentionInput
+                                                    value={editCommentContent}
+                                                    onChange={(value) => setEditCommentContent(value)}
+                                                    onMentionsChange={handleEditCommentMentionsChange}
+                                                    members={workspaceMembers}
+                                                    className={`w-full px-3 py-2 border-0 focus:ring-0 resize-none text-sm bg-transparent ${isDark ? 'text-white placeholder-slate-400' : 'text-gray-900 placeholder-gray-500'}`}
+                                                    rows={2}
+                                                    maxLength={2000}
+                                                  />
+                                                </div>
+                                                <span className={`text-xs mt-1 block font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                                                   {editCommentContent.length}/2000
                                                 </span>
                                               </div>
@@ -1553,7 +1648,7 @@ const WorkspaceDetail = () => {
                                                   mentions={comment.mentions}
                                                   mentionsEveryone={comment.mentionsEveryone}
                                                   members={memberUsers}
-                                                  className="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-wrap"
+                                                  className={`mt-2 text-sm leading-relaxed whitespace-pre-wrap ${isDark ? 'text-slate-200' : 'text-gray-700'}`}
                                                 />
                                                 {/* Comment reactions */}
                                                 <div className="mt-2 flex items-center space-x-2">
@@ -1583,8 +1678,8 @@ const WorkspaceDetail = () => {
                                   )}
 
                                   {/* Add comment form */}
-                                  <div className="flex items-start space-x-2 mt-3">
-                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                  <div className="flex items-start gap-3 mt-4 pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+                                    <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 shadow-sm">
                                       {user.avatar ? (
                                         <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
                                       ) : (
@@ -1596,24 +1691,40 @@ const WorkspaceDetail = () => {
                                       )}
                                     </div>
                                     <div className="flex-1">
-                                      <MentionInput
-                                        value={newCommentContent[post._id] || ''}
-                                        onChange={(value) => setNewCommentContent({ ...newCommentContent, [post._id]: value })}
-                                        onMentionsChange={handleNewCommentMentionsChange(post._id)}
-                                        members={workspaceMembers}
-                                        placeholder="Write a comment..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                                        rows={2}
-                                        maxLength={2000}
-                                      />
+                                      <div className={`rounded-lg border-2 transition-all duration-200 ${
+                                        isDark 
+                                          ? 'bg-slate-900/40 border-slate-700/50 focus-within:border-blue-500/50 focus-within:bg-slate-900/60' 
+                                          : 'bg-white border-slate-200 focus-within:border-blue-400 focus-within:bg-blue-50/20'
+                                      }`}>
+                                        <MentionInput
+                                          value={newCommentContent[post._id] || ''}
+                                          onChange={(value) => setNewCommentContent({ ...newCommentContent, [post._id]: value })}
+                                          onMentionsChange={handleNewCommentMentionsChange(post._id)}
+                                          members={workspaceMembers}
+                                          placeholder="Write a comment..."
+                                          className={`w-full px-3 py-2.5 border-0 focus:ring-0 resize-none bg-transparent rounded-lg text-sm leading-relaxed ${
+                                            isDark 
+                                              ? 'text-white placeholder-slate-400' 
+                                              : 'text-gray-900 placeholder-gray-500'
+                                          }`}
+                                          rows={2}
+                                          maxLength={2000}
+                                        />
+                                      </div>
                                       <div className="flex items-center justify-between mt-2">
-                                        <span className="text-xs text-gray-500">
+                                        <span className={`text-xs font-medium ${
+                                          isDark ? 'text-slate-400' : 'text-slate-600'
+                                        }`}>
                                           {(newCommentContent[post._id] || '').length}/2000
                                         </span>
                                         <button
                                           onClick={() => handleCreateComment(post._id)}
                                           disabled={!newCommentContent[post._id]?.trim()}
-                                          className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
+                                            isDark
+                                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/20'
+                                              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md shadow-blue-500/20'
+                                          }`}
                                         >
                                           Comment
                                         </button>
@@ -2039,6 +2150,118 @@ const WorkspaceDetail = () => {
                 </div>
               </form>
             </GlassCard>
+          </div>
+        )}
+
+        {/* Edit Workspace Modal */}
+        {isEditWorkspaceModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`${isDark ? 'bg-slate-900/95' : 'bg-white/95'} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto`}>
+              <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                <h2 className={`text-xl font-semibold ${textClass}`}>Edit Workspace</h2>
+                <button
+                  onClick={() => setIsEditWorkspaceModalOpen(false)}
+                  className={`${textSecondaryClass} transition-colors ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateWorkspace} className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className={`block text-sm font-medium ${textClass} mb-2`}>
+                      Workspace Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editWorkspaceForm.name}
+                      onChange={(e) => setEditWorkspaceForm({ ...editWorkspaceForm, name: e.target.value })}
+                      className={`w-full px-4 py-2.5 rounded-xl border backdrop-blur-xl transition-all focus:outline-none ${
+                        isDark 
+                          ? 'bg-slate-800/50 border-slate-700 text-white placeholder-slate-400 focus:border-blue-500' 
+                          : 'bg-white border-slate-300 text-slate-900 placeholder-gray-400 focus:border-blue-400'
+                      }`}
+                      placeholder="Enter workspace name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${textClass} mb-2`}>Description</label>
+                    <textarea
+                      value={editWorkspaceForm.description}
+                      onChange={(e) => setEditWorkspaceForm({ ...editWorkspaceForm, description: e.target.value })}
+                      className={`w-full px-4 py-2.5 rounded-xl border backdrop-blur-xl transition-all focus:outline-none ${
+                        isDark 
+                          ? 'bg-slate-800/50 border-slate-700 text-white placeholder-slate-400 focus:border-blue-500' 
+                          : 'bg-white border-slate-300 text-slate-900 placeholder-gray-400 focus:border-blue-400'
+                      }`}
+                      placeholder="Describe your workspace"
+                      rows="3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${textClass} mb-2`}>Color</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {colorOptions.map((color) => (
+                        <button
+                          key={color.value}
+                          type="button"
+                          className={`w-10 h-10 rounded-lg border-2 transition-all hover:scale-110 ${
+                            editWorkspaceForm.color === color.value 
+                              ? (isDark ? 'border-white shadow-lg' : 'border-gray-700 shadow-lg') 
+                              : (isDark ? 'border-white/20' : 'border-gray-200')
+                          }`}
+                          style={{ backgroundColor: color.value }}
+                          onClick={() => setEditWorkspaceForm({ ...editWorkspaceForm, color: color.value })}
+                          title={color.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={editWorkspaceForm.isPublic}
+                        onChange={(e) => setEditWorkspaceForm({ ...editWorkspaceForm, isPublic: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className={`text-sm font-medium ${textClass}`}>Make this workspace public</span>
+                    </label>
+                    <p className={`text-xs ${textSecondaryClass} mt-1 ml-6`}>Public workspaces can be discovered and joined by other users</p>
+                  </div>
+                </div>
+
+                <div className={`flex items-center justify-end gap-3 mt-6 pt-6 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditWorkspaceModalOpen(false)}
+                    className={`px-5 py-2.5 rounded-full font-medium transition-colors ${
+                      isDark 
+                        ? 'bg-white/10 hover:bg-white/20 text-white' 
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!editWorkspaceForm.name.trim()}
+                    className={`px-5 py-2.5 rounded-full font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isDark
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-[0_0_25px_rgba(59,130,246,0.4)]'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30'
+                    }`}
+                  >
+                    Update Workspace
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </GlassHeader>
