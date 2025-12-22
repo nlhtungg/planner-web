@@ -26,9 +26,9 @@ app.use(requestTimeout(30000)); // 30 second timeout
  * Body Parsing Middleware
  */
 app.use(express.json({ limit: config.bodyParser.jsonLimit }));
-app.use(express.urlencoded({ 
-  extended: true, 
-  limit: config.bodyParser.urlEncodedLimit 
+app.use(express.urlencoded({
+  extended: true,
+  limit: config.bodyParser.urlEncodedLimit
 }));
 
 /**

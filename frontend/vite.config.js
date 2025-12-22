@@ -18,6 +18,12 @@ export default defineConfig({
         changeOrigin: true,
         ws: true, // Enable WebSocket proxying
       },
+      '/minio': {
+        target: 'http://localhost:9000', // MinIO storage
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/minio/, ''),
+      },
     }
   }
 })

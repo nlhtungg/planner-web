@@ -7,6 +7,7 @@ import postService from '../services/postService';
 import commentService from '../services/commentService';
 import reactionService from '../services/reactionService';
 import socketService from '../services/socketService';
+import documentService from '../services/documentService';
 import { getTasksByWorkspace, createTask, assignTask, unassignTask, deleteTask } from '../services/taskService';
 import { Link } from 'react-router-dom';
 import { percentOf } from '../utils/taskUtils';
@@ -51,6 +52,10 @@ const WorkspaceDetail = () => {
   const { user, logout } = useAuth();
   const { isDark } = useTheme();
   const navigate = useNavigate();
+
+  // Refs to track if data has been fetched to prevent duplicate calls
+  const overviewFetchedRef = React.useRef(false);
+  const lastWorkspaceIdRef = React.useRef(null);
 
   const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -99,14 +104,6 @@ const WorkspaceDetail = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [changingRoleLoading, setChangingRoleLoading] = useState(false);
 
-  // Mock data for workspace content
-  const recentActivity = [
-    { id: 1, type: 'document', action: 'created', item: 'Project Requirements.docx', user: 'Alice Johnson', time: '2 hours ago', avatar: 'AJ' },
-    { id: 2, type: 'task', action: 'completed', item: 'Review API documentation', user: 'Bob Smith', time: '4 hours ago', avatar: 'BS' },
-    { id: 3, type: 'comment', action: 'commented on', item: 'Design System Updates', user: 'Carol Davis', time: '6 hours ago', avatar: 'CD' },
-    { id: 4, type: 'member', action: 'joined', item: 'the workspace', user: 'David Wilson', time: '1 day ago', avatar: 'DW' },
-  ];
-
   // Tasks state (real data)
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
@@ -116,12 +113,9 @@ const WorkspaceDetail = () => {
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskFilters, setTaskFilters] = useState({ status: 'all', assignee: 'all' });
 
-  const documents = [
-    { id: 1, name: 'Project Requirements.docx', type: 'document', size: '2.4 MB', modified: '2 hours ago', author: 'Alice Johnson' },
-    { id: 2, name: 'API Specifications.pdf', type: 'pdf', size: '1.8 MB', modified: '1 day ago', author: 'Bob Smith' },
-    { id: 3, name: 'Design Assets.zip', type: 'archive', size: '15.2 MB', modified: '2 days ago', author: 'Carol Davis' },
-    { id: 4, name: 'Meeting Notes.md', type: 'markdown', size: '45 KB', modified: '3 days ago', author: 'David Wilson' },
-  ];
+  // Documents state (real data)
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
 
   // Memoized handlers for mention callbacks to prevent infinite re-renders
   const handleNewPostMentionsChange = useCallback((mentions, mentionsEveryone) => {
@@ -150,16 +144,42 @@ const WorkspaceDetail = () => {
     fetchWorkspace();
   }, [workspaceId]);
 
+  // Single useEffect for tab-specific data loading
   useEffect(() => {
-    if (activeTab === 'posts') {
-      fetchPosts();
+    // Reset overview fetch flag if workspace changes
+    if (lastWorkspaceIdRef.current !== workspaceId) {
+      overviewFetchedRef.current = false;
+      lastWorkspaceIdRef.current = workspaceId;
     }
-  }, [activeTab, workspaceId]);
 
-  useEffect(() => {
-    if (activeTab === 'tasks') {
-      fetchTasks();
-    }
+    const loadTabData = async () => {
+      if (activeTab === 'overview' && !overviewFetchedRef.current) {
+        overviewFetchedRef.current = true;
+        // Fetch overview data - only 3 API calls
+        try {
+          const [docsResponse, tasksResponse, postsResponse] = await Promise.all([
+            documentService.getWorkspaceDocuments(workspaceId).catch(() => []),
+            getTasksByWorkspace(workspaceId).catch(() => ({ data: [] })),
+            postService.getRecentPosts(workspaceId, 5).catch(() => ({ success: false, data: [] }))
+          ]);
+
+          setDocuments(Array.isArray(docsResponse) ? docsResponse : []);
+          setTasks(tasksResponse.data || []);
+          if (postsResponse.success) {
+            setPosts(postsResponse.data);
+          }
+        } catch (error) {
+          console.error('Error loading overview data:', error);
+        }
+      } else if (activeTab === 'tasks') {
+        fetchTasks();
+      } else if (activeTab === 'posts') {
+        fetchPosts();
+      }
+    };
+
+
+    loadTabData();
   }, [activeTab, workspaceId]);
 
   // Socket.io real-time updates
@@ -856,7 +876,7 @@ const WorkspaceDetail = () => {
   const memberUsers = workspaceMembers.map(m => m.user);
 
   return (
-    <GlassPageContainer>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
       <GlassHeader>
         {/* Workspace Header */}
         <GlassCard className="mb-4 sm:mb-6">
@@ -948,165 +968,179 @@ const WorkspaceDetail = () => {
 
         {/* Main Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-              {/* Workspace Description */}
-              {workspace.description && (
-                <GlassCard>
-                  <h3 className={`text-lg font-semibold mb-3 ${textClass}`}>About</h3>
-                  <p className={textSecondaryClass}>{workspace.description}</p>
-                </GlassCard>
-              )}
+          <div className="flex-1 overflow-y-auto pb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              {/* Main Content */}
+              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+                {/* Workspace Description */}
+                {workspace.description && (
+                  <GlassCard>
+                    <h3 className={`text-lg font-semibold mb-3 ${textClass}`}>About</h3>
+                    <p className={textSecondaryClass}>{workspace.description}</p>
+                  </GlassCard>
+                )}
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                <GlassCard className="text-center p-3 sm:p-6">
-                  <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
-                    <Target className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                {/* Quick Stats */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <GlassCard className="text-center p-3 sm:p-6">
+                    <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
+                      <Target className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                    </div>
+                    <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                      {tasks.length}
+                    </div>
+                    <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Total Tasks</div>
+                  </GlassCard>
+                  <GlassCard className="text-center p-3 sm:p-6">
+                    <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
+                      <CheckCircle2 className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
+                    </div>
+                    <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+                      {tasks.filter(t => t.status === 'done').length}
+                    </div>
+                    <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Completed</div>
+                  </GlassCard>
+                  <GlassCard className="text-center p-3 sm:p-6">
+                    <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
+                      <Folder className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
+                    </div>
+                    <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
+                      {documents.length}
+                    </div>
+                    <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Documents</div>
+                  </GlassCard>
+                </div>
+
+                {/* Recent Activity - Using Posts */}
+                <GlassCard>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg font-semibold ${textClass}`}>Recent Activity</h3>
+                    <button
+                      onClick={() => setActiveTab('posts')}
+                      className={`text-sm font-medium transition-colors ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                        }`}>
+                      View all
+                    </button>
                   </div>
-                  <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                    {tasks.length}
+                  <div className="space-y-4">
+                    {postsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${isDark ? 'border-blue-400' : 'border-blue-600'}`}></div>
+                      </div>
+                    ) : posts.length === 0 ? (
+                      <p className={`text-sm ${textSecondaryClass} text-center py-4`}>No recent activity</p>
+                    ) : (
+                      posts.slice(0, 5).map((post) => (
+                        <div key={post._id} className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                            {post.author?.avatar ? (
+                              <img src={post.author.avatar} alt={post.author.firstName} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className={`w-full h-full flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}>
+                                <span className="text-white text-sm font-semibold">
+                                  {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${textClass}`}>
+                              <span className="font-medium">{post.author?.firstName} {post.author?.lastName}</span>{' '}
+                              posted{' '}
+                              <span className="font-medium">{post.content?.substring(0, 50)}{post.content?.length > 50 ? '...' : ''}</span>
+                            </p>
+                            <p className={`text-xs mt-1 ${textSecondaryClass}`}>
+                              {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <MessageSquare className={`w-5 h-5 mt-1 ${textSecondaryClass}`} />
+                        </div>
+                      ))
+                    )}
                   </div>
-                  <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Total Tasks</div>
-                </GlassCard>
-                <GlassCard className="text-center p-3 sm:p-6">
-                  <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
-                    <CheckCircle2 className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
-                  </div>
-                  <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-green-400' : 'text-green-600'}`}>
-                    {tasks.filter(t => t.status === 'done').length}
-                  </div>
-                  <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Completed</div>
-                </GlassCard>
-                <GlassCard className="text-center p-3 sm:p-6">
-                  <div className={`flex items-center justify-center mb-1 sm:mb-2`}>
-                    <Folder className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
-                  </div>
-                  <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
-                    {documents.length}
-                  </div>
-                  <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Documents</div>
                 </GlassCard>
               </div>
 
-              {/* Recent Activity */}
-              <GlassCard>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-lg font-semibold ${textClass}`}>Recent Activity</h3>
-                  <button className={`text-sm font-medium transition-colors ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
-                    }`}>
-                    View all
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {recentActivity.map((activity) => {
-                    const Icon = getActivityIcon(activity.type);
-                    return (
-                      <div key={activity.id} className="flex items-start gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'
-                            }`}
-                        >
-                          <span className="text-white text-sm font-semibold">
-                            {activity.avatar}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm ${textClass}`}>
-                            <span className="font-medium">{activity.user}</span>{' '}
-                            {activity.action}{' '}
-                            <span className="font-medium">{activity.item}</span>
-                          </p>
-                          <p className={`text-xs mt-1 ${textSecondaryClass}`}>{activity.time}</p>
-                        </div>
-                        <Icon className={`w-5 h-5 mt-1 ${textSecondaryClass}`} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </GlassCard>
-            </div>
+              {/* Sidebar */}
+              <div className="space-y-4 sm:space-y-6">
+                {/* Workspace Info */}
+                <GlassCard>
+                  <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Workspace Info</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className={textSecondaryClass}>Owner:</span>
+                      <span className={textClass}>{workspace.owner.firstName} {workspace.owner.lastName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={textSecondaryClass}>Created:</span>
+                      <span className={textClass}>{new Date(workspace.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={textSecondaryClass}>Last Activity:</span>
+                      <span className={textClass}>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={textSecondaryClass}>Visibility:</span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${workspace.settings?.isPublic
+                          ? isDark
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-green-100 text-green-800'
+                          : isDark
+                            ? 'bg-slate-700/50 text-slate-300'
+                            : 'bg-gray-100 text-gray-800'
+                          }`}
+                      >
+                        {workspace.settings?.isPublic ? 'Public' : 'Private'}
+                      </span>
+                    </div>
+                  </div>
+                </GlassCard>
 
-            {/* Sidebar */}
-            <div className="space-y-4 sm:space-y-6">
-              {/* Workspace Info */}
-              <GlassCard>
-                <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Workspace Info</h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className={textSecondaryClass}>Owner:</span>
-                    <span className={textClass}>{workspace.owner.firstName} {workspace.owner.lastName}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={textSecondaryClass}>Created:</span>
-                    <span className={textClass}>{new Date(workspace.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={textSecondaryClass}>Last Activity:</span>
-                    <span className={textClass}>{new Date(workspace.lastActivity).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={textSecondaryClass}>Visibility:</span>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${workspace.settings?.isPublic
-                        ? isDark
-                          ? 'bg-green-900/30 text-green-400'
-                          : 'bg-green-100 text-green-800'
-                        : isDark
-                          ? 'bg-slate-700/50 text-slate-300'
-                          : 'bg-gray-100 text-gray-800'
-                        }`}
-                    >
-                      {workspace.settings?.isPublic ? 'Public' : 'Private'}
-                    </span>
-                  </div>
-                </div>
-              </GlassCard>
-
-              {/* Quick Actions */}
-              <GlassCard>
-                <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Quick Actions</h3>
-                <div className="space-y-2">
-                  <button
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Create Task</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab('documents');
-                      setTimeout(() => {
-                        document.getElementById('document-upload')?.click();
-                      }, 100);
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>Upload Document</span>
-                  </button>
-                  <button
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Schedule Meeting</span>
-                  </button>
-                  {isOwnerOrAdmin() && (
+                {/* Quick Actions */}
+                <GlassCard>
+                  <h3 className={`text-lg font-semibold mb-4 ${textClass}`}>Quick Actions</h3>
+                  <div className="space-y-2">
                     <button
-                      onClick={() => setIsAddMemberModalOpen(true)}
                       className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
                         }`}
                     >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Invite Member</span>
+                      <Plus className="w-4 h-4" />
+                      <span>Create Task</span>
                     </button>
-                  )}
-                </div>
-              </GlassCard>
+                    <button
+                      onClick={() => {
+                        setActiveTab('documents');
+                        setTimeout(() => {
+                          document.getElementById('document-upload')?.click();
+                        }, 100);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Upload Document</span>
+                    </button>
+                    <button
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>Schedule Meeting</span>
+                    </button>
+                    {isOwnerOrAdmin() && (
+                      <button
+                        onClick={() => setIsAddMemberModalOpen(true)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
+                          }`}
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Invite Member</span>
+                      </button>
+                    )}
+                  </div>
+                </GlassCard>
+              </div>
             </div>
           </div>
         )}

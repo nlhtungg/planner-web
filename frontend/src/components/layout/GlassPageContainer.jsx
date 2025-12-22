@@ -21,11 +21,11 @@ const GlassPageContainer = ({ children, className = '' }) => {
           isDark
             ? undefined
             : {
-                backgroundImage: `radial-gradient(circle at 20% 50%, rgba(220, 38, 38, 0.3) 0%, transparent 50%),
+              backgroundImage: `radial-gradient(circle at 20% 50%, rgba(220, 38, 38, 0.3) 0%, transparent 50%),
                radial-gradient(circle at 80% 20%, rgba(34, 197, 94, 0.3) 0%, transparent 50%),
                radial-gradient(circle at 60% 80%, rgba(251, 191, 36, 0.2) 0%, transparent 50%)`,
-                filter: 'blur(80px)',
-              }
+              filter: 'blur(80px)',
+            }
         }
       />
 

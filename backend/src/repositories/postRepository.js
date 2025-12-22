@@ -25,9 +25,9 @@ class PostRepository {
   }
 
   // Get all posts in a workspace
-  async getPostsByWorkspace(workspaceId) {
+  async getPostsByWorkspace(workspaceId, limit = null) {
     try {
-      const posts = await Post.findByWorkspace(workspaceId);
+      const posts = await Post.findByWorkspace(workspaceId, limit);
       return posts;
     } catch (error) {
       throw error;

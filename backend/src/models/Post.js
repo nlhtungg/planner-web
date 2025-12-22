@@ -40,17 +40,23 @@ postSchema.index({ workspace: 1, isActive: 1 });
 postSchema.index({ mentions: 1 });
 
 // Static method to find posts by workspace
-postSchema.statics.findByWorkspace = function(workspaceId) {
-  return this.find({ 
+postSchema.statics.findByWorkspace = function (workspaceId, limit = null) {
+  let query = this.find({
     workspace: workspaceId,
-    isActive: true 
+    isActive: true
   })
     .populate('author', 'firstName lastName email avatar')
     .sort({ createdAt: -1 });
+
+  if (limit && limit > 0) {
+    query = query.limit(limit);
+  }
+
+  return query;
 };
 
 // Method to check if user can edit/delete this post
-postSchema.methods.canModify = function(userId) {
+postSchema.methods.canModify = function (userId) {
   const authorId = this.author._id || this.author;
   return authorId.toString() === userId.toString();
 };

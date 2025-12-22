@@ -78,6 +78,7 @@ class PostController {
   async getWorkspacePosts(req, res) {
     try {
       const { workspaceId } = req.params;
+      const { limit } = req.query; // Optional limit parameter
       const userId = req.user._id || req.user.id;
 
       // Check if workspace exists and user is a member
@@ -96,7 +97,9 @@ class PostController {
         });
       }
 
-      const posts = await postRepository.getPostsByWorkspace(workspaceId);
+      // Pass limit to repository if provided
+      const limitNum = limit ? parseInt(limit, 10) : null;
+      const posts = await postRepository.getPostsByWorkspace(workspaceId, limitNum);
 
       res.status(200).json({
         success: true,
@@ -163,11 +166,11 @@ class PostController {
       const updateData = {
         content: content.trim()
       };
-      
+
       if (req.body.mentions !== undefined) {
         updateData.mentions = req.body.mentions;
       }
-      
+
       if (req.body.mentionsEveryone !== undefined) {
         updateData.mentionsEveryone = req.body.mentionsEveryone;
       }
