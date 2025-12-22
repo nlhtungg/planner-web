@@ -56,6 +56,10 @@ const WorkspaceDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Stats state
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Posts state
   const [posts, setPosts] = useState([]);
@@ -148,11 +152,15 @@ const WorkspaceDetail = () => {
 
   useEffect(() => {
     fetchWorkspace();
+    fetchStats();
   }, [workspaceId]);
 
   useEffect(() => {
     if (activeTab === 'posts') {
       fetchPosts();
+    }
+    if (activeTab === 'overview') {
+      fetchStats(); // Refresh stats when returning to overview tab
     }
   }, [activeTab, workspaceId]);
 
@@ -295,6 +303,7 @@ const WorkspaceDetail = () => {
       const res = await createTask(payload);
       setTasks(prev => [res.data, ...prev]);
       setIsTaskModalOpen(false);
+      fetchStats(); // Refresh stats after creating task
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to create task');
     } finally {
@@ -313,6 +322,7 @@ const WorkspaceDetail = () => {
     try {
       await deleteTask(taskId);
       setTasks(prev => prev.filter(t => t._id !== taskId));
+      fetchStats(); // Refresh stats after deleting task
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete task');
     }
@@ -335,6 +345,20 @@ const WorkspaceDetail = () => {
       console.error('Fetch workspace error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const response = await workspaceService.getWorkspaceStats(workspaceId);
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Fetch stats error:', error);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -855,7 +879,7 @@ const WorkspaceDetail = () => {
   const memberUsers = workspaceMembers.map(m => m.user);
 
   return (
-    <GlassPageContainer>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
       <GlassHeader>
         {/* Workspace Header */}
         <GlassCard className="mb-4 sm:mb-6">
@@ -946,10 +970,11 @@ const WorkspaceDetail = () => {
         </GlassCard>
 
         {/* Main Content */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto dashboard-scroll">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              {/* Main Content */}
+              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               {/* Workspace Description */}
               {workspace.description && (
                 <GlassCard>
@@ -965,7 +990,7 @@ const WorkspaceDetail = () => {
                     <Target className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                   </div>
                   <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                    {tasks.length}
+                    {statsLoading ? '...' : stats?.totalTasks || 0}
                   </div>
                   <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Total Tasks</div>
                 </GlassCard>
@@ -974,7 +999,7 @@ const WorkspaceDetail = () => {
                     <CheckCircle2 className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
                   </div>
                   <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-green-400' : 'text-green-600'}`}>
-                    {tasks.filter(t => t.status === 'done').length}
+                    {statsLoading ? '...' : stats?.completedTasks || 0}
                   </div>
                   <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Completed</div>
                 </GlassCard>
@@ -983,7 +1008,7 @@ const WorkspaceDetail = () => {
                     <Folder className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
                   </div>
                   <div className={`text-xl sm:text-3xl font-bold mb-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
-                    {documents.length}
+                    {statsLoading ? '...' : stats?.totalDocuments || 0}
                   </div>
                   <div className={`text-xs sm:text-sm ${textSecondaryClass}`}>Documents</div>
                 </GlassCard>
@@ -993,36 +1018,54 @@ const WorkspaceDetail = () => {
               <GlassCard>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className={`text-lg font-semibold ${textClass}`}>Recent Activity</h3>
-                  <button className={`text-sm font-medium transition-colors ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
-                    }`}>
+                  <button 
+                    onClick={() => setActiveTab('posts')}
+                    className={`text-sm font-medium transition-colors ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}`}
+                  >
                     View all
                   </button>
                 </div>
                 <div className="space-y-4">
-                  {recentActivity.map((activity) => {
-                    const Icon = getActivityIcon(activity.type);
-                    return (
-                      <div key={activity.id} className="flex items-start gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'
-                            }`}
-                        >
-                          <span className="text-white text-sm font-semibold">
-                            {activity.avatar}
-                          </span>
+                  {posts.length === 0 ? (
+                    <p className={`text-sm text-center py-8 ${textSecondaryClass}`}>No recent activity yet</p>
+                  ) : (
+                    posts.slice(0, 5).map((post) => {
+                      const postAuthor = post.author;
+                      return (
+                        <div key={post._id} className="flex items-start gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-gradient-to-br from-purple-600 to-purple-700' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}
+                          >
+                            {postAuthor?.avatar ? (
+                              <img src={postAuthor.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              <span className="text-white text-sm font-semibold">
+                                {postAuthor?.firstName?.[0]}{postAuthor?.lastName?.[0]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${textClass}`}>
+                              <span className="font-medium">{postAuthor?.firstName} {postAuthor?.lastName}</span>{' '}
+                              posted a new message
+                            </p>
+                            <p className={`text-sm mt-1 ${textSecondaryClass} line-clamp-2`}>
+                              {post.content}
+                            </p>
+                            <p className={`text-xs mt-1 ${textSecondaryClass}`}>
+                              {new Date(post.createdAt).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                          <MessageSquare className={`w-5 h-5 mt-1 ${textSecondaryClass}`} />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm ${textClass}`}>
-                            <span className="font-medium">{activity.user}</span>{' '}
-                            {activity.action}{' '}
-                            <span className="font-medium">{activity.item}</span>
-                          </p>
-                          <p className={`text-xs mt-1 ${textSecondaryClass}`}>{activity.time}</p>
-                        </div>
-                        <Icon className={`w-5 h-5 mt-1 ${textSecondaryClass}`} />
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </GlassCard>
             </div>
@@ -1108,10 +1151,9 @@ const WorkspaceDetail = () => {
               </GlassCard>
             </div>
           </div>
-        )}
+          )}
 
-        {activeTab === 'posts' && (
-          <div className="flex-1 overflow-y-auto">
+          {activeTab === 'posts' && (
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4 pb-6">
               {/* Create Post Form */}
               <GlassCard>
@@ -1477,7 +1519,7 @@ const WorkspaceDetail = () => {
                                                           }}
                                                           className={`w-full flex items-center space-x-2 px-3 py-2 text-xs rounded-t-lg ${isDark ? 'text-slate-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
                                                         >
-                                                          <PencilIcon className="w-3 h-3" />
+                                                          <Pencil className="w-3 h-3" />
                                                           <span>Edit</span>
                                                         </button>
                                                         <button
@@ -1488,7 +1530,7 @@ const WorkspaceDetail = () => {
                                                           }}
                                                           className={`w-full flex items-center space-x-2 px-3 py-2 text-xs rounded-b-lg ${isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-50'}`}
                                                         >
-                                                          <TrashIcon className="w-3 h-3" />
+                                                          <Trash2 className="w-3 h-3" />
                                                           <span>Delete</span>
                                                         </button>
                                                       </div>
@@ -1596,10 +1638,9 @@ const WorkspaceDetail = () => {
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'tasks' && (
+          {activeTab === 'tasks' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Tasks</h2>
@@ -1715,17 +1756,13 @@ const WorkspaceDetail = () => {
               </div>
             </div>
           </div>
-        )}
+          )}
 
-        {activeTab === 'documents' && (
-          <DocumentList />
-        )}
+          {activeTab === 'documents' && (
+            <DocumentList onDocumentChange={fetchStats} />
+          )}
 
-        {activeTab === 'files' && (
-          <FileList />
-        )}
-
-        {activeTab === 'members' && (
+          {activeTab === 'members' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Members</h2>
@@ -1800,10 +1837,12 @@ const WorkspaceDetail = () => {
               </div>
             </div>
           </div>
-        )}
+          )}
+        </div>
+      </GlassHeader>
 
-        {/* Add Member Modal */}
-        <AddMemberModal
+      {/* Add Member Modal */}
+      <AddMemberModal
           isOpen={isAddMemberModalOpen}
           onClose={() => setIsAddMemberModalOpen(false)}
           onAddMember={handleAddMember}
@@ -2011,7 +2050,7 @@ const WorkspaceDetail = () => {
             </GlassCard>
           </div>
         )}
-      </GlassHeader>
+      {/* Không còn thẻ </GlassHeader> ở đây nữa */}
     </GlassPageContainer>
   );
 };

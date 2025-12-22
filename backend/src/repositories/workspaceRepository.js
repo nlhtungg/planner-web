@@ -1,4 +1,6 @@
 const Workspace = require('../models/Workspace');
+const Task = require('../models/Task');
+const Document = require('../models/Document');
 
 class WorkspaceRepository {
   // Create a new workspace
@@ -187,6 +189,21 @@ class WorkspaceRepository {
         return null;
       }
 
+      // Count tasks in workspace
+      const totalTasks = await Task.countDocuments({ 
+        workspace: workspaceId
+      });
+
+      const completedTasks = await Task.countDocuments({ 
+        workspace: workspaceId,
+        status: 'done'
+      });
+
+      // Count documents in workspace
+      const totalDocuments = await Document.countDocuments({ 
+        workspace: workspaceId
+      });
+
       return {
         memberCount: workspace.memberCount,
         roles: workspace.members.reduce((acc, member) => {
@@ -194,7 +211,10 @@ class WorkspaceRepository {
           return acc;
         }, {}),
         lastActivity: workspace.lastActivity,
-        createdAt: workspace.createdAt
+        createdAt: workspace.createdAt,
+        totalTasks,
+        completedTasks,
+        totalDocuments
       };
     } catch (error) {
       throw error;

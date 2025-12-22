@@ -397,47 +397,34 @@ const Workspaces = () => {
                   {myWorkspaces.map((workspace) => (
                     <div key={workspace._id} className="relative">
                       {/* Dropdown Menu */}
-                      <div className="absolute top-4 right-4 z-10">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDropdownOpen(dropdownOpen === workspace._id ? null : workspace._id);
-                          }}
-                          className={`p-1 ${textSecondaryClass} hover:${textClass} rounded transition-colors`}
-                          aria-label="Workspace options menu"
-                        >
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-
-                        {dropdownOpen === workspace._id && (
-                          <div className={`absolute right-0 mt-2 w-48 ${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-xl shadow-xl`}>
+                      {dropdownOpen === workspace._id && (
+                        <div className={`absolute top-4 right-4 z-10 w-48 ${glassCardClass} backdrop-blur-xl border ${isDark ? 'border-white/10' : 'border-white/40'} rounded-xl shadow-xl`}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(workspace);
+                            }}
+                            className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${textClass} ${isDark ? 'hover:bg-white/10' : 'hover:bg-white/50'} rounded-t-xl transition-colors`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                            <span>Edit Workspace</span>
+                          </button>
+                          {workspace.owner._id === user._id && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openEditModal(workspace);
+                                handleDeleteWorkspace(workspace._id);
                               }}
-                              className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${textClass} ${isDark ? 'hover:bg-white/10' : 'hover:bg-white/50'} rounded-t-xl transition-colors`}
+                              className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-600 hover:bg-red-50'} rounded-b-xl transition-colors`}
                             >
-                              <Pencil className="w-4 h-4" />
-                              <span>Edit Workspace</span>
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete Workspace</span>
                             </button>
-                            {workspace.owner._id === user._id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteWorkspace(workspace._id);
-                                }}
-                                className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-600 hover:bg-red-50'} rounded-b-xl transition-colors`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                <span>Delete Workspace</span>
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
 
-                      <WorkspaceListItem workspace={workspace} onMenuClick={() => setDropdownOpen(workspace._id)} />
+                      <WorkspaceListItem workspace={workspace} onMenuClick={() => setDropdownOpen(dropdownOpen === workspace._id ? null : workspace._id)} />
                     </div>
                   ))}
                 </div>
