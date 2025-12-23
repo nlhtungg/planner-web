@@ -1,0 +1,88 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, feature/devsecops]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly Sunday midnight UTC
+  workflow_dispatch:  
+
+jobs:
+  sca:
+    name: Dependency Scan (SCA)
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install and audit backend
+        run: |
+          cd backend
+          npm install --package-lock-only --legacy-peer-deps
+          npm audit --audit-level=high
+      
+      - name: Install and audit frontend
+        run: |
+          cd frontend
+          npm install --package-lock-only --legacy-peer-deps
+          npm audit --audit-level=high
+
+  sast:
+    name: Code Scan (SAST)
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript
+      
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  secrets:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dockerfile-lint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Lint backend Dockerfile
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: backend/Dockerfile
+      
+      - name: Lint frontend Dockerfile (if exists)
+        uses: hadolint/hadolint-action@v3.3.0
+        continue-on-error: true
+        with:
+          dockerfile: frontend/Dockerfile
