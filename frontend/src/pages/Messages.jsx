@@ -90,6 +90,11 @@ const Messages = () => {
     nickname: '',
     themeColor: '#3B82F6'
   });
+  // Separate state for editing - only applied on Save
+  const [editingSettings, setEditingSettings] = useState({
+    nickname: '',
+    themeColor: '#3B82F6'
+  });
 
   const emojiList = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎', '🎉', '🔥', '💯'];
 
@@ -152,7 +157,8 @@ const Messages = () => {
       }
 
       if (response.data) {
-        setMessages(prev => [...prev, response.data]);
+        // Don't add message here - socket 'new-message' event will handle it
+        // This prevents duplicate messages
         scrollToBottom();
       }
 
@@ -699,6 +705,8 @@ const Messages = () => {
     setSelectedGroupId(null);
     setSelectedGroup(null);
     setMessages([]);
+    // Reset settings to defaults (will reload from server after fetchConversations)
+    setConversationSettings({ nickname: '', themeColor: '#3B82F6' });
     setSelectedUserId(selectedUserObj._id);
     setSelectedUser(selectedUserObj);
     fetchConversations();
@@ -712,6 +720,23 @@ const Messages = () => {
     setSelectedGroup(null);
     setMessages([]);
     setHasMore(true);
+
+    // Find the conversation and load its settings
+    const conversation = allConversations.find(conv =>
+      conv.type === 'direct' &&
+      conv.participants?.some(p => p._id === otherUser._id)
+    );
+
+    if (conversation) {
+      // Load settings from conversation data
+      const nickname = conversation.nicknames?.[otherUser._id] || '';
+      const themeColor = conversation.themeColor || '#3B82F6';
+      setConversationSettings({ nickname, themeColor });
+      console.log('🎨 Loaded conversation settings:', { nickname, themeColor });
+    } else {
+      // Reset to defaults for new conversations
+      setConversationSettings({ nickname: '', themeColor: '#3B82F6' });
+    }
 
     // Reset unread count in allConversations immediately
     updateAllConversations(prev => {
@@ -765,6 +790,8 @@ const Messages = () => {
     setSelectedUser(null);
     setMessages([]);
     setHasMore(true);
+    // Reset settings to defaults for group chats (groups don't have personal themes)
+    setConversationSettings({ nickname: '', themeColor: '#3B82F6' });
 
     // Reset unread count in allConversations immediately
     updateAllConversations(prev => {
@@ -1062,11 +1089,34 @@ const Messages = () => {
   // Conversation settings handlers
   const handleUpdateSettings = async () => {
     try {
-      await messageService.updateConversationSettings(selectedUserId, conversationSettings);
+      await messageService.updateConversationSettings(selectedUserId, editingSettings);
+      // Only update the real settings on successful save
+      setConversationSettings(editingSettings);
+
+      // Also update allConversations so settings persist when switching conversations
+      updateAllConversations(prev => prev.map(conv => {
+        if (conv.type === 'direct' && conv.participants?.some(p => p._id === selectedUserId)) {
+          return {
+            ...conv,
+            nicknames: { ...conv.nicknames, [selectedUserId]: editingSettings.nickname },
+            themeColor: editingSettings.themeColor
+          };
+        }
+        return conv;
+      }));
+
       setShowSettings(false);
+      showSuccess('Settings saved!');
     } catch (error) {
       console.error('Error updating settings:', error);
+      showError('Failed to save settings');
     }
+  };
+
+  // Open settings modal and initialize editing state
+  const handleOpenSettings = () => {
+    setEditingSettings({ ...conversationSettings });
+    setShowSettings(true);
   };
 
   // Message search handler
@@ -1290,7 +1340,7 @@ const Messages = () => {
                                   'text-base',
                                   unreadCount > 0 ? 'font-semibold text-primary' : 'font-normal text-secondary'
                                 )}>
-                                  {otherUser.firstName} {otherUser.lastName}
+                                  {conversation.nicknames?.[otherUser._id] || `${otherUser.firstName} ${otherUser.lastName}`}
                                 </p>
                                 <span className="text-xs text-secondary">
                                   {moment(conversation.lastMessageAt).fromNow()}
@@ -1400,7 +1450,7 @@ const Messages = () => {
                         </button>
                         {!selectedGroup && (
                           <button
-                            onClick={() => setShowSettings(true)}
+                            onClick={handleOpenSettings}
                             className="p-2 hover:bg-white/10 rounded-full transition-all"
                             title="Settings"
                           >
@@ -1706,8 +1756,8 @@ const Messages = () => {
                                           }
                                         }}
                                         className={`px-2 py-0.5 rounded-full text-xs flex items-center space-x-1 ${userReaction?.emoji === emoji
-                                            ? 'bg-blue-100 border border-blue-500'
-                                            : 'bg-gray-100 border border-gray-300 hover:bg-gray-200'
+                                          ? 'bg-blue-100 border border-blue-500'
+                                          : 'bg-gray-100 border border-gray-300 hover:bg-gray-200'
                                           }`}
                                       >
                                         <span>{emoji}</span>
@@ -1987,8 +2037,8 @@ const Messages = () => {
                 </label>
                 <input
                   type="text"
-                  value={conversationSettings.nickname}
-                  onChange={(e) => setConversationSettings({ ...conversationSettings, nickname: e.target.value })}
+                  value={editingSettings.nickname}
+                  onChange={(e) => setEditingSettings({ ...editingSettings, nickname: e.target.value })}
                   placeholder={`${selectedUser.firstName} ${selectedUser.lastName}`}
                   className="input-field"
                 />
@@ -2004,15 +2054,15 @@ const Messages = () => {
                 <div className="flex items-center space-x-4">
                   <input
                     type="color"
-                    value={conversationSettings.themeColor}
-                    onChange={(e) => setConversationSettings({ ...conversationSettings, themeColor: e.target.value })}
+                    value={editingSettings.themeColor}
+                    onChange={(e) => setEditingSettings({ ...editingSettings, themeColor: e.target.value })}
                     className="w-16 h-10 rounded-lg glass-pill cursor-pointer"
                   />
                   <div className="flex-1">
                     <input
                       type="text"
-                      value={conversationSettings.themeColor}
-                      onChange={(e) => setConversationSettings({ ...conversationSettings, themeColor: e.target.value })}
+                      value={editingSettings.themeColor}
+                      onChange={(e) => setEditingSettings({ ...editingSettings, themeColor: e.target.value })}
                       placeholder="#3B82F6"
                       className="input-field font-mono text-sm"
                     />
@@ -2027,7 +2077,7 @@ const Messages = () => {
                 <div className="flex justify-end">
                   <div
                     className="px-4 py-2 rounded-2xl text-white text-sm"
-                    style={{ backgroundColor: conversationSettings.themeColor }}
+                    style={{ backgroundColor: editingSettings.themeColor }}
                   >
                     Your message will look like this
                   </div>

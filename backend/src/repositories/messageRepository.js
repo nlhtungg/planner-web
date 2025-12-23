@@ -12,13 +12,14 @@ class MessageRepository {
       .populate('participants', 'firstName lastName email avatar')
       .populate('lastMessageSender', 'firstName lastName email avatar')
       .sort({ lastMessageAt: -1 });
-    
-    // Convert Map to plain object for unreadCount
+
+    // Convert Map to plain object for unreadCount and nicknames
     return conversations.map(conv => {
       const plainConv = conv.toObject();
       return {
         ...plainConv,
-        unreadCount: plainConv.unreadCount ? Object.fromEntries(plainConv.unreadCount) : {}
+        unreadCount: plainConv.unreadCount ? Object.fromEntries(plainConv.unreadCount) : {},
+        nicknames: plainConv.nicknames ? Object.fromEntries(plainConv.nicknames) : {}
       };
     });
   }
@@ -28,10 +29,10 @@ class MessageRepository {
    */
   async getOrCreateConversation(userId1, userId2) {
     const conversationId = Message.generateConversationId(userId1, userId2);
-    
+
     let conversation = await Conversation.findOne({ conversationId })
       .populate('participants', 'firstName lastName email avatar');
-    
+
     if (!conversation) {
       conversation = await Conversation.create({
         conversationId,
@@ -43,11 +44,11 @@ class MessageRepository {
           [userId2]: 0
         }
       });
-      
+
       conversation = await Conversation.findById(conversation._id)
         .populate('participants', 'firstName lastName email avatar');
     }
-    
+
     return conversation;
   }
 
@@ -56,7 +57,7 @@ class MessageRepository {
    */
   async getMessages(userId1, userId2, limit = 50, skip = 0) {
     const conversationId = Message.generateConversationId(userId1, userId2);
-    
+
     const messages = await Message.find({
       conversationId,
       deletedBy: { $ne: userId1 } // Exclude messages deleted by current user
@@ -67,10 +68,10 @@ class MessageRepository {
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip);
-    
+
     const systemCount = messages.filter(m => m.isSystemMessage).length;
-    console.log(`📬 Fetched ${messages.length} messages (${systemCount} system messages) for conversation ${conversationId}`);
-    
+    console.log(`Fetched ${messages.length} messages (${systemCount} system messages) for conversation ${conversationId}`);
+
     return messages;
   }
 
@@ -80,9 +81,9 @@ class MessageRepository {
   async createMessage(messageData) {
     const { sender, receiver, content, attachments } = messageData;
     const conversationId = Message.generateConversationId(sender, receiver);
-    
+
     console.log('💾 Creating message:', { sender, receiver, conversationId });
-    
+
     const message = await Message.create({
       sender,
       receiver,
@@ -95,9 +96,9 @@ class MessageRepository {
 
     // Check if conversation exists
     let conversation = await Conversation.findOne({ conversationId });
-    
+
     console.log('🔍 Conversation exists?', !!conversation);
-    
+
     if (!conversation) {
       // Create new conversation
       console.log('📝 Creating new conversation...');
@@ -127,15 +128,15 @@ class MessageRepository {
           console.log('⚠️ Participants missing, adding them...');
           conversation.participants = [sender, receiver];
         }
-        
+
         conversation.lastMessage = content.substring(0, 100);
         conversation.lastMessageSender = sender;
         conversation.lastMessageAt = new Date();
-        
+
         // Increment unread count for receiver
         const currentUnread = conversation.unreadCount.get(receiver.toString()) || 0;
         conversation.unreadCount.set(receiver.toString(), currentUnread + 1);
-        
+
         conversation.markModified('unreadCount'); // Important for Map type
         conversation.markModified('participants'); // Important for array type
         await conversation.save();
@@ -157,34 +158,34 @@ class MessageRepository {
    */
   async markAsRead(messageId, userId) {
     const message = await Message.findById(messageId);
-    
+
     if (!message) {
       throw new Error('Message not found');
     }
-    
+
     // Only receiver can mark as read
     if (message.receiver.toString() !== userId.toString()) {
       throw new Error('Unauthorized');
     }
-    
+
     // Check if user already marked as read
     const alreadyRead = message.readBy.some(
       rb => rb.user.toString() === userId.toString()
     );
-    
+
     if (!alreadyRead) {
       message.readBy.push({
         user: userId,
         readAt: new Date()
       });
     }
-    
+
     message.readAt = new Date();
     await message.save();
-    
+
     // Populate readBy for response
     await message.populate('readBy.user', 'firstName lastName avatar');
-    
+
     return message;
   }
 
@@ -193,7 +194,7 @@ class MessageRepository {
    */
   async markConversationAsRead(userId1, userId2, currentUserId) {
     const conversationId = Message.generateConversationId(userId1, userId2);
-    
+
     await Message.updateMany(
       {
         conversationId,
@@ -219,11 +220,11 @@ class MessageRepository {
    */
   async deleteMessage(messageId, userId) {
     const message = await Message.findById(messageId);
-    
+
     if (!message) {
       throw new Error('Message not found');
     }
-    
+
     // Check if user is sender or receiver
     if (
       message.sender.toString() !== userId.toString() &&
@@ -231,13 +232,13 @@ class MessageRepository {
     ) {
       throw new Error('Unauthorized');
     }
-    
+
     // Add user to deletedBy array
     if (!message.deletedBy.includes(userId)) {
       message.deletedBy.push(userId);
       await message.save();
     }
-    
+
     return message;
   }
 
@@ -263,7 +264,7 @@ class MessageRepository {
    */
   async searchUsers(query, currentUserId, limit = 10) {
     const User = require('../models/User');
-    
+
     return await User.find({
       _id: { $ne: currentUserId }, // Exclude current user
       $or: [
@@ -281,7 +282,7 @@ class MessageRepository {
    */
   async addReaction(messageId, userId, emoji) {
     const message = await Message.findById(messageId);
-    
+
     if (!message) {
       throw new Error('Message not found');
     }
@@ -311,7 +312,7 @@ class MessageRepository {
    */
   async removeReaction(messageId, userId) {
     const message = await Message.findById(messageId);
-    
+
     if (!message) {
       throw new Error('Message not found');
     }
@@ -333,7 +334,7 @@ class MessageRepository {
    */
   async togglePinMessage(messageId) {
     const message = await Message.findById(messageId);
-    
+
     if (!message) {
       throw new Error('Message not found');
     }
@@ -351,9 +352,9 @@ class MessageRepository {
    */
   async updateConversationSettings(userId1, userId2, settings) {
     const conversationId = Message.generateConversationId(userId1, userId2);
-    
+
     const conversation = await Conversation.findOne({ conversationId });
-    
+
     if (!conversation) {
       throw new Error('Conversation not found');
     }
@@ -380,7 +381,7 @@ class MessageRepository {
    */
   async searchMessages(userId1, userId2, query) {
     const conversationId = Message.generateConversationId(userId1, userId2);
-    
+
     return await Message.find({
       conversationId,
       deletedBy: { $ne: userId1 },
@@ -398,9 +399,9 @@ class MessageRepository {
   async createSystemNotification(notificationData) {
     const { sender, receiver, content, systemMessageType, relatedMessage } = notificationData;
     const conversationId = Message.generateConversationId(sender, receiver);
-    
+
     console.log('📢 Creating system notification:', { content, systemMessageType, conversationId });
-    
+
     const message = await Message.create({
       sender,
       receiver,
@@ -423,9 +424,9 @@ class MessageRepository {
     const populatedMessage = await Message.findById(message._id)
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar');
-    
+
     console.log('✅ System notification created and populated:', populatedMessage._id, populatedMessage.isSystemMessage);
-    
+
     return populatedMessage;
   }
 }
