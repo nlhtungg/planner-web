@@ -713,6 +713,11 @@ const Messages = () => {
   };
 
   const handleSelectConversation = async (otherUser) => {
+    // Skip if clicking on the already-selected conversation
+    if (selectedUserId === otherUser._id) {
+      return;
+    }
+
     console.log('🔵 Selecting conversation, resetting unread count for:', otherUser.firstName);
     setSelectedUserId(otherUser._id);
     setSelectedUser(otherUser);
@@ -784,6 +789,11 @@ const Messages = () => {
   };
 
   const handleSelectGroup = async (group) => {
+    // Skip if clicking on the already-selected group
+    if (selectedGroupId === group._id) {
+      return;
+    }
+
     setSelectedGroupId(group._id);
     setSelectedGroup(group);
     setSelectedUserId(null);
