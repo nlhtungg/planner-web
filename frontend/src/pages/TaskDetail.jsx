@@ -163,42 +163,52 @@ const TaskDetail = () => {
   } disabled:opacity-50 disabled:cursor-not-allowed`;
 
   if (loading) return (
-    <GlassPageContainer>
-      <div className="flex items-center justify-center h-64">
-        <p className={textClass}>Loading task...</p>
-      </div>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
+      <GlassHeader activeNav="tasks">
+        <div className="flex items-center justify-center h-64">
+          <p className={textClass}>Loading task...</p>
+        </div>
+      </GlassHeader>
     </GlassPageContainer>
   );
   
   if (error) return (
-    <GlassPageContainer>
-      <div className="flex items-center justify-center h-64">
-        <p className={`${isDark ? 'text-red-400' : 'text-red-600'}`}>{error}</p>
-      </div>
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
+      <GlassHeader activeNav="tasks">
+        <div className="flex items-center justify-center h-64">
+          <p className={`${isDark ? 'text-red-400' : 'text-red-600'}`}>{error}</p>
+        </div>
+      </GlassHeader>
     </GlassPageContainer>
   );
   
   if (!task) return null;
 
   return (
-    <GlassPageContainer>
-      <GlassHeader 
-        title={`Task: ${task.title}`}
-        subtitle={task.description}
-      />
+    <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
+      <GlassHeader activeNav="tasks">
+        {/* Scrollable content wrapper */}
+        <div className="dashboard-scroll flex-1 min-h-0 overflow-auto">
+          {/* Back button */}
+          <button 
+            onClick={() => navigate(-1)} 
+            className={`flex items-center gap-2 mb-6 text-sm font-medium transition-colors ${
+              isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+            }`}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
 
-      {/* Back button */}
-      <button 
-        onClick={() => navigate(-1)} 
-        className={`flex items-center gap-2 mb-6 text-sm font-medium transition-colors ${
-          isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-        }`}
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
+          {/* Task title header */}
+          <div className="mb-6">
+            <h1 className={`text-2xl font-bold ${textClass} mb-2`}>{task.title}</h1>
+            {task.description && (
+              <p className={`${textSecondaryClass} text-sm`}>{task.description}</p>
+            )}
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Edit Task Form */}
         <GlassCard>
           <div className="flex items-center gap-2 mb-6">
@@ -417,6 +427,8 @@ const TaskDetail = () => {
           </GlassCard>
         </div>
       </div>
+        </div>
+      </GlassHeader>
     </GlassPageContainer>
   );
 };

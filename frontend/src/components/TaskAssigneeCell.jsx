@@ -18,16 +18,74 @@ const TaskAssigneeCell = ({
   const [searchItems, setSearchItems] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          buttonRef.current && !buttonRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Update dropdown position when opened with smart positioning
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const updatePosition = () => {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const dropdownWidth = 256; // w-64 = 16rem = 256px
+        const dropdownHeight = 400; // estimated max height
+        const spacing = 8;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        let top = rect.bottom + spacing;
+        let left = rect.left;
+        
+        // Check if dropdown would overflow right edge
+        if (left + dropdownWidth > viewportWidth - 16) {
+          // Position from right edge of button instead
+          left = rect.right - dropdownWidth;
+          // If still overflows, align with right edge of viewport
+          if (left < 16) {
+            left = viewportWidth - dropdownWidth - 16;
+          }
+        }
+        
+        // Ensure minimum left margin on small screens
+        if (left < 16) {
+          left = 16;
+        }
+        
+        // Check if dropdown would overflow bottom edge
+        if (top + dropdownHeight > viewportHeight - 16) {
+          // Position above the button instead
+          top = rect.top - dropdownHeight - spacing;
+          // If still overflows top, position at top of viewport
+          if (top < 16) {
+            top = 16;
+          }
+        }
+        
+        setDropdownPosition({ top, left });
+      };
+      
+      updatePosition();
+      
+      // Recalculate on window resize or scroll
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
+      
+      return () => {
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition, true);
+      };
+    }
+  }, [isOpen]);
 
   const handleAssign = async (userId) => {
     try {
@@ -118,8 +176,8 @@ const TaskAssigneeCell = ({
   const displayedMembers = useMemo(() => members || [], [members]);
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <div className="flex flex-wrap gap-1 items-center">
+    <div className="relative">
+      <div className="flex flex-wrap gap-1 items-center" ref={buttonRef}>
         {task.assignees && task.assignees.length > 0 ? (
           task.assignees.map((assignee) => (
             <div 
@@ -163,13 +221,20 @@ const TaskAssigneeCell = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-[9999] mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden right-0 sm:left-0">
-          <div className="p-2 border-b border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-slate-700/50">
+        <div 
+          ref={dropdownRef}
+          className="fixed z-[9999] w-64 max-h-[400px] bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden flex flex-col"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+          }}
+        >
+          <div className="p-2 border-b border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-slate-700/50 flex-shrink-0">
             <h4 className="text-xs font-semibold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Assign to</h4>
           </div>
 
           {canSearch && (
-            <div className="p-2 border-b border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800 space-y-2">
+            <div className="p-2 border-b border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800 space-y-2 flex-shrink-0">
               <input
                 type="text"
                 value={searchQuery}
@@ -264,7 +329,7 @@ const TaskAssigneeCell = ({
             </div>
           )}
 
-          <div className="max-h-60 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {displayedMembers.map((member) => {
               const assigned = isAssigned(member.user._id);
               return (
