@@ -25,5 +25,27 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/minio/, ''),
       },
     }
+  },
+  preview: {
+    port: 3000,
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001', // Port của Backend
+        changeOrigin: true,
+        secure: false,
+      },
+      '/socket.io': {
+        target: 'http://localhost:3001', // WebSocket endpoint
+        changeOrigin: true,
+        ws: true, // Enable WebSocket proxying
+      },
+      '/minio': {
+        target: 'http://localhost:9000', // MinIO storage
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/minio/, ''),
+      },
+    }
   }
 })
