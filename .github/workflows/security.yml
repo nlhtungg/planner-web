@@ -25,13 +25,13 @@ jobs:
       - name: Install and audit backend
         run: |
           cd backend
-          npm install --package-lock-only
+          npm install --package-lock-only --legacy-peer-deps
           npm audit --audit-level=high
       
       - name: Install and audit frontend
         run: |
           cd frontend
-          npm install --package-lock-only
+          npm install --package-lock-only --legacy-peer-deps
           npm audit --audit-level=high
 
   sast:
@@ -54,13 +54,6 @@ jobs:
       
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
-        with:
-          output: sarif-results
-      
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: sarif-results
 
   secrets:
     name: Secret Detection
