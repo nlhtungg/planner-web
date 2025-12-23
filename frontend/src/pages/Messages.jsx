@@ -58,7 +58,7 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  
+
   // Chat states
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -141,10 +141,10 @@ const Messages = () => {
     try {
       setSending(true);
       let response;
-      
+
       // Send GIF URL as message content with special marker
       const gifMessage = `[GIF]${gifUrl}`;
-      
+
       if (selectedGroupId) {
         response = await groupService.sendGroupMessage(selectedGroupId, gifMessage, []);
       } else {
@@ -155,7 +155,7 @@ const Messages = () => {
         setMessages(prev => [...prev, response.data]);
         scrollToBottom();
       }
-      
+
       setShowGifPicker(false);
       setGifSearchQuery('');
     } catch (error) {
@@ -170,50 +170,50 @@ const Messages = () => {
     try {
       const fileList = e.target.files;
       console.log('📁 File input changed, files:', fileList?.length || 0);
-      
+
       if (!fileList || fileList.length === 0) {
         console.log('   No files selected');
         return;
       }
-      
+
       const input = e.target;
       const files = Array.from(fileList);
       console.log('   Files array:', files.map(f => `${f.name} (${f.size} bytes)`));
-      
+
       // Reset input immediately
       input.value = '';
-      
+
       const maxSize = 10 * 1024 * 1024; // 10MB
       const maxFiles = 5;
-      
+
       setSelectedFiles(prev => {
         console.log('   Current files count:', prev.length);
         const validFiles = [];
         let error = null;
-        
+
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          
+
           if (prev.length + validFiles.length >= maxFiles) {
             error = 'Maximum 5 files allowed';
             console.log('   ❌ Max files reached');
             break;
           }
-          
+
           if (file.size > maxSize) {
             error = `${file.name} exceeds 10MB limit`;
             console.log('   ❌ File too large:', file.name);
             continue;
           }
-          
+
           validFiles.push(file);
           console.log('   ✅ Valid file:', file.name);
         }
-        
+
         if (error) {
           showError(error);
         }
-        
+
         const newFiles = validFiles.length > 0 ? [...prev, ...validFiles] : prev;
         console.log('   Total files after update:', newFiles.length);
         return newFiles;
@@ -246,7 +246,7 @@ const Messages = () => {
 
   useEffect(() => {
     fetchConversations();
-    
+
     // Socket is auto-connected via SocketProvider and user room auto-joined by server
     // No need to manually connect or joinChat
 
@@ -272,19 +272,19 @@ const Messages = () => {
     // Define handler inline
     const onNewMessage = (message) => {
       console.log('📨 Messages: Received new message, updating conversation list');
-      
+
       // Update allConversations list
       updateAllConversations(prev => {
         const conversationId = message.conversationId;
-        const existingIndex = prev.findIndex(conv => 
+        const existingIndex = prev.findIndex(conv =>
           conv.type === 'direct' && conv.conversationId === conversationId
         );
-        
+
         if (existingIndex >= 0) {
           const updated = [...prev];
           const isReceiver = message.receiver._id === user._id;
           const currentUnreadCount = updated[existingIndex].unreadCount || {};
-          
+
           updated[existingIndex] = {
             ...updated[existingIndex],
             lastMessage: message.content,
@@ -294,19 +294,19 @@ const Messages = () => {
               ? { ...currentUnreadCount, [user._id]: (currentUnreadCount[user._id] || 0) + 1 }
               : currentUnreadCount
           };
-          
+
           return updated;
         } else {
           fetchConversations();
           return prev;
         }
       });
-      
+
       // Also update separate conversations state for compatibility
       setConversations(prev => {
         const conversationId = message.conversationId;
         const existingIndex = prev.findIndex(conv => conv.conversationId === conversationId);
-        
+
         if (existingIndex >= 0) {
           const updated = [...prev];
           updated[existingIndex] = {
@@ -319,15 +319,15 @@ const Messages = () => {
         }
         return prev;
       });
-      
+
       // Update chat messages if this conversation is open
       // For system messages or regular messages, check if it belongs to current conversation
-      const belongsToCurrentConversation = 
+      const belongsToCurrentConversation =
         (message.sender._id === selectedUserId && message.receiver._id === user._id) ||
         (message.sender._id === user._id && message.receiver._id === selectedUserId) ||
         (message.receiver._id === selectedUserId && message.sender._id === user._id) ||
         (message.receiver._id === user._id && message.sender._id === selectedUserId);
-      
+
       if (belongsToCurrentConversation) {
         console.log('📨 Adding message to chat:', message.isSystemMessage ? 'SYSTEM' : 'REGULAR', message.content);
         console.log('   sender:', message.sender._id, 'receiver:', message.receiver._id);
@@ -363,14 +363,14 @@ const Messages = () => {
     };
 
     const onMessageRead = ({ messageId, readAt, readBy }) => {
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg._id === messageId ? { ...msg, readAt: readAt || new Date(), readBy: readBy || msg.readBy } : msg
       ));
     };
 
     const onConversationRead = ({ userId }) => {
       if (userId === selectedUserId) {
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg.sender._id === user._id && !msg.readAt ? { ...msg, readAt: new Date() } : msg
         ));
       }
@@ -378,30 +378,30 @@ const Messages = () => {
 
     const onMessageReaction = (message) => {
       console.log('👍 Reaction event received:', message._id);
-      
+
       // Update message in chat if conversation is open
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg._id === message._id ? message : msg
       ));
-      
+
       // Update conversation list to show latest reaction activity
       setConversations(prev => {
         const conversationId = message.conversationId;
         const existingIndex = prev.findIndex(conv => conv.conversationId === conversationId);
-        
+
         if (existingIndex >= 0) {
           const updated = [...prev];
           // Find who reacted
           const latestReaction = message.reactions?.[message.reactions.length - 1];
           const reactorName = latestReaction?.user?.firstName || 'Someone';
           const emoji = latestReaction?.emoji || '👍';
-          
+
           updated[existingIndex] = {
             ...updated[existingIndex],
             lastMessage: `${reactorName} reacted ${emoji}`,
             lastMessageAt: new Date()
           };
-          
+
           // Move to top
           const [conversation] = updated.splice(existingIndex, 1);
           return [conversation, ...updated];
@@ -411,7 +411,7 @@ const Messages = () => {
     };
 
     const onMessagePinned = (message) => {
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg._id === message._id ? message : msg
       ));
     };
@@ -430,19 +430,19 @@ const Messages = () => {
 
     const onNewGroupMessage = (message) => {
       console.log('📨 New group message received:', message);
-      
+
       // Update allConversations list
       updateAllConversations(prev => {
         const groupId = message.group?._id;
-        const existingIndex = prev.findIndex(conv => 
+        const existingIndex = prev.findIndex(conv =>
           conv.type === 'group' && conv._id === groupId
         );
-        
+
         if (existingIndex >= 0) {
           const updated = [...prev];
           const isNotSender = message.sender._id !== user._id;
           const currentUnreadCount = updated[existingIndex].unreadCount || {};
-          
+
           updated[existingIndex] = {
             ...updated[existingIndex],
             lastMessage: message.content,
@@ -452,12 +452,12 @@ const Messages = () => {
               ? { ...currentUnreadCount, [user._id]: (currentUnreadCount[user._id] || 0) + 1 }
               : currentUnreadCount
           };
-          
+
           return updated;
         }
         return prev;
       });
-      
+
       // Also update separate groups state
       setGroups(prev => {
         const groupId = message.group?._id;
@@ -474,7 +474,7 @@ const Messages = () => {
         }
         return prev;
       });
-      
+
       if (selectedGroupId === message.group?._id) {
         setMessages(prev => {
           const exists = prev.some(m => m._id === message._id);
@@ -515,7 +515,7 @@ const Messages = () => {
     };
 
     const onGroupMessageRead = ({ messageId, readBy }) => {
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg._id === messageId ? { ...msg, readBy: readBy || msg.readBy } : msg
       ));
     };
@@ -587,24 +587,24 @@ const Messages = () => {
 
   const fetchMessages = async (loadMore = false) => {
     if (!selectedUserId) return;
-    
+
     try {
       if (loadMore) {
         setLoadingMore(true);
       } else {
         setLoadingMessages(true);
       }
-      
+
       const skip = loadMore ? messages.length : 0;
       const limit = 30;
       const response = await messageService.getMessages(selectedUserId, limit, skip);
       const newMessages = response.data || [];
-      
+
       console.log('📬 Fetched messages:', newMessages.length, 'messages');
       const systemMessages = newMessages.filter(m => m.isSystemMessage);
       console.log('🔔 System messages found:', systemMessages.length);
       systemMessages.forEach(sm => console.log('   -', sm.content));
-      
+
       if (loadMore) {
         setMessages(prev => [...newMessages, ...prev]);
         setHasMore(newMessages.length === limit);
@@ -614,15 +614,15 @@ const Messages = () => {
         // Scroll to bottom when loading new conversation
         setTimeout(() => scrollToBottom(), 100);
       }
-      
+
       if (newMessages.length > 0) {
         const firstMessage = newMessages[0];
-        const other = firstMessage.sender._id === user._id 
-          ? firstMessage.receiver 
+        const other = firstMessage.sender._id === user._id
+          ? firstMessage.receiver
           : firstMessage.sender;
         setSelectedUser(other);
       }
-      
+
       messageService.markConversationAsRead(selectedUserId);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -641,16 +641,16 @@ const Messages = () => {
     try {
       setLoading(true);
       console.log('🔍 Fetching conversations and groups...');
-      
+
       // Fetch both conversations and groups in parallel
       const [conversationsRes, groupsRes] = await Promise.all([
         messageService.getConversations(),
         groupService.getUserGroups()
       ]);
-      
+
       console.log('🔍 Conversations:', conversationsRes.data);
       console.log('🔍 Groups:', groupsRes.data);
-      
+
       // Combine conversations and groups, then sort by last message time
       const combined = [
         ...(conversationsRes.data || []).map(conv => ({ ...conv, type: 'direct' })),
@@ -660,7 +660,7 @@ const Messages = () => {
         const timeB = new Date(b.lastMessageAt || 0);
         return timeB - timeA;
       });
-      
+
       // Set the combined sorted list
       setAllConversations(combined);
       // Also keep separate for compatibility
@@ -695,6 +695,10 @@ const Messages = () => {
     setShowSearchModal(false);
     setSearchQuery('');
     setSearchResults([]);
+    // Clear group selection to prevent sending to wrong chat
+    setSelectedGroupId(null);
+    setSelectedGroup(null);
+    setMessages([]);
     setSelectedUserId(selectedUserObj._id);
     setSelectedUser(selectedUserObj);
     fetchConversations();
@@ -708,7 +712,7 @@ const Messages = () => {
     setSelectedGroup(null);
     setMessages([]);
     setHasMore(true);
-    
+
     // Reset unread count in allConversations immediately
     updateAllConversations(prev => {
       console.log('📝 Updating allConversations, current state:', prev);
@@ -727,7 +731,7 @@ const Messages = () => {
         return conv;
       });
     });
-    
+
     // Also reset in separate conversations state
     setConversations(prev => {
       return prev.map(conv => {
@@ -744,7 +748,7 @@ const Messages = () => {
         return conv;
       });
     });
-    
+
     // Mark conversation as read immediately
     try {
       await messageService.markConversationAsRead(otherUser._id);
@@ -761,7 +765,7 @@ const Messages = () => {
     setSelectedUser(null);
     setMessages([]);
     setHasMore(true);
-    
+
     // Reset unread count in allConversations immediately
     updateAllConversations(prev => {
       return prev.map(conv => {
@@ -775,7 +779,7 @@ const Messages = () => {
         return conv;
       });
     });
-    
+
     // Also reset in separate groups state
     setGroups(prev => {
       return prev.map(g => {
@@ -789,15 +793,15 @@ const Messages = () => {
         return g;
       });
     });
-    
+
     try {
       setLoadingMessages(true);
       const response = await groupService.getGroupMessages(group._id);
       setMessages(response.data || []);
-      
+
       // Mark all messages as read
       await groupService.markGroupMessagesAsRead(group._id);
-      
+
       // Scroll to bottom after loading messages
       setTimeout(() => scrollToBottom(), 100);
     } catch (error) {
@@ -836,13 +840,13 @@ const Messages = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    
+
     if ((!newMessage.trim() && selectedFiles.length === 0) || sending || (!selectedUserId && !selectedGroupId)) return;
 
     try {
       setSending(true);
       console.log('📤 Sending message with files:', selectedFiles.length);
-      
+
       let response;
       if (selectedGroupId) {
         // Send group message
@@ -854,14 +858,14 @@ const Messages = () => {
       } else {
         // Send direct message
         response = await messageService.sendMessage(
-          selectedUserId, 
-          newMessage.trim() || '📎 Attachment', 
+          selectedUserId,
+          newMessage.trim() || '📎 Attachment',
           selectedFiles
         );
       }
-      
+
       console.log('✅ Message sent:', response);
-      
+
       if (response.data) {
         setMessages(prev => {
           // Check if message already exists (might come from socket)
@@ -869,16 +873,16 @@ const Messages = () => {
           if (exists) return prev;
           return [...prev, response.data];
         });
-        
+
         // Update conversation list
         if (selectedUserId) {
           // Direct message - update allConversations
           updateAllConversations(prev => {
             const conversationId = response.data.conversationId;
-            const existingIndex = prev.findIndex(conv => 
+            const existingIndex = prev.findIndex(conv =>
               conv.type === 'direct' && conv.conversationId === conversationId
             );
-            
+
             if (existingIndex >= 0) {
               const updated = [...prev];
               updated[existingIndex] = {
@@ -894,7 +898,7 @@ const Messages = () => {
               return prev;
             }
           });
-          
+
           // Also update separate state
           setConversations(prev => {
             const conversationId = response.data.conversationId;
@@ -914,10 +918,10 @@ const Messages = () => {
         } else if (selectedGroupId) {
           // Group message - update allConversations
           updateAllConversations(prev => {
-            const existingIndex = prev.findIndex(conv => 
+            const existingIndex = prev.findIndex(conv =>
               conv.type === 'group' && conv._id === selectedGroupId
             );
-            
+
             if (existingIndex >= 0) {
               const updated = [...prev];
               updated[existingIndex] = {
@@ -930,7 +934,7 @@ const Messages = () => {
             }
             return prev;
           });
-          
+
           // Also update separate state
           setGroups(prev => {
             const existingIndex = prev.findIndex(g => g._id === selectedGroupId);
@@ -948,10 +952,10 @@ const Messages = () => {
           });
         }
       }
-      
+
       setNewMessage('');
       setSelectedFiles([]);
-      
+
       if (selectedUserId && socketService.socket) {
         socketService.socket.emit('stop-typing', { senderId: user._id, receiverId: selectedUserId });
       }
@@ -965,7 +969,7 @@ const Messages = () => {
 
   const handleTyping = () => {
     if (!selectedUserId || !socketService.socket) return;
-    
+
     socketService.socket.emit('typing', { senderId: user._id, receiverId: selectedUserId });
 
     if (typingTimeoutRef.current) {
@@ -1004,9 +1008,9 @@ const Messages = () => {
       } else {
         response = await messageService.addReaction(messageId, emoji);
       }
-      
+
       if (response.data) {
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg._id === messageId ? response.data : msg
         ));
       }
@@ -1024,9 +1028,9 @@ const Messages = () => {
       } else {
         response = await messageService.removeReaction(messageId);
       }
-      
+
       if (response.data) {
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg._id === messageId ? response.data : msg
         ));
       }
@@ -1044,9 +1048,9 @@ const Messages = () => {
       } else {
         response = await messageService.togglePinMessage(messageId);
       }
-      
+
       if (response.data) {
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg._id === messageId ? response.data : msg
         ));
       }
@@ -1071,7 +1075,7 @@ const Messages = () => {
       setSearchedMessages([]);
       return;
     }
-    
+
     try {
       let response;
       if (selectedGroupId) {
@@ -1086,7 +1090,7 @@ const Messages = () => {
       console.error('Error searching messages:', error);
     }
   };
-  
+
   // Auto search when query changes
   useEffect(() => {
     if (messageSearchQuery.trim().length >= 2) {
@@ -1116,10 +1120,10 @@ const Messages = () => {
   return (
     <GlassPageContainer className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      
+
       {/* Glass Header */}
       <GlassHeader activeNav="messages" />
-      
+
       {/* Messages Content - using glass design language */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full">
@@ -1183,11 +1187,11 @@ const Messages = () => {
                   <>
                     {allConversations.map((item) => {
                       const isGroup = item.type === 'group';
-                      
+
                       if (isGroup) {
                         const group = item;
                         const groupUnreadCount = group.unreadCount ? (group.unreadCount[user._id] || 0) : 0;
-                        
+
                         const formatGroupLastMessage = () => {
                           if (!group.lastMessage) return `${group.members?.length || 0} members`;
                           if (group.lastMessageSender) {
@@ -1197,7 +1201,7 @@ const Messages = () => {
                           }
                           return group.lastMessage;
                         };
-                        
+
                         return (
                           <button
                             key={`group-${group._id}`}
@@ -1242,7 +1246,7 @@ const Messages = () => {
                         const conversation = item;
                         const otherUser = getOtherUser(conversation);
                         const unreadCount = getUnreadCount(conversation);
-                        
+
                         const formatLastMessage = () => {
                           if (!conversation.lastMessage) return 'No messages yet';
                           if (conversation.lastMessageSender) {
@@ -1252,7 +1256,7 @@ const Messages = () => {
                           }
                           return conversation.lastMessage;
                         };
-                        
+
                         return (
                           <button
                             key={conversation._id}
@@ -1441,526 +1445,522 @@ const Messages = () => {
                         // System notification messages
                         if (message.isSystemMessage) {
 
-                    console.log('🔔 Rendering system message:', message.content);
-                    
-                    // Handler to jump to related message
-                    const handleNotificationClick = () => {
-                      if (message.relatedMessage) {
-                        const messageElement = document.getElementById(`message-${message.relatedMessage}`);
-                        if (messageElement) {
-                          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          // Add highlight effect
-                          messageElement.classList.add('ring-4', 'ring-yellow-300', 'bg-yellow-50');
-                          setTimeout(() => {
-                            messageElement.classList.remove('ring-4', 'ring-yellow-300', 'bg-yellow-50');
-                          }, 2000);
+                          console.log('🔔 Rendering system message:', message.content);
+
+                          // Handler to jump to related message
+                          const handleNotificationClick = () => {
+                            if (message.relatedMessage) {
+                              const messageElement = document.getElementById(`message-${message.relatedMessage}`);
+                              if (messageElement) {
+                                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                // Add highlight effect
+                                messageElement.classList.add('ring-4', 'ring-yellow-300', 'bg-yellow-50');
+                                setTimeout(() => {
+                                  messageElement.classList.remove('ring-4', 'ring-yellow-300', 'bg-yellow-50');
+                                }, 2000);
+                              }
+                            }
+                          };
+
+                          return (
+                            <div
+                              key={message._id}
+                              id={`message-${message._id}`}
+                              className="flex items-center justify-center py-3 px-4"
+                            >
+                              <button
+                                onClick={handleNotificationClick}
+                                className="px-4 py-2 glass-pill hover:bg-white/20 text-primary shadow-sm hover:shadow-md transition-all cursor-pointer"
+                              >
+                                <p className="text-sm text-blue-700 font-medium text-center">
+                                  {message.content}
+                                </p>
+                              </button>
+                            </div>
+                          );
                         }
-                      }
-                    };
-                    
-                    return (
-                      <div
-                        key={message._id}
-                        id={`message-${message._id}`}
-                        className="flex items-center justify-center py-3 px-4"
-                      >
-                        <button
-                          onClick={handleNotificationClick}
-                          className="px-4 py-2 glass-pill hover:bg-white/20 text-primary shadow-sm hover:shadow-md transition-all cursor-pointer"
-                        >
-                          <p className="text-sm text-blue-700 font-medium text-center">
-                            {message.content}
-                          </p>
-                        </button>
-                      </div>
-                    );
-                  }
 
-                  // Regular messages
-                  const isOwn = message.sender._id === user._id;
-                  const showAvatar = index === 0 || messages[index - 1].sender._id !== message.sender._id;
-                  const showSenderName = !isOwn; // Show sender name for all messages from others
-                  const userReaction = message.reactions?.find(r => {
-                    const reactionUserId = typeof r.user === 'object' ? r.user._id : r.user;
-                    return reactionUserId === user._id;
-                  });
-                  
-                  return (
-                    <div
-                      key={message._id}
-                      id={`message-${message._id}`}
-                      className={`flex items-end space-x-2 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} group transition-all duration-300 rounded-lg px-2 py-1`}
-                    >
-                      <div className="flex-shrink-0">
-                        {showAvatar ? (
-                          isOwn ? (
-                            user.avatar ? (
-                              <img src={user.avatar} alt="You" className="w-8 h-8 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
-                                {user.firstName?.[0]}{user.lastName?.[0]}
-                              </div>
-                            )
-                          ) : (
-                            message.sender.avatar ? (
-                              <img src={message.sender.avatar} alt={message.sender.firstName} className="w-8 h-8 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs font-semibold">
-                                {message.sender.firstName?.[0]}{message.sender.lastName?.[0]}
-                              </div>
-                            )
-                          )
-                        ) : (
-                          <div className="w-8 h-8"></div>
-                        )}
-                      </div>
+                        // Regular messages
+                        const isOwn = message.sender._id === user._id;
+                        const showAvatar = index === 0 || messages[index - 1].sender._id !== message.sender._id;
+                        const showSenderName = !isOwn; // Show sender name for all messages from others
+                        const userReaction = message.reactions?.find(r => {
+                          const reactionUserId = typeof r.user === 'object' ? r.user._id : r.user;
+                          return reactionUserId === user._id;
+                        });
 
-                      <div className={`max-w-md ${isOwn ? 'items-end' : 'items-start'}`}>
-                        <div className="relative group/message">
-                          {/* Pin indicator */}
-                          {message.isPinned && (
-                            <div className={`absolute -top-2 ${isOwn ? '-left-2' : '-right-2'} bg-yellow-400 rounded-full p-1`}>
-                              <BookmarkIconSolid className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-
-                          {/* Action menu */}
-                          <div className={`absolute top-0 ${isOwn ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover/message:opacity-100 transition-opacity flex items-center space-x-1`}>
-                            <button
-                              onClick={() => setShowEmojiPicker(showEmojiPicker === message._id ? null : message._id)}
-                              className="p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm"
-                              title="React"
-                            >
-                              <FaceSmileIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                            </button>
-                            <button
-                              onClick={() => handleTogglePin(message._id)}
-                              className="p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm"
-                              title={message.isPinned ? 'Unpin' : 'Pin'}
-                            >
-                              <BookmarkIcon className={clsx(
-                                'w-4 h-4',
-                                message.isPinned ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'
-                              )} />
-                            </button>
-                          </div>
-
-                          {/* Message bubble */}
-                          <div 
-                            className={clsx(
-                              'px-4 py-2 rounded-2xl',
-                              isOwn 
-                                ? 'text-white' 
-                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
-                            )}
-                            style={isOwn ? { backgroundColor: conversationSettings.themeColor || '#3B82F6' } : {}}
+                        return (
+                          <div
+                            key={message._id}
+                            id={`message-${message._id}`}
+                            className={`flex items-end space-x-2 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} group transition-all duration-300 rounded-lg px-2 py-1`}
                           >
-                            {/* Sender name - show for all messages */}
-                            <p className={clsx(
-                              'text-xs font-semibold mb-1',
-                              isOwn ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
-                            )}>
-                              {isOwn ? 'Me' : `${message.sender.firstName} ${message.sender.lastName}`}
-                            </p>
-                            
-                            {/* Check if message is a GIF */}
-                            {message.content?.startsWith('[GIF]') ? (
-                              <div className="mt-1">
-                                <img 
-                                  src={message.content.replace('[GIF]', '')} 
-                                  alt="GIF"
-                                  className="max-w-xs rounded-lg"
-                                  style={{ maxHeight: '200px' }}
-                                />
-                              </div>
-                            ) : (
-                              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                            )}
-                            
-                            {/* Attachments */}
-                            {message.attachments && message.attachments.length > 0 && (
-                              <div className="mt-2 space-y-2">
-                                {message.attachments.map((attachment, idx) => {
-                                  const isImage = attachment.mimetype?.startsWith('image/');
-                                  const isVideo = attachment.mimetype?.startsWith('video/');
-                                  
-                                  if (isImage) {
-                                    return (
-                                      <div key={idx} className="mt-2">
-                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">
-                                          <img 
-                                            src={attachment.url} 
-                                            alt={attachment.filename}
-                                            className="max-w-xs rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                            style={{ maxHeight: '300px' }}
-                                          />
-                                        </a>
-                                        <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
-                                          {attachment.filename}
-                                        </p>
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (isVideo) {
-                                    return (
-                                      <div key={idx} className="mt-2">
-                                        <video 
-                                          controls 
-                                          className="max-w-xs rounded-lg"
-                                          style={{ maxHeight: '300px' }}
-                                        >
-                                          <source src={attachment.url} type={attachment.mimetype} />
-                                          Your browser does not support the video tag.
-                                        </video>
-                                        <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
-                                          {attachment.filename}
-                                        </p>
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  // Default file display
-                                  return (
-                                    <a
-                                      key={idx}
-                                      href={attachment.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={clsx(
-                                        'flex items-center space-x-2 p-2 rounded-lg transition-colors',
-                                        isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
-                                      )}
-                                    >
-                                      <DocumentTextIcon className={clsx(
-                                        'w-5 h-5 flex-shrink-0',
-                                        isOwn ? 'text-white' : 'text-gray-600 dark:text-gray-300'
-                                      )} />
-                                      <div className="flex-1 min-w-0">
-                                        <p className={clsx(
-                                          'text-xs font-medium truncate',
-                                          isOwn ? 'text-white' : 'text-gray-900 dark:text-gray-100'
-                                        )}>
-                                          {attachment.filename}
-                                        </p>
-                                        <p className={clsx(
-                                          'text-xs',
-                                          isOwn ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
-                                        )}>
-                                          {(attachment.size / 1024).toFixed(1)} KB
-                                        </p>
-                                      </div>
-                                    </a>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Emoji picker popup */}
-                          {showEmojiPicker === message._id && (
-                            <div className={clsx(
-                              'emoji-picker-container absolute mt-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-2 flex space-x-1 z-10',
-                              isOwn ? 'right-0' : 'left-0'
-                            )}>
-                              {emojiList.map(emoji => (
-                                <button
-                                  key={emoji}
-                                  onClick={() => {
-                                    if (userReaction?.emoji === emoji) {
-                                      handleRemoveReaction(message._id);
-                                    } else {
-                                      handleAddReaction(message._id, emoji);
-                                    }
-                                    setShowEmojiPicker(null);
-                                  }}
-                                  className={`text-xl hover:bg-gray-100 p-1 rounded ${
-                                    userReaction?.emoji === emoji ? 'bg-blue-100' : ''
-                                  }`}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Reactions display */}
-                          {message.reactions && message.reactions.length > 0 && (
-                            <div className={`flex items-center space-x-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                              {Object.entries(
-                                message.reactions.reduce((acc, r) => {
-                                  acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                                  return acc;
-                                }, {})
-                              ).map(([emoji, count]) => (
-                                <button
-                                  key={emoji}
-                                  onClick={() => {
-                                    if (userReaction?.emoji === emoji) {
-                                      handleRemoveReaction(message._id);
-                                    } else {
-                                      handleAddReaction(message._id, emoji);
-                                    }
-                                  }}
-                                  className={`px-2 py-0.5 rounded-full text-xs flex items-center space-x-1 ${
-                                    userReaction?.emoji === emoji 
-                                      ? 'bg-blue-100 border border-blue-500' 
-                                      : 'bg-gray-100 border border-gray-300 hover:bg-gray-200'
-                                  }`}
-                                >
-                                  <span>{emoji}</span>
-                                  <span className="text-gray-600">{count}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Timestamp and Read Receipts */}
-                        <div className={`mt-1 flex items-center space-x-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                          <p className="text-xs text-gray-500">
-                            {formatTime(message.createdAt)}
-                          </p>
-                          
-                          {/* Read receipts with avatars */}
-                          {isOwn && message.readBy && message.readBy.length > 0 && (
-                            <div className="flex items-center -space-x-1">
-                              {message.readBy.slice(0, 3).map((read, idx) => (
-                                <div
-                                  key={read.user?._id || idx}
-                                  className="relative"
-                                  title={`Read by ${read.user?.firstName || 'Unknown'} ${read.user?.lastName || ''}`}
-                                >
-                                  {read.user?.avatar ? (
-                                    <img
-                                      src={read.user.avatar}
-                                      alt={read.user.firstName}
-                                      className="w-4 h-4 rounded-full border border-white"
-                                    />
+                            <div className="flex-shrink-0">
+                              {showAvatar ? (
+                                isOwn ? (
+                                  user.avatar ? (
+                                    <img src={user.avatar} alt="You" className="w-8 h-8 rounded-full object-cover" />
                                   ) : (
-                                    <div className="w-4 h-4 rounded-full bg-blue-500 border border-white flex items-center justify-center text-[8px] text-white font-semibold">
-                                      {read.user?.firstName?.[0]}{read.user?.lastName?.[0]}
+                                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                                      {user.firstName?.[0]}{user.lastName?.[0]}
+                                    </div>
+                                  )
+                                ) : (
+                                  message.sender.avatar ? (
+                                    <img src={message.sender.avatar} alt={message.sender.firstName} className="w-8 h-8 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-xs font-semibold">
+                                      {message.sender.firstName?.[0]}{message.sender.lastName?.[0]}
+                                    </div>
+                                  )
+                                )
+                              ) : (
+                                <div className="w-8 h-8"></div>
+                              )}
+                            </div>
+
+                            <div className={`max-w-md ${isOwn ? 'items-end' : 'items-start'}`}>
+                              <div className="relative group/message">
+                                {/* Pin indicator */}
+                                {message.isPinned && (
+                                  <div className={`absolute -top-2 ${isOwn ? '-left-2' : '-right-2'} bg-yellow-400 rounded-full p-1`}>
+                                    <BookmarkIconSolid className="w-3 h-3 text-white" />
+                                  </div>
+                                )}
+
+                                {/* Action menu */}
+                                <div className={`absolute top-0 ${isOwn ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover/message:opacity-100 transition-opacity flex items-center space-x-1`}>
+                                  <button
+                                    onClick={() => setShowEmojiPicker(showEmojiPicker === message._id ? null : message._id)}
+                                    className="p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm"
+                                    title="React"
+                                  >
+                                    <FaceSmileIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleTogglePin(message._id)}
+                                    className="p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm"
+                                    title={message.isPinned ? 'Unpin' : 'Pin'}
+                                  >
+                                    <BookmarkIcon className={clsx(
+                                      'w-4 h-4',
+                                      message.isPinned ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'
+                                    )} />
+                                  </button>
+                                </div>
+
+                                {/* Message bubble */}
+                                <div
+                                  className={clsx(
+                                    'px-4 py-2 rounded-2xl',
+                                    isOwn
+                                      ? 'text-white'
+                                      : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                                  )}
+                                  style={isOwn ? { backgroundColor: conversationSettings.themeColor || '#3B82F6' } : {}}
+                                >
+                                  {/* Sender name - show for all messages */}
+                                  <p className={clsx(
+                                    'text-xs font-semibold mb-1',
+                                    isOwn ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
+                                  )}>
+                                    {isOwn ? 'Me' : `${message.sender.firstName} ${message.sender.lastName}`}
+                                  </p>
+
+                                  {/* Check if message is a GIF */}
+                                  {message.content?.startsWith('[GIF]') ? (
+                                    <div className="mt-1">
+                                      <img
+                                        src={message.content.replace('[GIF]', '')}
+                                        alt="GIF"
+                                        className="max-w-xs rounded-lg"
+                                        style={{ maxHeight: '200px' }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                  )}
+
+                                  {/* Attachments */}
+                                  {message.attachments && message.attachments.length > 0 && (
+                                    <div className="mt-2 space-y-2">
+                                      {message.attachments.map((attachment, idx) => {
+                                        const isImage = attachment.mimetype?.startsWith('image/');
+                                        const isVideo = attachment.mimetype?.startsWith('video/');
+
+                                        if (isImage) {
+                                          return (
+                                            <div key={idx} className="mt-2">
+                                              <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                                <img
+                                                  src={attachment.url}
+                                                  alt={attachment.filename}
+                                                  className="max-w-xs rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                  style={{ maxHeight: '300px' }}
+                                                />
+                                              </a>
+                                              <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                                                {attachment.filename}
+                                              </p>
+                                            </div>
+                                          );
+                                        }
+
+                                        if (isVideo) {
+                                          return (
+                                            <div key={idx} className="mt-2">
+                                              <video
+                                                controls
+                                                className="max-w-xs rounded-lg"
+                                                style={{ maxHeight: '300px' }}
+                                              >
+                                                <source src={attachment.url} type={attachment.mimetype} />
+                                                Your browser does not support the video tag.
+                                              </video>
+                                              <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                                                {attachment.filename}
+                                              </p>
+                                            </div>
+                                          );
+                                        }
+
+                                        // Default file display
+                                        return (
+                                          <a
+                                            key={idx}
+                                            href={attachment.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={clsx(
+                                              'flex items-center space-x-2 p-2 rounded-lg transition-colors',
+                                              isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
+                                            )}
+                                          >
+                                            <DocumentTextIcon className={clsx(
+                                              'w-5 h-5 flex-shrink-0',
+                                              isOwn ? 'text-white' : 'text-gray-600 dark:text-gray-300'
+                                            )} />
+                                            <div className="flex-1 min-w-0">
+                                              <p className={clsx(
+                                                'text-xs font-medium truncate',
+                                                isOwn ? 'text-white' : 'text-gray-900 dark:text-gray-100'
+                                              )}>
+                                                {attachment.filename}
+                                              </p>
+                                              <p className={clsx(
+                                                'text-xs',
+                                                isOwn ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+                                              )}>
+                                                {(attachment.size / 1024).toFixed(1)} KB
+                                              </p>
+                                            </div>
+                                          </a>
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
-                              ))}
-                              {message.readBy.length > 3 && (
-                                <div className="w-4 h-4 rounded-full bg-gray-300 border border-white flex items-center justify-center text-[8px] text-gray-600 font-semibold">
-                                  +{message.readBy.length - 3}
-                                </div>
-                              )}
+
+                                {/* Emoji picker popup */}
+                                {showEmojiPicker === message._id && (
+                                  <div className={clsx(
+                                    'emoji-picker-container absolute mt-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-2 flex space-x-1 z-10',
+                                    isOwn ? 'right-0' : 'left-0'
+                                  )}>
+                                    {emojiList.map(emoji => (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => {
+                                          if (userReaction?.emoji === emoji) {
+                                            handleRemoveReaction(message._id);
+                                          } else {
+                                            handleAddReaction(message._id, emoji);
+                                          }
+                                          setShowEmojiPicker(null);
+                                        }}
+                                        className={`text-xl hover:bg-gray-100 p-1 rounded ${userReaction?.emoji === emoji ? 'bg-blue-100' : ''
+                                          }`}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Reactions display */}
+                                {message.reactions && message.reactions.length > 0 && (
+                                  <div className={`flex items-center space-x-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                    {Object.entries(
+                                      message.reactions.reduce((acc, r) => {
+                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        return acc;
+                                      }, {})
+                                    ).map(([emoji, count]) => (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => {
+                                          if (userReaction?.emoji === emoji) {
+                                            handleRemoveReaction(message._id);
+                                          } else {
+                                            handleAddReaction(message._id, emoji);
+                                          }
+                                        }}
+                                        className={`px-2 py-0.5 rounded-full text-xs flex items-center space-x-1 ${userReaction?.emoji === emoji
+                                            ? 'bg-blue-100 border border-blue-500'
+                                            : 'bg-gray-100 border border-gray-300 hover:bg-gray-200'
+                                          }`}
+                                      >
+                                        <span>{emoji}</span>
+                                        <span className="text-gray-600">{count}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Timestamp and Read Receipts */}
+                              <div className={`mt-1 flex items-center space-x-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                <p className="text-xs text-gray-500">
+                                  {formatTime(message.createdAt)}
+                                </p>
+
+                                {/* Read receipts with avatars */}
+                                {isOwn && message.readBy && message.readBy.length > 0 && (
+                                  <div className="flex items-center -space-x-1">
+                                    {message.readBy.slice(0, 3).map((read, idx) => (
+                                      <div
+                                        key={read.user?._id || idx}
+                                        className="relative"
+                                        title={`Read by ${read.user?.firstName || 'Unknown'} ${read.user?.lastName || ''}`}
+                                      >
+                                        {read.user?.avatar ? (
+                                          <img
+                                            src={read.user.avatar}
+                                            alt={read.user.firstName}
+                                            className="w-4 h-4 rounded-full border border-white"
+                                          />
+                                        ) : (
+                                          <div className="w-4 h-4 rounded-full bg-blue-500 border border-white flex items-center justify-center text-[8px] text-white font-semibold">
+                                            {read.user?.firstName?.[0]}{read.user?.lastName?.[0]}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {message.readBy.length > 3 && (
+                                      <div className="w-4 h-4 rounded-full bg-gray-300 border border-white flex items-center justify-center text-[8px] text-gray-600 font-semibold">
+                                        +{message.readBy.length - 3}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Sent indicator */}
+                                {isOwn && (!message.readBy || message.readBy.length === 0) && (
+                                  <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
                             </div>
-                          )}
-                          
-                          {/* Sent indicator */}
-                          {isOwn && (!message.readBy || message.readBy.length === 0) && (
-                            <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Typing Indicator - Fixed */}
+                  {isTyping && (
+                    <div className="flex-shrink-0 px-6 py-2 bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                         </div>
+                        <span>
+                          {selectedGroup ? 'Someone' : selectedUser?.firstName} is typing...
+                        </span>
                       </div>
                     </div>
-                  );
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Typing Indicator - Fixed */}
-            {isTyping && (
-              <div className="flex-shrink-0 px-6 py-2 bg-gray-50 dark:bg-gray-800">
-                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                  <span>
-                    {selectedGroup ? 'Someone' : selectedUser?.firstName} is typing...
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Input Form - Fixed */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
-              {/* GIF Picker */}
-              {showGifPicker && (
-                <div className="gif-picker-container mb-3 p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-purple-200 dark:border-purple-700 shadow-lg max-h-96 overflow-hidden flex flex-col">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      <GifIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      Send GIF
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowGifPicker(false);
-                        setGifSearchQuery('');
-                      }}
-                      className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                      <XMarkIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                  
-                  {/* Search Input */}
-                  <div className="mb-3">
-                    <input
-                      type="text"
-                      placeholder="Search GIFs..."
-                      value={gifSearchQuery}
-                      onChange={(e) => {
-                        setGifSearchQuery(e.target.value);
-                        searchGifs(e.target.value);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                    />
-                  </div>
-
-                  {/* GIFs Grid */}
-                  <div className="flex-1 overflow-y-auto">
-                    {loadingGifs ? (
-                      <div className="flex items-center justify-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {gifs.map((gif) => (
-                          <button
-                            key={gif.id}
-                            type="button"
-                            onClick={() => handleSendGif(gif.images.fixed_height.url)}
-                            className="relative rounded-lg overflow-hidden hover:ring-2 hover:ring-purple-500 transition-all group"
-                          >
-                            <img
-                              src={gif.images.fixed_height_small.url}
-                              alt={gif.title}
-                              className="w-full h-32 object-cover"
-                            />
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all"></div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {!loadingGifs && gifs.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <GifIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                        <p className="text-sm">No GIFs found</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* File Preview */}
-              {selectedFiles.length > 0 && (
-                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      📎 {selectedFiles.length} file(s) • {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / 1024).toFixed(1)} KB
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFiles([])}
-                      className="text-xs text-red-600 hover:text-red-700 font-medium"
-                    >
-                      Remove all
-                    </button>
-                  </div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {selectedFiles.map((file, idx) => (
-                      <div key={`${file.name}-${idx}`} className="flex items-center justify-between text-xs bg-white p-2 rounded shadow-sm">
-                        <div className="flex items-center space-x-2 flex-1 min-w-0">
-                          <DocumentTextIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                          <span className="truncate font-medium">{file.name}</span>
-                          <span className="text-gray-400 text-xs">•</span>
-                          <span className="text-gray-500 whitespace-nowrap">{(file.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
-                          className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
-                        >
-                          <XMarkIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
-                {/* Image Upload Button */}
-                <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Send images">
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    accept="image/*"
-                    disabled={sending || selectedFiles.length >= 5}
-                  />
-                  <PhotoIcon className={`w-5 h-5 ${
-                    selectedFiles.length >= 5 ? 'text-gray-300' : 'text-green-600'
-                  }`} />
-                </label>
-
-                {/* File Upload Button */}
-                <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Attach files">
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
-                    disabled={sending || selectedFiles.length >= 5}
-                  />
-                  <PaperClipIcon className={`w-5 h-5 ${
-                    selectedFiles.length >= 5 ? 'text-gray-300' : 'text-blue-600'
-                  }`} />
-                </label>
-
-                {/* GIF Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowGifPicker(!showGifPicker)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Send GIF"
-                >
-                  <GifIcon className="w-5 h-5 text-purple-600" />
-                </button>
-                
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    handleTyping();
-                  }}
-                  placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="submit"
-                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending}
-                  className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {sending ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <PaperAirplaneIcon className="w-5 h-5" />
                   )}
-                </button>
-              </form>
-            </div>
-          </>
-        )}
-      </GlassCard>
-    </div>
-  </div>
-</div>
+
+                  {/* Input Form - Fixed */}
+                  <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+                    {/* GIF Picker */}
+                    {showGifPicker && (
+                      <div className="gif-picker-container mb-3 p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-purple-200 dark:border-purple-700 shadow-lg max-h-96 overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <GifIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            Send GIF
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowGifPicker(false);
+                              setGifSearchQuery('');
+                            }}
+                            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                          >
+                            <XMarkIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="mb-3">
+                          <input
+                            type="text"
+                            placeholder="Search GIFs..."
+                            value={gifSearchQuery}
+                            onChange={(e) => {
+                              setGifSearchQuery(e.target.value);
+                              searchGifs(e.target.value);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+
+                        {/* GIFs Grid */}
+                        <div className="flex-1 overflow-y-auto">
+                          {loadingGifs ? (
+                            <div className="flex items-center justify-center h-40">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {gifs.map((gif) => (
+                                <button
+                                  key={gif.id}
+                                  type="button"
+                                  onClick={() => handleSendGif(gif.images.fixed_height.url)}
+                                  className="relative rounded-lg overflow-hidden hover:ring-2 hover:ring-purple-500 transition-all group"
+                                >
+                                  <img
+                                    src={gif.images.fixed_height_small.url}
+                                    alt={gif.title}
+                                    className="w-full h-32 object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all"></div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {!loadingGifs && gifs.length === 0 && (
+                            <div className="text-center py-8 text-gray-500">
+                              <GifIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                              <p className="text-sm">No GIFs found</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* File Preview */}
+                    {selectedFiles.length > 0 && (
+                      <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            📎 {selectedFiles.length} file(s) • {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / 1024).toFixed(1)} KB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFiles([])}
+                            className="text-xs text-red-600 hover:text-red-700 font-medium"
+                          >
+                            Remove all
+                          </button>
+                        </div>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {selectedFiles.map((file, idx) => (
+                            <div key={`${file.name}-${idx}`} className="flex items-center justify-between text-xs bg-white p-2 rounded shadow-sm">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <DocumentTextIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                <span className="truncate font-medium">{file.name}</span>
+                                <span className="text-gray-400 text-xs">•</span>
+                                <span className="text-gray-500 whitespace-nowrap">{(file.size / 1024).toFixed(1)} KB</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                                className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+                      {/* Image Upload Button */}
+                      <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Send images">
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          accept="image/*"
+                          disabled={sending || selectedFiles.length >= 5}
+                        />
+                        <PhotoIcon className={`w-5 h-5 ${selectedFiles.length >= 5 ? 'text-gray-300' : 'text-green-600'
+                          }`} />
+                      </label>
+
+                      {/* File Upload Button */}
+                      <label className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors" title="Attach files">
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                          disabled={sending || selectedFiles.length >= 5}
+                        />
+                        <PaperClipIcon className={`w-5 h-5 ${selectedFiles.length >= 5 ? 'text-gray-300' : 'text-blue-600'
+                          }`} />
+                      </label>
+
+                      {/* GIF Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowGifPicker(!showGifPicker)}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                        title="Send GIF"
+                      >
+                        <GifIcon className="w-5 h-5 text-purple-600" />
+                      </button>
+
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => {
+                          setNewMessage(e.target.value);
+                          handleTyping();
+                        }}
+                        placeholder="Type a message..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        type="submit"
+                        disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending}
+                        className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {sending ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        ) : (
+                          <PaperAirplaneIcon className="w-5 h-5" />
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </GlassCard>
+          </div>
+        </div>
+      </div>
 
       {/* Settings Modal */}
       {showSettings && selectedUser && (
@@ -2025,7 +2025,7 @@ const Messages = () => {
               <div className="glass-pill rounded-lg p-4">
                 <p className="text-xs font-medium text-primary mb-2">Preview:</p>
                 <div className="flex justify-end">
-                  <div 
+                  <div
                     className="px-4 py-2 rounded-2xl text-white text-sm"
                     style={{ backgroundColor: conversationSettings.themeColor }}
                   >
@@ -2230,7 +2230,7 @@ const Messages = () => {
                               <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">
                                 {message.content}
                               </p>
-                              
+
                               {/* Reactions if any */}
                               {message.reactions && message.reactions.length > 0 && (
                                 <div className="flex items-center space-x-1 mt-2">
