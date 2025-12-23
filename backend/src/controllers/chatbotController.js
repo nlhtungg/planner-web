@@ -505,10 +505,17 @@ class ChatbotController {
       if (document.fileType && document.fileType.includes('pdf')) {
         // Download file from MinIO
         try {
-          // Replace localhost with minio service name for Docker internal network
-          const internalFileUrl = document.fileUrl.replace('http://localhost:9000', 'http://minio:9000');
+          // Convert relative URL to full URL if needed
+          let fileUrl = document.fileUrl;
+          if (fileUrl.startsWith('/minio/')) {
+            // Remove /minio prefix and add MinIO URL
+            fileUrl = 'http://minio:9000' + fileUrl.replace('/minio', '');
+          } else if (fileUrl.startsWith('http://localhost:9000')) {
+            // Replace localhost with minio service name for Docker internal network
+            fileUrl = fileUrl.replace('http://localhost:9000', 'http://minio:9000');
+          }
           
-          const response = await axios.get(internalFileUrl, {
+          const response = await axios.get(fileUrl, {
             responseType: 'arraybuffer'
           });
 

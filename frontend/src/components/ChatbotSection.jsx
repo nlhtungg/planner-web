@@ -449,7 +449,7 @@ const ChatbotSection = () => {
               
               <button
                 onClick={() => setUploadType('url')}
-                className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-white rounded-lg transition-colors border border-gray-200"
+                className="w-full flex items-center justify-start gap-3 px-4 py-3 text-gray-700 hover:bg-white rounded-lg transition-colors border border-gray-200"
               >
                 <LinkIcon className="w-5 h-5" />
                 <span className="font-medium">Extract from URL</span>
@@ -457,7 +457,7 @@ const ChatbotSection = () => {
 
               <button
                 onClick={() => setUploadType('workspace')}
-                className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-white rounded-lg transition-colors border border-gray-200"
+                className="w-full flex items-center justify-start gap-3 px-4 py-3 text-gray-700 hover:bg-white rounded-lg transition-colors border border-gray-200"
               >
                 <BriefcaseIcon className="w-5 h-5" />
                 <span className="font-medium">Import from Workspace</span>
