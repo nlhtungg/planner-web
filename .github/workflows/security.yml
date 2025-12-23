@@ -22,11 +22,17 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Run npm audit (backend)
-        run: cd backend && npm audit --audit-level=high --package-lock-only
+      - name: Install and audit backend
+        run: |
+          cd backend
+          npm install --package-lock-only
+          npm audit --audit-level=high
       
-      - name: Run npm audit (frontend)
-        run: cd frontend && npm audit --audit-level=high --package-lock-only
+      - name: Install and audit frontend
+        run: |
+          cd frontend
+          npm install --package-lock-only
+          npm audit --audit-level=high
 
   sast:
     name: Code Scan (SAST)
@@ -39,12 +45,22 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript
       
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+      
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
+        with:
+          output: sarif-results
+      
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results
 
   secrets:
     name: Secret Detection
