@@ -14,7 +14,6 @@ import {
   Send,
   Moon,
   Sun,
-  Bell,
   LogOut,
   Clock,
   Menu,
@@ -36,7 +35,6 @@ const Home = () => {
   const darkMode = isDark;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [recentWorkspaces, setRecentWorkspaces] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const searchAreaRef = useRef(null);
   const searchBoxRef = useRef(null);
 
@@ -283,21 +281,6 @@ const Home = () => {
                 <Moon className={`w-4 h-4 sm:w-5 sm:h-5 ${textClass}`} />
               )}
             </button>
-
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-1.5 sm:p-2 rounded-full transition-all relative ${darkMode ? 'hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.12)]' : 'hover:bg-white/20'}`}
-                title="Notifications"
-                aria-label="Notifications"
-              >
-                <Bell className={`w-4 h-4 sm:w-5 sm:h-5 ${textClass}`} />
-                {pendingRequestsCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-600 rounded-full"></span>
-                )}
-              </button>
-            </div>
 
             {/* Logout Button - Hidden on mobile */}
             <button

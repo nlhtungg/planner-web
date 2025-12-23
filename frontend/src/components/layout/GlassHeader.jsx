@@ -6,7 +6,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { 
   Moon, 
   Sun, 
-  Bell, 
   LogOut, 
   Clock, 
   Menu, 
@@ -121,19 +120,6 @@ const GlassHeader = ({ activeNav = '', children }) => {
               <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             ) : (
               <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-            )}
-          </button>
-
-          {/* Notifications */}
-          <button
-            onClick={() => navigate('/connections')}
-            className="p-1.5 sm:p-2 rounded-full transition-all relative hover:bg-white/20 dark:hover:bg-white/10 dark:hover:shadow-[0_0_14px_rgba(255,255,255,0.12)]"
-            title="Notifications"
-            aria-label="Notifications"
-          >
-            <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-            {pendingRequestsCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-600 rounded-full"></span>
             )}
           </button>
 
