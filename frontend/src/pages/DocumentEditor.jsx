@@ -23,11 +23,18 @@ const DocumentEditor = () => {
     const [docxLoading, setDocxLoading] = useState(false);
     const saveTimeoutRef = useRef(null);
 
-    // Connect to Socket.io
+    // Connect to Socket.io with authentication
     useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            console.warn('No auth token for document socket');
+            return;
+        }
+
         const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '');
         const newSocket = io(socketUrl, {
-            withCredentials: true
+            withCredentials: true,
+            auth: { token }
         });
         setSocket(newSocket);
 
@@ -257,7 +264,7 @@ const DocumentEditor = () => {
     return (
         <GlassPageContainer>
             <GlassHeader />
-            
+
             {/* Document Toolbar */}
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="max-w-[1920px] mx-auto w-full px-6 py-4">
@@ -311,183 +318,183 @@ const DocumentEditor = () => {
                                     />
                                 ) : (
                                     <div className="rounded-2xl backdrop-blur-xl p-8 h-full flex flex-col">
-                                    {/* PDF Preview */}
-                                    {document.fileType?.includes('pdf') ? (
-                                        <iframe
-                                            src={document.fileUrl}
-                                            className="w-full flex-1 border-0 min-h-[600px] rounded-lg"
-                                        title={document.title}
-                                    />
-                                ) : document.fileType?.includes('image') ? (
-                                    /* Image Preview */
-                                    <div className="flex-1 flex items-center justify-center">
-                                        <img
-                                            src={document.fileUrl}
-                                            alt={document.title}
-                                            className="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-lg"
-                                        />
-                                    </div>
-                                ) : document.fileType?.includes('video') ? (
-                                    /* Video Preview */
-                                    <div className="flex-1 flex items-center justify-center">
-                                        <video
-                                            src={document.fileUrl}
-                                            controls
-                                            className="max-w-full max-h-[70vh] rounded-2xl shadow-lg"
-                                        />
-                                    </div>
-                                ) : (document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword')) ? (
-                                    /* DOCX Preview using mammoth.js */
-                                    <div className="flex-1 overflow-auto">
-                                        {docxLoading ? (
-                                            <div className="flex items-center justify-center h-full">
-                                                <div className="text-center space-y-4">
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                                                    <p className="text-secondary">Loading document preview...</p>
-                                                </div>
-                                            </div>
-                                        ) : docxHtml ? (
-                                            <div className="bg-white/20 dark:bg-slate-900/20 p-8 rounded-2xl">
-                                                <div
-                                                    className="prose prose-lg prose-slate max-w-none"
-                                                    dangerouslySetInnerHTML={{ __html: docxHtml }}
+                                        {/* PDF Preview */}
+                                        {document.fileType?.includes('pdf') ? (
+                                            <iframe
+                                                src={document.fileUrl}
+                                                className="w-full flex-1 border-0 min-h-[600px] rounded-lg"
+                                                title={document.title}
+                                            />
+                                        ) : document.fileType?.includes('image') ? (
+                                            /* Image Preview */
+                                            <div className="flex-1 flex items-center justify-center">
+                                                <img
+                                                    src={document.fileUrl}
+                                                    alt={document.title}
+                                                    className="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-lg"
                                                 />
-                                                <div className="mt-8 pt-4 border-t border-white/10 flex justify-center">
-                                                    <a
-                                                        href={document.fileUrl}
-                                                        download={document.title}
-                                                        className="btn-primary flex items-center space-x-2"
-                                                    >
-                                                        <span>⬇️</span>
-                                                        <span>Download Original</span>
-                                                    </a>
-                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full space-y-4">
-                                                <div className="text-6xl">📄</div>
-                                                <p className="text-secondary">Unable to preview document</p>
+                                        ) : document.fileType?.includes('video') ? (
+                                            /* Video Preview */
+                                            <div className="flex-1 flex items-center justify-center">
+                                                <video
+                                                    src={document.fileUrl}
+                                                    controls
+                                                    className="max-w-full max-h-[70vh] rounded-2xl shadow-lg"
+                                                />
+                                            </div>
+                                        ) : (document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword')) ? (
+                                            /* DOCX Preview using mammoth.js */
+                                            <div className="flex-1 overflow-auto">
+                                                {docxLoading ? (
+                                                    <div className="flex items-center justify-center h-full">
+                                                        <div className="text-center space-y-4">
+                                                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                                                            <p className="text-secondary">Loading document preview...</p>
+                                                        </div>
+                                                    </div>
+                                                ) : docxHtml ? (
+                                                    <div className="bg-white/20 dark:bg-slate-900/20 p-8 rounded-2xl">
+                                                        <div
+                                                            className="prose prose-lg prose-slate max-w-none"
+                                                            dangerouslySetInnerHTML={{ __html: docxHtml }}
+                                                        />
+                                                        <div className="mt-8 pt-4 border-t border-white/10 flex justify-center">
+                                                            <a
+                                                                href={document.fileUrl}
+                                                                download={document.title}
+                                                                className="btn-primary flex items-center space-x-2"
+                                                            >
+                                                                <span>⬇️</span>
+                                                                <span>Download Original</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center h-full space-y-4">
+                                                        <div className="text-6xl">📄</div>
+                                                        <p className="text-secondary">Unable to preview document</p>
+                                                        <a
+                                                            href={document.fileUrl}
+                                                            download={document.title}
+                                                            className="btn-primary"
+                                                        >
+                                                            Download File
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : document.fileType?.includes('audio') ? (
+                                            /* Audio Preview */
+                                            <div className="flex-1 flex flex-col items-center justify-center space-y-6">
+                                                <div className="text-8xl">🎵</div>
+                                                <h3 className="text-xl font-semibold text-primary">{document.title}</h3>
+                                                <audio
+                                                    src={document.fileUrl}
+                                                    controls
+                                                    className="w-full max-w-md"
+                                                />
                                                 <a
                                                     href={document.fileUrl}
                                                     download={document.title}
-                                                    className="btn-primary"
+                                                    className="btn-primary flex items-center space-x-2"
                                                 >
-                                                    Download File
+                                                    <span>⬇️</span>
+                                                    <span>Download Audio</span>
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            /* Office Documents, Archives, and Other Files */
+                                            <div className="flex-1 flex flex-col items-center justify-center space-y-6 py-8">
+                                                {/* File Icon */}
+                                                <div className="text-8xl">
+                                                    {document.fileCategory === 'document' || document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword') ? '📄' :
+                                                        document.fileCategory === 'spreadsheet' || document.fileType?.includes('spreadsheetml') || document.fileType?.includes('ms-excel') ? '📊' :
+                                                            document.fileCategory === 'presentation' || document.fileType?.includes('presentationml') || document.fileType?.includes('ms-powerpoint') ? '📙' :
+                                                                document.fileCategory === 'archive' || document.fileType?.includes('zip') || document.fileType?.includes('rar') ? '📦' :
+                                                                    document.fileCategory === 'code' ? '💻' : '📎'}
+                                                </div>
+
+                                                {/* File Info */}
+                                                <div className="text-center space-y-2">
+                                                    <h3 className="text-2xl font-bold text-primary">{document.title}</h3>
+                                                    <div className="text-secondary space-y-1">\n                                                {document.fileType && (
+                                                        <p className="text-sm">
+                                                            Type: <span className="font-medium">{
+                                                                document.fileType.includes('wordprocessingml') || document.fileType.includes('msword') ? 'Microsoft Word Document' :
+                                                                    document.fileType.includes('spreadsheetml') || document.fileType.includes('ms-excel') ? 'Microsoft Excel Spreadsheet' :
+                                                                        document.fileType.includes('presentationml') || document.fileType.includes('ms-powerpoint') ? 'Microsoft PowerPoint Presentation' :
+                                                                            document.fileType.includes('zip') ? 'ZIP Archive' :
+                                                                                document.fileType.includes('rar') ? 'RAR Archive' :
+                                                                                    document.fileType.includes('7z') ? '7-Zip Archive' :
+                                                                                        document.fileCategory === 'document' ? 'Document' :
+                                                                                            document.fileCategory === 'spreadsheet' ? 'Spreadsheet' :
+                                                                                                document.fileCategory === 'presentation' ? 'Presentation' :
+                                                                                                    document.fileCategory || document.fileType
+                                                            }</span>
+                                                        </p>
+                                                    )}
+                                                        {document.fileSize && (
+                                                            <p className="text-sm">
+                                                                Size: <span className="font-medium">
+                                                                    {document.fileSize < 1024 ? `${document.fileSize} B` :
+                                                                        document.fileSize < 1024 * 1024 ? `${(document.fileSize / 1024).toFixed(1)} KB` :
+                                                                            `${(document.fileSize / 1024 / 1024).toFixed(2)} MB`}
+                                                                </span>
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Info Message */}
+                                                <p className="text-secondary text-sm max-w-md text-center">
+                                                    Preview is not available for this file type in the browser.
+                                                    Please download the file to view its contents.
+                                                </p>
+
+                                                {/* Download Button */}
+                                                <a
+                                                    href={document.fileUrl}
+                                                    download={document.title}
+                                                    className="btn-primary text-lg shadow-lg hover:shadow-xl flex items-center space-x-3"
+                                                >
+                                                    <span className="text-2xl">⬇️</span>
+                                                    <span>Download File</span>
                                                 </a>
                                             </div>
                                         )}
                                     </div>
-                                ) : document.fileType?.includes('audio') ? (
-                                    /* Audio Preview */
-                                    <div className="flex-1 flex flex-col items-center justify-center space-y-6">
-                                        <div className="text-8xl">🎵</div>
-                                        <h3 className="text-xl font-semibold text-primary">{document.title}</h3>
-                                        <audio
-                                            src={document.fileUrl}
-                                            controls
-                                            className="w-full max-w-md"
-                                        />
-                                        <a
-                                            href={document.fileUrl}
-                                            download={document.title}
-                                            className="btn-primary flex items-center space-x-2"
-                                        >
-                                            <span>⬇️</span>
-                                            <span>Download Audio</span>
-                                        </a>
-                                    </div>
-                                ) : (
-                                    /* Office Documents, Archives, and Other Files */
-                                    <div className="flex-1 flex flex-col items-center justify-center space-y-6 py-8">
-                                        {/* File Icon */}
-                                        <div className="text-8xl">
-                                            {document.fileCategory === 'document' || document.fileType?.includes('wordprocessingml') || document.fileType?.includes('msword') ? '📄' :
-                                                document.fileCategory === 'spreadsheet' || document.fileType?.includes('spreadsheetml') || document.fileType?.includes('ms-excel') ? '📊' :
-                                                    document.fileCategory === 'presentation' || document.fileType?.includes('presentationml') || document.fileType?.includes('ms-powerpoint') ? '📙' :
-                                                        document.fileCategory === 'archive' || document.fileType?.includes('zip') || document.fileType?.includes('rar') ? '📦' :
-                                                            document.fileCategory === 'code' ? '💻' : '📎'}
-                                        </div>
-
-                                        {/* File Info */}
-                                        <div className="text-center space-y-2">
-                                            <h3 className="text-2xl font-bold text-primary">{document.title}</h3>
-                                            <div className="text-secondary space-y-1">\n                                                {document.fileType && (
-                                                    <p className="text-sm">
-                                                        Type: <span className="font-medium">{
-                                                            document.fileType.includes('wordprocessingml') || document.fileType.includes('msword') ? 'Microsoft Word Document' :
-                                                                document.fileType.includes('spreadsheetml') || document.fileType.includes('ms-excel') ? 'Microsoft Excel Spreadsheet' :
-                                                                    document.fileType.includes('presentationml') || document.fileType.includes('ms-powerpoint') ? 'Microsoft PowerPoint Presentation' :
-                                                                        document.fileType.includes('zip') ? 'ZIP Archive' :
-                                                                            document.fileType.includes('rar') ? 'RAR Archive' :
-                                                                                document.fileType.includes('7z') ? '7-Zip Archive' :
-                                                                                    document.fileCategory === 'document' ? 'Document' :
-                                                                                        document.fileCategory === 'spreadsheet' ? 'Spreadsheet' :
-                                                                                            document.fileCategory === 'presentation' ? 'Presentation' :
-                                                                                                document.fileCategory || document.fileType
-                                                        }</span>
-                                                    </p>
-                                                )}
-                                                {document.fileSize && (
-                                                    <p className="text-sm">
-                                                        Size: <span className="font-medium">
-                                                            {document.fileSize < 1024 ? `${document.fileSize} B` :
-                                                                document.fileSize < 1024 * 1024 ? `${(document.fileSize / 1024).toFixed(1)} KB` :
-                                                                    `${(document.fileSize / 1024 / 1024).toFixed(2)} MB`}
-                                                        </span>
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Info Message */}
-                                        <p className="text-secondary text-sm max-w-md text-center">
-                                            Preview is not available for this file type in the browser.
-                                            Please download the file to view its contents.
-                                        </p>
-
-                                        {/* Download Button */}
-                                        <a
-                                            href={document.fileUrl}
-                                            download={document.title}
-                                            className="btn-primary text-lg shadow-lg hover:shadow-xl flex items-center space-x-3"
-                                        >
-                                            <span className="text-2xl">⬇️</span>
-                                            <span>Download File</span>
-                                        </a>
-                                    </div>
                                 )}
                             </div>
-                        )}
-                    </div>
                         </GlassCard>
 
                         {/* Sidebar: History and Comments */}
                         <GlassCard className="w-96 flex-shrink-0 overflow-hidden flex flex-col" padding="p-0">
                             <DocumentHistoryAndComments
-                    document={document}
-                    onRestoreVersion={(version) => {
-                        if (window.confirm('Restore this version? current changes will be lost.')) {
-                            setContent(version.content);
-                            socket.emit('send-changes', version.content, id);
-                        }
-                    }}
-                    onAddComment={async (commentText) => {
-                        try {
-                            const newComment = await documentService.addComment(id, commentText);
-                            setDocument(prev => ({
-                                ...prev,
-                                comments: [newComment, ...(prev.comments || [])]
-                            }));
-                            // Broadcast to other users
-                            if (socket) {
-                                socket.emit('new-comment', newComment, id);
-                            }
-                        } catch (err) {
-                            alert('Failed to add comment');
-                            }
-                        }}
-                    />
-                </GlassCard>
+                                document={document}
+                                onRestoreVersion={(version) => {
+                                    if (window.confirm('Restore this version? current changes will be lost.')) {
+                                        setContent(version.content);
+                                        socket.emit('send-changes', version.content, id);
+                                    }
+                                }}
+                                onAddComment={async (commentText) => {
+                                    try {
+                                        const newComment = await documentService.addComment(id, commentText);
+                                        setDocument(prev => ({
+                                            ...prev,
+                                            comments: [newComment, ...(prev.comments || [])]
+                                        }));
+                                        // Broadcast to other users
+                                        if (socket) {
+                                            socket.emit('new-comment', newComment, id);
+                                        }
+                                    } catch (err) {
+                                        alert('Failed to add comment');
+                                    }
+                                }}
+                            />
+                        </GlassCard>
                     </div>
                 </div>
             </div>
