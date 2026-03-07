@@ -1,4 +1,5 @@
 const express = require('express');
+const morgan = require('morgan');
 const config = require('./config/app.config');
 const { configureHelmet, configureCors, configureRateLimit } = require('./middlewares/security');
 const requestTimeout = require('./middlewares/requestTimeout');
@@ -34,12 +35,8 @@ app.use(express.urlencoded({
 /**
  * Request Logging (development only)
  */
-if (config.env === 'development') {
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    next();
-  });
-}
+app.use(morgan('dev'));
+
 
 /**
  * Routes
