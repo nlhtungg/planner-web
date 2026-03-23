@@ -1,3 +1,5 @@
+const logger = require('./logger').child({ module: 'utils/asyncHandler' });
+
 /**
  * Async Handler Wrapper
  * Wraps async route handlers to catch errors and pass them to the error handler
@@ -6,7 +8,7 @@
 
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch((err) => {
-    console.error('Async handler error:', err);
+    (req?.log || logger).debug({ err }, 'Async handler forwarded error to middleware');
     next(err);
   });
 };

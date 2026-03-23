@@ -1,4 +1,5 @@
 const connectionRepository = require('../repositories/connectionRepository');
+const logger = require('../utils/logger').child({ module: 'controllers/connectionController' });
 
 class ConnectionController {
   /**
@@ -45,7 +46,7 @@ class ConnectionController {
         message: 'Friend request sent'
       });
     } catch (error) {
-      console.error('Error sending friend request:', error);
+      logger.error({ err: error }, 'Error sending friend request');
       res.status(400).json({
         success: false,
         message: error.message
@@ -89,7 +90,7 @@ class ConnectionController {
         message: 'Friend request accepted'
       });
     } catch (error) {
-      console.error('Error accepting friend request:', error);
+      logger.error({ err: error }, 'Error accepting friend request');
       res.status(400).json({
         success: false,
         message: error.message
@@ -130,7 +131,7 @@ class ConnectionController {
         message: 'Friend request rejected'
       });
     } catch (error) {
-      console.error('Error rejecting friend request:', error);
+      logger.error({ err: error }, 'Error rejecting friend request');
       res.status(400).json({
         success: false,
         message: error.message
@@ -171,7 +172,7 @@ class ConnectionController {
         message: 'Friend request cancelled'
       });
     } catch (error) {
-      console.error('Error cancelling friend request:', error);
+      logger.error({ err: error }, 'Error cancelling friend request');
       res.status(400).json({
         success: false,
         message: error.message
@@ -209,7 +210,7 @@ class ConnectionController {
         message: 'Friend removed'
       });
     } catch (error) {
-      console.error('Error unfriending:', error);
+      logger.error({ err: error }, 'Error unfriending');
       res.status(400).json({
         success: false,
         message: error.message
@@ -247,7 +248,7 @@ class ConnectionController {
         message: 'User blocked'
       });
     } catch (error) {
-      console.error('Error blocking user:', error);
+      logger.error({ err: error }, 'Error blocking user');
       res.status(400).json({
         success: false,
         message: error.message
@@ -284,7 +285,7 @@ class ConnectionController {
         message: 'User unblocked'
       });
     } catch (error) {
-      console.error('Error unblocking user:', error);
+      logger.error({ err: error }, 'Error unblocking user');
       res.status(400).json({
         success: false,
         message: error.message
@@ -305,7 +306,7 @@ class ConnectionController {
         data: friends
       });
     } catch (error) {
-      console.error('Error getting friends:', error);
+      logger.error({ err: error }, 'Error getting friends');
       res.status(500).json({
         success: false,
         message: error.message
@@ -326,7 +327,7 @@ class ConnectionController {
         data: requests
       });
     } catch (error) {
-      console.error('Error getting pending requests:', error);
+      logger.error({ err: error }, 'Error getting pending requests');
       res.status(500).json({
         success: false,
         message: error.message
@@ -347,7 +348,7 @@ class ConnectionController {
         data: requests
       });
     } catch (error) {
-      console.error('Error getting sent requests:', error);
+      logger.error({ err: error }, 'Error getting sent requests');
       res.status(500).json({
         success: false,
         message: error.message
@@ -368,7 +369,7 @@ class ConnectionController {
         data: blocked
       });
     } catch (error) {
-      console.error('Error getting blocked users:', error);
+      logger.error({ err: error }, 'Error getting blocked users');
       res.status(500).json({
         success: false,
         message: error.message
@@ -389,7 +390,7 @@ class ConnectionController {
         data: suggestions
       });
     } catch (error) {
-      console.error('Error getting suggestions:', error);
+      logger.error({ err: error }, 'Error getting suggestions');
       res.status(500).json({
         success: false,
         message: error.message
@@ -412,7 +413,7 @@ class ConnectionController {
         data: status
       });
     } catch (error) {
-      console.error('Error getting connection status:', error);
+      logger.error({ err: error }, 'Error getting connection status');
       res.status(500).json({
         success: false,
         message: error.message

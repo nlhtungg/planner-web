@@ -1,6 +1,7 @@
 const postCommentRepository = require('../repositories/postCommentRepository');
 const postRepository = require('../repositories/postRepository');
 const workspaceRepository = require('../repositories/workspaceRepository');
+const logger = require('../utils/logger').child({ module: 'controllers/postCommentController' });
 
 class PostCommentController {
   // Create a comment on a post
@@ -71,13 +72,13 @@ class PostCommentController {
 
       // Emit socket event for real-time updates
       if (global.io) {
-        console.log(`📡 Emitting new-comment event to workspace-${workspaceId}`, comment._id);
+        logger.info({ data: comment._id }, `📡 Emitting new-comment event to workspace-${workspaceId}`);
         global.io.to(`workspace-${workspaceId}`).emit('new-comment', {
           postId,
           comment
         });
       } else {
-        console.warn('⚠️ Socket.io not available, cannot emit new-comment event');
+        logger.warn('⚠️ Socket.io not available, cannot emit new-comment event');
       }
 
       res.status(201).json({
@@ -86,7 +87,7 @@ class PostCommentController {
         data: comment
       });
     } catch (error) {
-      console.error('Create comment error:', error);
+      logger.error({ err: error }, 'Create comment error:');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -141,7 +142,7 @@ class PostCommentController {
         data: comments
       });
     } catch (error) {
-      console.error('Get comments error:', error);
+      logger.error({ err: error }, 'Get comments error:');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -225,7 +226,7 @@ class PostCommentController {
         data: updatedComment
       });
     } catch (error) {
-      console.error('Update comment error:', error);
+      logger.error({ err: error }, 'Update comment error:');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -289,7 +290,7 @@ class PostCommentController {
         message: 'Comment deleted successfully'
       });
     } catch (error) {
-      console.error('Delete comment error:', error);
+      logger.error({ err: error }, 'Delete comment error:');
       res.status(500).json({
         success: false,
         message: 'Internal server error'

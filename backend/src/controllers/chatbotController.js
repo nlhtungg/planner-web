@@ -7,6 +7,7 @@ const workspaceInsightService = require('../services/workspaceInsightService');
 const Workspace = require('../models/Workspace');
 const Document = require('../models/Document');
 const axios = require('axios');
+const logger = require('../utils/logger').child({ module: 'controllers/chatbotController' });
 
 /**
  * Generate unique session ID
@@ -108,9 +109,9 @@ class ChatbotController {
       // Process in background
       setImmediate(async () => {
         try {
-          console.log('\n🚀 [BACKGROUND] Starting background processing for document:', knowledgeBase._id);
-          console.log('📝 Document title:', knowledgeBase.title);
-          console.log('📦 Chunks to process:', documentData.chunks.length);
+          logger.info({ data: knowledgeBase._id }, '\n🚀 [BACKGROUND] Starting background processing for document:');
+          logger.info({ data: knowledgeBase.title }, '📝 Document title:');
+          logger.info({ data: documentData.chunks.length }, '📦 Chunks to process:');
           
           // Add to vector database
           const documentIds = await geminiService.addDocumentToVectorDB(
@@ -124,12 +125,12 @@ class ChatbotController {
           knowledgeBase.status = 'ready';
           await knowledgeBase.save();
 
-          console.log('\n✅ [SUCCESS] Document processing completed!');
-          console.log('📄 Document ID:', knowledgeBase._id);
-          console.log('📝 Title:', knowledgeBase.title);
-          console.log('✅ Status: READY\n');
+          logger.info('\n✅ [SUCCESS] Document processing completed!');
+          logger.info({ data: knowledgeBase._id }, '📄 Document ID:');
+          logger.info({ data: knowledgeBase.title }, '📝 Title:');
+          logger.info('✅ Status: READY\n');
         } catch (error) {
-          console.error('Error processing document:', error);
+          logger.error({ err: error }, 'Error processing document:');
           knowledgeBase.status = 'failed';
           knowledgeBase.error = error.message;
           await knowledgeBase.save();
@@ -147,7 +148,7 @@ class ChatbotController {
         }
       });
     } catch (error) {
-      console.error('Error uploading document:', error);
+      logger.error({ err: error }, 'Error uploading document:');
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to upload document'
@@ -177,7 +178,7 @@ class ChatbotController {
         data: documents
       });
     } catch (error) {
-      console.error('Error getting documents:', error);
+      logger.error({ err: error }, 'Error getting documents:');
       res.status(500).json({
         success: false,
         message: 'Failed to get documents'
@@ -206,7 +207,7 @@ class ChatbotController {
         try {
           await minioService.deleteChatbotDocument(document.objectName);
         } catch (error) {
-          console.error('Error deleting file from MinIO:', error);
+          logger.error({ err: error }, 'Error deleting file from MinIO:');
           // Continue with deletion even if MinIO delete fails
         }
       }
@@ -218,7 +219,7 @@ class ChatbotController {
         message: 'Document deleted successfully'
       });
     } catch (error) {
-      console.error('Error deleting document:', error);
+      logger.error({ err: error }, 'Error deleting document:');
       res.status(500).json({
         success: false,
         message: 'Failed to delete document'
@@ -299,7 +300,7 @@ class ChatbotController {
         }
       });
     } catch (error) {
-      console.error('Error in chat:', error);
+      logger.error({ err: error }, 'Error in chat:');
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to generate response'
@@ -338,7 +339,7 @@ class ChatbotController {
         }
       });
     } catch (error) {
-      console.error('Error getting chat history:', error);
+      logger.error({ err: error }, 'Error getting chat history:');
       res.status(500).json({
         success: false,
         message: 'Failed to get chat history'
@@ -370,7 +371,7 @@ class ChatbotController {
         data: sessionList
       });
     } catch (error) {
-      console.error('Error getting chat sessions:', error);
+      logger.error({ err: error }, 'Error getting chat sessions:');
       res.status(500).json({
         success: false,
         message: 'Failed to get chat sessions'
@@ -400,7 +401,7 @@ class ChatbotController {
         data: workspaces
       });
     } catch (error) {
-      console.error('Error fetching workspaces:', error);
+      logger.error({ err: error }, 'Error fetching workspaces:');
       res.status(500).json({
         success: false,
         message: 'Failed to fetch workspaces'
@@ -448,7 +449,7 @@ class ChatbotController {
         data: documents
       });
     } catch (error) {
-      console.error('Error fetching workspace documents:', error);
+      logger.error({ err: error }, 'Error fetching workspace documents:');
       res.status(500).json({
         success: false,
         message: 'Failed to fetch documents'
@@ -543,7 +544,7 @@ class ChatbotController {
             'pdf'
           );
         } catch (error) {
-          console.error('Error downloading document:', error);
+          logger.error({ err: error }, 'Error downloading document:');
           return res.status(500).json({
             success: false,
             message: 'Failed to download document'
@@ -579,7 +580,7 @@ class ChatbotController {
       // Process in background
       setImmediate(async () => {
         try {
-          console.log('\\n🚀 [BACKGROUND] Processing imported document:', knowledgeBase._id);
+          logger.info({ data: knowledgeBase._id }, '\\n🚀 [BACKGROUND] Processing imported document:');
           
           const documentIds = await geminiService.addDocumentToVectorDB(
             userId,
@@ -591,9 +592,9 @@ class ChatbotController {
           knowledgeBase.status = 'ready';
           await knowledgeBase.save();
 
-          console.log('\\n✅ [SUCCESS] Imported document ready!');
+          logger.info('\\n✅ [SUCCESS] Imported document ready!');
         } catch (error) {
-          console.error('Error processing imported document:', error);
+          logger.error({ err: error }, 'Error processing imported document:');
           knowledgeBase.status = 'failed';
           knowledgeBase.error = error.message;
           await knowledgeBase.save();
@@ -611,7 +612,7 @@ class ChatbotController {
         }
       });
     } catch (error) {
-      console.error('Error importing document:', error);
+      logger.error({ err: error }, 'Error importing document:');
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to import document'
@@ -634,7 +635,7 @@ class ChatbotController {
         message: 'Chat session deleted successfully'
       });
     } catch (error) {
-      console.error('Error deleting session:', error);
+      logger.error({ err: error }, 'Error deleting session:');
       res.status(500).json({
         success: false,
         message: 'Failed to delete session'
@@ -665,7 +666,7 @@ class ChatbotController {
         data: result
       });
     } catch (error) {
-      console.error('Error indexing workspace:', error);
+      logger.error({ err: error }, 'Error indexing workspace:');
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to index workspace'
@@ -744,7 +745,7 @@ class ChatbotController {
         }
       });
     } catch (error) {
-      console.error('Error in workspace insight chat:', error);
+      logger.error({ err: error }, 'Error in workspace insight chat:');
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to generate workspace insight'

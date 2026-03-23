@@ -1,5 +1,6 @@
 const groupRepository = require('../repositories/groupRepository');
 const minioService = require('../services/minioService');
+const logger = require('../utils/logger').child({ module: 'controllers/groupController' });
 
 exports.createGroup = async (req, res) => {
   try {
@@ -34,7 +35,7 @@ exports.createGroup = async (req, res) => {
       data: group
     });
   } catch (error) {
-    console.error('Error creating group:', error);
+    logger.error({ err: error }, 'Error creating group:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -52,7 +53,7 @@ exports.getUserGroups = async (req, res) => {
       data: groups
     });
   } catch (error) {
-    console.error('Error getting groups:', error);
+    logger.error({ err: error }, 'Error getting groups:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -87,7 +88,7 @@ exports.getGroup = async (req, res) => {
       data: group
     });
   } catch (error) {
-    console.error('Error getting group:', error);
+    logger.error({ err: error }, 'Error getting group:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -118,7 +119,7 @@ exports.getGroupMessages = async (req, res) => {
       data: messages.reverse()
     });
   } catch (error) {
-    console.error('Error getting group messages:', error);
+    logger.error({ err: error }, 'Error getting group messages:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -144,12 +145,12 @@ exports.sendGroupMessage = async (req, res) => {
 
     let attachments = [];
     if (req.files && req.files.length > 0) {
-      console.log(`📎 Processing ${req.files.length} file(s) for group ${groupId}`);
+      logger.info(`📎 Processing ${req.files.length} file(s) for group ${groupId}`);
       
       for (let i = 0; i < req.files.length; i++) {
         const file = req.files[i];
         try {
-          console.log(`  [${i+1}/${req.files.length}] Uploading: ${file.originalname}`);
+          logger.info(`  [${i+1}/${req.files.length}] Uploading: ${file.originalname}`);
           
           const uploadResult = await minioService.uploadMessageMedia(
             senderId,
@@ -165,7 +166,7 @@ exports.sendGroupMessage = async (req, res) => {
             size: uploadResult.size
           });
         } catch (error) {
-          console.error(`  ❌ Error uploading file:`, error.message);
+          logger.error({ err: error.message }, `  ❌ Error uploading file:`);
         }
       }
     }
@@ -188,7 +189,7 @@ exports.sendGroupMessage = async (req, res) => {
       data: message
     });
   } catch (error) {
-    console.error('Error sending group message:', error);
+    logger.error({ err: error }, 'Error sending group message:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -225,7 +226,7 @@ exports.addMember = async (req, res) => {
       data: updatedGroup
     });
   } catch (error) {
-    console.error('Error adding member:', error);
+    logger.error({ err: error }, 'Error adding member:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -263,7 +264,7 @@ exports.removeMember = async (req, res) => {
       data: updatedGroup
     });
   } catch (error) {
-    console.error('Error removing member:', error);
+    logger.error({ err: error }, 'Error removing member:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -294,7 +295,7 @@ exports.togglePinMessage = async (req, res) => {
       data: message
     });
   } catch (error) {
-    console.error('Error toggling pin:', error);
+    logger.error({ err: error }, 'Error toggling pin:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -326,7 +327,7 @@ exports.addReaction = async (req, res) => {
       data: message
     });
   } catch (error) {
-    console.error('Error adding reaction:', error);
+    logger.error({ err: error }, 'Error adding reaction:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -353,7 +354,7 @@ exports.removeReaction = async (req, res) => {
       data: message
     });
   } catch (error) {
-    console.error('Error removing reaction:', error);
+    logger.error({ err: error }, 'Error removing reaction:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -384,7 +385,7 @@ exports.markAsRead = async (req, res) => {
       data: message
     });
   } catch (error) {
-    console.error('Error marking message as read:', error);
+    logger.error({ err: error }, 'Error marking message as read:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -421,7 +422,7 @@ exports.markGroupMessagesAsRead = async (req, res) => {
       message: 'All messages marked as read'
     });
   } catch (error) {
-    console.error('Error marking group messages as read:', error);
+    logger.error({ err: error }, 'Error marking group messages as read:');
     res.status(500).json({
       success: false,
       message: error.message
@@ -460,7 +461,7 @@ exports.searchGroupMessages = async (req, res) => {
       data: messages
     });
   } catch (error) {
-    console.error('Error searching group messages:', error);
+    logger.error({ err: error }, 'Error searching group messages:');
     res.status(500).json({
       success: false,
       message: error.message

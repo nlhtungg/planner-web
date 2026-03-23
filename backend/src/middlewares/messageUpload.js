@@ -1,12 +1,17 @@
 const multer = require('multer');
+const logger = require('../utils/logger').child({ module: 'middlewares/messageUpload' });
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
 
 // File filter for message attachments (more permissive than avatar)
 const fileFilter = (req, file, cb) => {
-  console.log('📁 Message file filter - mimetype:', file.mimetype, 'filename:', file.originalname);
-  
+  const requestLogger = req?.log || logger;
+  requestLogger.debug({
+    mimeType: file.mimetype,
+    fileName: file.originalname,
+  }, 'Validating message attachment file type');
+
   // Allow images, documents, archives, etc.
   const allowedTypes = [
     // Images
@@ -24,28 +29,29 @@ const fileFilter = (req, file, cb) => {
     // Archives
     'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed',
     // Others
-    'application/json', 'application/xml'
+    'application/json', 'application/xml',
   ];
-  
+
   if (allowedTypes.includes(file.mimetype)) {
-    console.log('✅ File type accepted');
+    requestLogger.debug({ mimeType: file.mimetype }, 'Message attachment file type accepted');
     cb(null, true);
-  } else {
-    console.log('⚠️ File type not in allowed list, but accepting anyway');
-    cb(null, true); // Accept all files for now
+    return;
   }
+
+  requestLogger.warn({ mimeType: file.mimetype }, 'Message attachment file type accepted outside allow list');
+  cb(null, true); // Accept all files for now
 };
 
 // Create multer instance for message attachments
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 5 // Up to 5 files at a time
-  }
+    files: 5, // Up to 5 files at a time
+  },
 });
 
-console.log('🔧 Message upload middleware created');
+logger.debug('Message upload middleware initialized');
 
 module.exports = upload;

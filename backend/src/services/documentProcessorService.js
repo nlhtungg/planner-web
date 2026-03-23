@@ -1,6 +1,7 @@
 const pdfParse = require('pdf-parse');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const logger = require('../utils/logger').child({ module: 'services/documentProcessorService' });
 
 /**
  * Document Processing Service
@@ -12,25 +13,28 @@ class DocumentProcessorService {
    */
   async extractTextFromPDF(pdfBuffer) {
     try {
-      console.log('📄 [PDF] Starting PDF parsing...');
-      console.log('📄 [PDF] Buffer size:', (pdfBuffer.length / 1024).toFixed(2), 'KB');
-      
+      logger.info({
+        sizeBytes: pdfBuffer.length,
+        sizeKb: Number((pdfBuffer.length / 1024).toFixed(2)),
+      }, 'Starting PDF parsing');
+
       const data = await pdfParse(pdfBuffer);
-      
-      console.log('✅ [PDF] Parsed successfully!');
-      console.log('📄 [PDF] Pages:', data.numpages);
-      console.log('📄 [PDF] Text length:', data.text.length, 'characters');
-      
+
+      logger.info({
+        pageCount: data.numpages,
+        textLength: data.text.length,
+      }, 'PDF parsed successfully');
+
       return {
         text: data.text,
         pageCount: data.numpages,
         metadata: {
           info: data.info,
-          metadata: data.metadata
-        }
+          metadata: data.metadata,
+        },
       };
     } catch (error) {
-      console.error('Error parsing PDF:', error);
+      logger.error({ err: error }, 'Error parsing PDF');
       throw new Error('Failed to parse PDF file');
     }
   }
@@ -40,34 +44,25 @@ class DocumentProcessorService {
    */
   async extractTextFromURL(url) {
     try {
-      console.log('🌐 [URL] Starting URL scraping:', url);
-      
-      // Validate URL
+      logger.info({ url }, 'Starting URL scraping');
+
       const urlObj = new URL(url);
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         throw new Error('Invalid URL protocol');
       }
 
-      console.log('🌐 [URL] Fetching webpage...');
-      // Fetch webpage
       const response = await axios.get(url, {
         timeout: 30000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
-        maxRedirects: 5
+        maxRedirects: 5,
       });
 
-      // Parse HTML
       const $ = cheerio.load(response.data);
-
-      // Remove script and style tags
       $('script, style, nav, footer, header, aside').remove();
 
-      // Extract text from main content
       let text = '';
-      
-      // Try to find main content
       const mainSelectors = [
         'main',
         'article',
@@ -75,7 +70,7 @@ class DocumentProcessorService {
         '.content',
         '.main-content',
         '#content',
-        'body'
+        'body',
       ];
 
       for (const selector of mainSelectors) {
@@ -86,7 +81,6 @@ class DocumentProcessorService {
         }
       }
 
-      // Clean up text
       text = text
         .replace(/\s+/g, ' ')
         .replace(/\n+/g, '\n')
@@ -96,24 +90,25 @@ class DocumentProcessorService {
         throw new Error('Insufficient content extracted from URL');
       }
 
-      // Get title
-      const title = $('title').text() || 
-                   $('h1').first().text() || 
-                   $('meta[property="og:title"]').attr('content') || 
-                   'Untitled';
+      const title = $('title').text()
+        || $('h1').first().text()
+        || $('meta[property="og:title"]').attr('content')
+        || 'Untitled';
 
-      console.log('✅ [URL] Scraped successfully!');
-      console.log('🌐 [URL] Title:', title.trim());
-      console.log('🌐 [URL] Text length:', text.length, 'characters');
-      
+      logger.info({
+        url,
+        title: title.trim(),
+        textLength: text.length,
+      }, 'URL scraped successfully');
+
       return {
         text,
         title: title.trim(),
         url,
-        scrapedAt: new Date()
+        scrapedAt: new Date(),
       };
     } catch (error) {
-      console.error('Error scraping URL:', error);
+      logger.error({ err: error, url }, 'Error scraping URL');
       if (error.response) {
         throw new Error(`Failed to fetch URL: ${error.response.status} ${error.response.statusText}`);
       }
@@ -128,7 +123,7 @@ class DocumentProcessorService {
   splitIntoChunks(text, chunkSize = 1000, overlap = 200) {
     const chunks = [];
     const paragraphs = text.split(/\n\n+/);
-    
+
     let currentChunk = '';
     let currentSize = 0;
 
@@ -136,27 +131,24 @@ class DocumentProcessorService {
       const paragraphSize = paragraph.length;
 
       if (currentSize + paragraphSize > chunkSize && currentChunk) {
-        // Save current chunk
         chunks.push({
           text: currentChunk.trim(),
-          size: currentSize
+          size: currentSize,
         });
 
-        // Start new chunk with overlap
         const overlapText = currentChunk.slice(-overlap);
-        currentChunk = overlapText + '\n\n' + paragraph;
+        currentChunk = `${overlapText}\n\n${paragraph}`;
         currentSize = overlapText.length + paragraphSize;
       } else {
-        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+        currentChunk += `${currentChunk ? '\n\n' : ''}${paragraph}`;
         currentSize += paragraphSize;
       }
     }
 
-    // Add last chunk
     if (currentChunk) {
       chunks.push({
         text: currentChunk.trim(),
-        size: currentSize
+        size: currentSize,
       });
     }
 
@@ -183,11 +175,10 @@ class DocumentProcessorService {
       throw new Error('Invalid document type');
     }
 
-    // Split into chunks
     const chunks = this.splitIntoChunks(
       extractedData.text,
       options.chunkSize || 1000,
-      options.overlap || 200
+      options.overlap || 200,
     );
 
     return {
@@ -198,8 +189,8 @@ class DocumentProcessorService {
         title: extractedData.title,
         url: extractedData.url,
         scrapedAt: extractedData.scrapedAt,
-        chunkCount: chunks.length
-      }
+        chunkCount: chunks.length,
+      },
     };
   }
 }

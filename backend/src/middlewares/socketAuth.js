@@ -1,5 +1,6 @@
 const authService = require('../services/authService');
 const userRepository = require('../repositories/userRepository');
+const logger = require('../utils/logger').child({ module: 'middlewares/socketAuth' });
 
 /**
  * Socket.IO authentication middleware
@@ -13,12 +14,9 @@ const socketAuthMiddleware = async (socket, next) => {
       return next(new Error('Authentication token required'));
     }
 
-    // Verify token
     const decoded = authService.verifyAccessToken(token);
-    
-    // Get user from database
     const user = await userRepository.getUserById(decoded.id);
-    
+
     if (!user) {
       return next(new Error('User not found'));
     }
@@ -27,17 +25,17 @@ const socketAuthMiddleware = async (socket, next) => {
       return next(new Error('Account is deactivated'));
     }
 
-    // Attach user to socket
     socket.userId = user._id.toString();
     socket.userEmail = user.email;
-    
-    console.log(`🔐 Socket authenticated for user: ${user.email} (${socket.userId})`);
+
+    logger.info({ userId: socket.userId }, 'Socket authenticated');
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return next(new Error('Token expired'));
     }
-    console.error('Socket auth error:', error.message);
+
+    logger.error({ err: error }, 'Socket auth error');
     return next(new Error('Invalid token'));
   }
 };

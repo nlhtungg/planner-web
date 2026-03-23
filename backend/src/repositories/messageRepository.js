@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
+const logger = require('../utils/logger').child({ module: 'repositories/messageRepository' });
 
 class MessageRepository {
   /**
@@ -7,19 +8,18 @@ class MessageRepository {
    */
   async getConversations(userId) {
     const conversations = await Conversation.find({
-      participants: userId
+      participants: userId,
     })
       .populate('participants', 'firstName lastName email avatar')
       .populate('lastMessageSender', 'firstName lastName email avatar')
       .sort({ lastMessageAt: -1 });
 
-    // Convert Map to plain object for unreadCount and nicknames
-    return conversations.map(conv => {
+    return conversations.map((conv) => {
       const plainConv = conv.toObject();
       return {
         ...plainConv,
         unreadCount: plainConv.unreadCount ? Object.fromEntries(plainConv.unreadCount) : {},
-        nicknames: plainConv.nicknames ? Object.fromEntries(plainConv.nicknames) : {}
+        nicknames: plainConv.nicknames ? Object.fromEntries(plainConv.nicknames) : {},
       };
     });
   }
@@ -41,8 +41,8 @@ class MessageRepository {
         lastMessageAt: new Date(),
         unreadCount: {
           [userId1]: 0,
-          [userId2]: 0
-        }
+          [userId2]: 0,
+        },
       });
 
       conversation = await Conversation.findById(conversation._id)
@@ -60,7 +60,7 @@ class MessageRepository {
 
     const messages = await Message.find({
       conversationId,
-      deletedBy: { $ne: userId1 } // Exclude messages deleted by current user
+      deletedBy: { $ne: userId1 },
     })
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar')
@@ -69,8 +69,12 @@ class MessageRepository {
       .limit(limit)
       .skip(skip);
 
-    const systemCount = messages.filter(m => m.isSystemMessage).length;
-    console.log(`Fetched ${messages.length} messages (${systemCount} system messages) for conversation ${conversationId}`);
+    const systemCount = messages.filter((message) => message.isSystemMessage).length;
+    logger.debug({
+      conversationId,
+      messageCount: messages.length,
+      systemCount,
+    }, 'Fetched conversation messages');
 
     return messages;
   }
@@ -82,26 +86,25 @@ class MessageRepository {
     const { sender, receiver, content, attachments } = messageData;
     const conversationId = Message.generateConversationId(sender, receiver);
 
-    console.log('💾 Creating message:', { sender, receiver, conversationId });
+    logger.info({
+      sender: sender.toString(),
+      receiver: receiver.toString(),
+      conversationId,
+      attachmentCount: attachments?.length || 0,
+    }, 'Creating message');
 
     const message = await Message.create({
       sender,
       receiver,
       content,
       attachments: attachments || [],
-      conversationId
+      conversationId,
     });
 
-    console.log('✅ Message created:', message._id);
-
-    // Check if conversation exists
     let conversation = await Conversation.findOne({ conversationId });
 
-    console.log('🔍 Conversation exists?', !!conversation);
-
     if (!conversation) {
-      // Create new conversation
-      console.log('📝 Creating new conversation...');
+      logger.info({ conversationId }, 'Creating new conversation');
       try {
         conversation = await Conversation.create({
           conversationId,
@@ -111,21 +114,18 @@ class MessageRepository {
           lastMessageAt: new Date(),
           unreadCount: {
             [sender]: 0,
-            [receiver]: 1
-          }
+            [receiver]: 1,
+          },
         });
-        console.log('✅ Conversation created:', conversation._id);
       } catch (error) {
-        console.error('❌ Error creating conversation:', error);
+        logger.error({ err: error, conversationId }, 'Error creating conversation');
         throw error;
       }
     } else {
-      // Update existing conversation
-      console.log('🔄 Updating existing conversation...');
+      logger.debug({ conversationId }, 'Updating existing conversation');
       try {
-        // Ensure participants exist (for old conversations)
         if (!conversation.participants || conversation.participants.length === 0) {
-          console.log('⚠️ Participants missing, adding them...');
+          logger.warn({ conversationId }, 'Conversation participants missing, restoring participants');
           conversation.participants = [sender, receiver];
         }
 
@@ -133,21 +133,19 @@ class MessageRepository {
         conversation.lastMessageSender = sender;
         conversation.lastMessageAt = new Date();
 
-        // Increment unread count for receiver
         const currentUnread = conversation.unreadCount.get(receiver.toString()) || 0;
         conversation.unreadCount.set(receiver.toString(), currentUnread + 1);
 
-        conversation.markModified('unreadCount'); // Important for Map type
-        conversation.markModified('participants'); // Important for array type
+        conversation.markModified('unreadCount');
+        conversation.markModified('participants');
         await conversation.save();
-        console.log('✅ Conversation updated, participants:', conversation.participants.length, 'unreadCount:', conversation.unreadCount);
       } catch (error) {
-        console.error('❌ Error updating conversation:', error);
+        logger.error({ err: error, conversationId }, 'Error updating conversation');
         throw error;
       }
     }
 
-    return await Message.findById(message._id)
+    return Message.findById(message._id)
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar')
       .populate('readBy.user', 'firstName lastName avatar');
@@ -163,27 +161,23 @@ class MessageRepository {
       throw new Error('Message not found');
     }
 
-    // Only receiver can mark as read
     if (message.receiver.toString() !== userId.toString()) {
       throw new Error('Unauthorized');
     }
 
-    // Check if user already marked as read
     const alreadyRead = message.readBy.some(
-      rb => rb.user.toString() === userId.toString()
+      (readBy) => readBy.user.toString() === userId.toString(),
     );
 
     if (!alreadyRead) {
       message.readBy.push({
         user: userId,
-        readAt: new Date()
+        readAt: new Date(),
       });
     }
 
     message.readAt = new Date();
     await message.save();
-
-    // Populate readBy for response
     await message.populate('readBy.user', 'firstName lastName avatar');
 
     return message;
@@ -199,19 +193,18 @@ class MessageRepository {
       {
         conversationId,
         receiver: currentUserId,
-        readAt: null
+        readAt: null,
       },
       {
-        readAt: new Date()
-      }
+        readAt: new Date(),
+      },
     );
 
-    // Reset unread count in conversation
     await Conversation.findOneAndUpdate(
       { conversationId },
       {
-        [`unreadCount.${currentUserId}`]: 0
-      }
+        [`unreadCount.${currentUserId}`]: 0,
+      },
     );
   }
 
@@ -225,15 +218,13 @@ class MessageRepository {
       throw new Error('Message not found');
     }
 
-    // Check if user is sender or receiver
     if (
-      message.sender.toString() !== userId.toString() &&
-      message.receiver.toString() !== userId.toString()
+      message.sender.toString() !== userId.toString()
+      && message.receiver.toString() !== userId.toString()
     ) {
       throw new Error('Unauthorized');
     }
 
-    // Add user to deletedBy array
     if (!message.deletedBy.includes(userId)) {
       message.deletedBy.push(userId);
       await message.save();
@@ -247,12 +238,12 @@ class MessageRepository {
    */
   async getUnreadCount(userId) {
     const conversations = await Conversation.find({
-      participants: userId
+      participants: userId,
     });
 
     let total = 0;
-    conversations.forEach(conv => {
-      const count = conv.unreadCount.get(userId.toString()) || 0;
+    conversations.forEach((conversation) => {
+      const count = conversation.unreadCount.get(userId.toString()) || 0;
       total += count;
     });
 
@@ -265,13 +256,13 @@ class MessageRepository {
   async searchUsers(query, currentUserId, limit = 10) {
     const User = require('../models/User');
 
-    return await User.find({
-      _id: { $ne: currentUserId }, // Exclude current user
+    return User.find({
+      _id: { $ne: currentUserId },
       $or: [
         { firstName: { $regex: query, $options: 'i' } },
         { lastName: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
-      ]
+        { email: { $regex: query, $options: 'i' } },
+      ],
     })
       .select('firstName lastName email avatar')
       .limit(limit);
@@ -287,21 +278,19 @@ class MessageRepository {
       throw new Error('Message not found');
     }
 
-    // Remove existing reaction from this user
     message.reactions = message.reactions.filter(
-      r => r.user.toString() !== userId.toString()
+      (reaction) => reaction.user.toString() !== userId.toString(),
     );
 
-    // Add new reaction
     message.reactions.push({
       user: userId,
       emoji,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
 
     await message.save();
 
-    return await Message.findById(messageId)
+    return Message.findById(messageId)
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar')
       .populate('reactions.user', 'firstName lastName avatar');
@@ -318,12 +307,12 @@ class MessageRepository {
     }
 
     message.reactions = message.reactions.filter(
-      r => r.user.toString() !== userId.toString()
+      (reaction) => reaction.user.toString() !== userId.toString(),
     );
 
     await message.save();
 
-    return await Message.findById(messageId)
+    return Message.findById(messageId)
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar')
       .populate('reactions.user', 'firstName lastName avatar');
@@ -342,7 +331,7 @@ class MessageRepository {
     message.isPinned = !message.isPinned;
     await message.save();
 
-    return await Message.findById(messageId)
+    return Message.findById(messageId)
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar');
   }
@@ -352,27 +341,24 @@ class MessageRepository {
    */
   async updateConversationSettings(userId1, userId2, settings) {
     const conversationId = Message.generateConversationId(userId1, userId2);
-
     const conversation = await Conversation.findOne({ conversationId });
 
     if (!conversation) {
       throw new Error('Conversation not found');
     }
 
-    // Update nickname for userId2 as seen by userId1
     if (settings.nickname !== undefined) {
       conversation.nicknames.set(userId2.toString(), settings.nickname);
       conversation.markModified('nicknames');
     }
 
-    // Update theme color
     if (settings.themeColor) {
       conversation.themeColor = settings.themeColor;
     }
 
     await conversation.save();
 
-    return await Conversation.findById(conversation._id)
+    return Conversation.findById(conversation._id)
       .populate('participants', 'firstName lastName email avatar');
   }
 
@@ -382,10 +368,10 @@ class MessageRepository {
   async searchMessages(userId1, userId2, query) {
     const conversationId = Message.generateConversationId(userId1, userId2);
 
-    return await Message.find({
+    return Message.find({
       conversationId,
       deletedBy: { $ne: userId1 },
-      content: { $regex: query, $options: 'i' }
+      content: { $regex: query, $options: 'i' },
     })
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar')
@@ -397,10 +383,20 @@ class MessageRepository {
    * Create a system notification message
    */
   async createSystemNotification(notificationData) {
-    const { sender, receiver, content, systemMessageType, relatedMessage } = notificationData;
+    const {
+      sender,
+      receiver,
+      content,
+      systemMessageType,
+      relatedMessage,
+    } = notificationData;
     const conversationId = Message.generateConversationId(sender, receiver);
 
-    console.log('📢 Creating system notification:', { content, systemMessageType, conversationId });
+    logger.info({
+      conversationId,
+      systemMessageType,
+      relatedMessage,
+    }, 'Creating system notification');
 
     const message = await Message.create({
       sender,
@@ -410,10 +406,9 @@ class MessageRepository {
       isSystemMessage: true,
       systemMessageType,
       relatedMessage,
-      readAt: new Date() // System messages are auto-read
+      readAt: new Date(),
     });
 
-    // Update conversation
     const conversation = await Conversation.findOne({ conversationId });
     if (conversation) {
       conversation.lastMessage = content.substring(0, 100);
@@ -425,7 +420,10 @@ class MessageRepository {
       .populate('sender', 'firstName lastName email avatar')
       .populate('receiver', 'firstName lastName email avatar');
 
-    console.log('✅ System notification created and populated:', populatedMessage._id, populatedMessage.isSystemMessage);
+    logger.info({
+      messageId: populatedMessage._id.toString(),
+      isSystemMessage: populatedMessage.isSystemMessage,
+    }, 'Created system notification');
 
     return populatedMessage;
   }

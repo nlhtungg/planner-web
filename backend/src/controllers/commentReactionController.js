@@ -2,6 +2,7 @@ const commentReactionRepository = require('../repositories/commentReactionReposi
 const postCommentRepository = require('../repositories/postCommentRepository');
 const postRepository = require('../repositories/postRepository');
 const workspaceRepository = require('../repositories/workspaceRepository');
+const logger = require('../utils/logger').child({ module: 'controllers/commentReactionController' });
 
 class CommentReactionController {
   // Toggle reaction on a comment
@@ -90,7 +91,7 @@ class CommentReactionController {
         }
       });
     } catch (error) {
-      console.error('Toggle comment reaction error:', error);
+      logger.error({ err: error }, 'Toggle comment reaction error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -169,7 +170,7 @@ class CommentReactionController {
         }
       });
     } catch (error) {
-      console.error('Get comment reaction summary error:', error);
+      logger.error({ err: error }, 'Get comment reaction summary error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -241,7 +242,7 @@ class CommentReactionController {
         data: reactions
       });
     } catch (error) {
-      console.error('Get comment reactions error:', error);
+      logger.error({ err: error }, 'Get comment reactions error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'

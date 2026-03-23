@@ -6,6 +6,7 @@ const {
   validateAddMember,
   validateUpdateMemberRole
 } = require('../utils/validation');
+const logger = require('../utils/logger').child({ module: 'controllers/workspaceController' });
 
 class WorkspaceController {
   // Create a new workspace
@@ -44,7 +45,7 @@ class WorkspaceController {
         data: workspace
       });
     } catch (error) {
-      console.error('Create workspace error:', error);
+      logger.error({ err: error }, 'Create workspace error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -68,7 +69,7 @@ class WorkspaceController {
         data: workspaces
       });
     } catch (error) {
-      console.error('Get workspaces error:', error);
+      logger.error({ err: error }, 'Get workspaces error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -92,13 +93,14 @@ class WorkspaceController {
       }
 
       // Check if user has access to this workspace
-      console.log('getWorkspace Debug:');
-      console.log('userId:', userId);
-      console.log('workspace.owner:', workspace.owner);
-      console.log('workspace.members:', workspace.members.map(m => ({ user: m.user, role: m.role })));
-      console.log('isMember result:', workspace.isMember(userId));
       const ownerIdString = (workspace.owner._id || workspace.owner).toString();
-      console.log('isOwner:', ownerIdString === userId.toString());
+      logger.debug({
+        userId: userId.toString(),
+        ownerId: ownerIdString,
+        isMember: workspace.isMember(userId),
+        isOwner: ownerIdString === userId.toString(),
+        memberCount: workspace.members.length,
+      }, 'Evaluated workspace access');
 
       // Check if user is the owner or is a member
       const isOwner = ownerIdString === userId.toString();
@@ -117,7 +119,7 @@ class WorkspaceController {
         data: workspace
       });
     } catch (error) {
-      console.error('Get workspace error:', error);
+      logger.error({ err: error }, 'Get workspace error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -146,13 +148,13 @@ class WorkspaceController {
       const canManage = isOwner || workspace.canManage(userId);
 
       if (!canManage) {
-        console.log('Permission check failed:', {
+        logger.warn({
           userId: userId.toString(),
           ownerId: workspace.owner._id.toString(),
           isOwner,
           userRole: workspace.getUserRole(userId),
           membersCount: workspace.members ? workspace.members.length : 0
-        });
+        }, 'Workspace permission check failed');
         return res.status(403).json({
           success: false,
           message: 'Insufficient permissions to update this workspace'
@@ -194,7 +196,7 @@ class WorkspaceController {
         data: updatedWorkspace
       });
     } catch (error) {
-      console.error('Update workspace error:', error);
+      logger.error({ err: error }, 'Update workspace error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -232,7 +234,7 @@ class WorkspaceController {
         message: 'Workspace deleted successfully'
       });
     } catch (error) {
-      console.error('Delete workspace error:', error);
+      logger.error({ err: error }, 'Delete workspace error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -289,7 +291,7 @@ class WorkspaceController {
         data: updatedWorkspace
       });
     } catch (error) {
-      console.error('Add member error:', error);
+      logger.error({ err: error }, 'Add member error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -328,7 +330,7 @@ class WorkspaceController {
         data: updatedWorkspace
       });
     } catch (error) {
-      console.error('Remove member error:', error);
+      logger.error({ err: error }, 'Remove member error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -375,7 +377,7 @@ class WorkspaceController {
         data: updatedWorkspace
       });
     } catch (error) {
-      console.error('Join workspace error:', error);
+      logger.error({ err: error }, 'Join workspace error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -422,7 +424,7 @@ class WorkspaceController {
         data: updatedWorkspace
       });
     } catch (error) {
-      console.error('Leave workspace error:', error);
+      logger.error({ err: error }, 'Leave workspace error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -470,7 +472,7 @@ class WorkspaceController {
         data: updatedWorkspace
       });
     } catch (error) {
-      console.error('Update member role error:', error);
+      logger.error({ err: error }, 'Update member role error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -509,7 +511,7 @@ class WorkspaceController {
         data: stats
       });
     } catch (error) {
-      console.error('Get workspace stats error:', error);
+      logger.error({ err: error }, 'Get workspace stats error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -551,7 +553,7 @@ class WorkspaceController {
         meta: { count: results.length, limit: numericLimit, query: q || '' }
       });
     } catch (error) {
-      console.error('Search members error:', error);
+      logger.error({ err: error }, 'Search members error');
       res.status(500).json({ success: false, message: error.message || 'Internal server error' });
     }
   }

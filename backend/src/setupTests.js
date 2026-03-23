@@ -1,3 +1,5 @@
+const logger = require('./utils/logger').child({ module: 'setupTests' });
+
 // Jest global setup for backend tests
 // Add shared mocks, environment variables, or custom matchers here.
 
@@ -10,6 +12,5 @@ jest.setTimeout(30000);
 
 // Prevent unhandled promise rejections from silently passing
 process.on('unhandledRejection', (err) => {
-  // eslint-disable-next-line no-console
-  console.error('Unhandled Promise Rejection (test):', err);
+  logger.error({ err }, 'Unhandled Promise Rejection (test)');
 });

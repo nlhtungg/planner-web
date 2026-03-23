@@ -1,10 +1,12 @@
-// Force IPv4 DNS resolution to avoid IPv6 issues in Docker
+const logger = require('./utils/logger').child({ module: 'server' });
 const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first');
-
+const socketIo = require('socket.io');
 const app = require('./app');
 const config = require('./config/app.config');
 const connectDB = require('./utils/database');
+
+// Force IPv4 DNS resolution to avoid IPv6 issues in Docker
+dns.setDefaultResultOrder('ipv4first');
 
 /**
  * Connect to Database
@@ -15,19 +17,20 @@ connectDB();
  * Start Server
  */
 const server = app.listen(config.port, () => {
-  console.log('=================================');
-  console.log(`🚀 Server running on port ${config.port}`);
-  console.log(`📝 Environment: ${config.env}`);
-  console.log(`🗄️  Database: MongoDB`);
+  logger.info({
+    port: config.port,
+    env: config.env,
+    database: 'MongoDB',
+  }, 'HTTP server started');
 });
 
 // Initialize Socket.io
-const io = require('socket.io')(server, {
+const io = socketIo(server, {
   cors: {
     origin: config.cors.origin,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
 // Socket authentication middleware
@@ -35,55 +38,68 @@ const socketAuthMiddleware = require('./middlewares/socketAuth');
 io.use(socketAuthMiddleware);
 
 io.on('connection', (socket) => {
-  console.log(`👤 User connected: ${socket.id} (userId: ${socket.userId})`);
+  const socketLogger = logger.child({
+    socketId: socket.id,
+    userId: socket.userId,
+  });
+
+  socketLogger.info('Socket connected');
 
   // Auto-join user's personal chat room on connection
   const userRoom = `user-${socket.userId}`;
   socket.join(userRoom);
-  console.log(`💬 Auto-joined chat room: ${userRoom}`);
+  socketLogger.info({ room: userRoom }, 'Joined personal chat room');
 
   // Join workspace room for real-time updates
   socket.on('join-workspace', (workspaceId) => {
-    socket.join(`workspace-${workspaceId}`);
-    console.log(`✅ User ${socket.id} joined workspace-${workspaceId}`);
-    
-    // Log all clients in the room for debugging
-    const room = io.sockets.adapter.rooms.get(`workspace-${workspaceId}`);
-    console.log(`   Total clients in workspace-${workspaceId}:`, room ? room.size : 0);
-    
-    // Send ACK to client
+    const roomName = `workspace-${workspaceId}`;
+    socket.join(roomName);
+    const room = io.sockets.adapter.rooms.get(roomName);
+
+    socketLogger.info({
+      workspaceId,
+      room: roomName,
+      roomSize: room ? room.size : 0,
+    }, 'Joined workspace room');
+
     socket.emit('joined-workspace', { workspaceId, roomSize: room ? room.size : 0 });
   });
 
   socket.on('leave-workspace', (workspaceId) => {
-    socket.leave(`workspace-${workspaceId}`);
-    console.log(`❌ User ${socket.id} left workspace-${workspaceId}`);
+    const roomName = `workspace-${workspaceId}`;
+    socket.leave(roomName);
+    socketLogger.info({ workspaceId, room: roomName }, 'Left workspace room');
   });
 
   // Chat events - validate userId matches authenticated user
   socket.on('join-chat', (userId) => {
-    // Security: only allow joining own chat room
     if (userId !== socket.userId) {
-      console.warn(`⚠️ User ${socket.userId} attempted to join chat room for ${userId}`);
+      socketLogger.warn({ requestedUserId: userId }, 'Rejected attempt to join another user chat room');
       socket.emit('error', { message: 'Cannot join another user\'s chat room' });
       return;
     }
-    
+
     const chatRoom = `user-${userId}`;
     socket.join(chatRoom);
-    console.log(`💬 User ${socket.id} joined chat room ${chatRoom}`);
-    
-    // Send ACK to client
     const room = io.sockets.adapter.rooms.get(chatRoom);
+
+    socketLogger.info({
+      requestedUserId: userId,
+      room: chatRoom,
+      roomSize: room ? room.size : 0,
+    }, 'Joined chat room');
+
     socket.emit('joined-chat', { userId, roomSize: room ? room.size : 0 });
   });
 
   socket.on('leave-chat', (userId) => {
     if (userId !== socket.userId) {
-      return; // Silently ignore invalid requests
+      return;
     }
-    socket.leave(`user-${userId}`);
-    console.log(`💬 User ${socket.id} left chat room user-${userId}`);
+
+    const chatRoom = `user-${userId}`;
+    socket.leave(chatRoom);
+    socketLogger.info({ requestedUserId: userId, room: chatRoom }, 'Left chat room');
   });
 
   socket.on('typing', ({ senderId, receiverId }) => {
@@ -97,12 +113,12 @@ io.on('connection', (socket) => {
   // Document collaboration events
   socket.on('join-document', (documentId) => {
     socket.join(documentId);
-    console.log(`User ${socket.id} joined document ${documentId}`);
+    socketLogger.info({ documentId }, 'Joined document room');
   });
 
   socket.on('leave-document', (documentId) => {
     socket.leave(documentId);
-    console.log(`User ${socket.id} left document ${documentId}`);
+    socketLogger.info({ documentId }, 'Left document room');
   });
 
   socket.on('send-changes', (delta, documentId) => {
@@ -118,29 +134,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    socketLogger.info('Socket disconnected');
   });
 });
 
 // Make io instance available globally for controllers
 global.io = io;
-
-console.log('📡 Socket.io initialized');
-console.log('=================================');
+logger.info('Socket.io initialized');
 
 /**
  * Graceful Shutdown
  */
 const gracefulShutdown = (signal) => {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  logger.info({ signal }, 'Starting graceful shutdown');
 
   server.close(() => {
-    console.log('✅ HTTP server closed');
+    logger.info('HTTP server closed');
 
-    // Close database connection
     if (global.mongoose && global.mongoose.connection) {
       global.mongoose.connection.close(() => {
-        console.log('✅ Database connection closed');
+        logger.info('Database connection closed');
         process.exit(0);
       });
     } else {
@@ -148,9 +161,8 @@ const gracefulShutdown = (signal) => {
     }
   });
 
-  // Force shutdown after 10 seconds
   setTimeout(() => {
-    console.error('⚠️  Forced shutdown due to timeout');
+    logger.fatal({ signal }, 'Forced shutdown due to timeout');
     process.exit(1);
   }, 10000);
 };
@@ -161,12 +173,12 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught errors
 process.on('uncaughtException', (err) => {
-  console.error('💥 Uncaught Exception:', err);
+  logger.fatal({ err }, 'Uncaught exception');
   gracefulShutdown('uncaughtException');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.fatal({ reason, promise }, 'Unhandled rejection');
   gracefulShutdown('unhandledRejection');
 });
 

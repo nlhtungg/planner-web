@@ -1,6 +1,7 @@
 const postRepository = require('../repositories/postRepository');
 const workspaceRepository = require('../repositories/workspaceRepository');
 const { extractMentions } = require('../utils/mentionUtils');
+const logger = require('../utils/logger').child({ module: 'controllers/postController' });
 
 class PostController {
   // Create a new post
@@ -54,10 +55,10 @@ class PostController {
 
       // Emit socket event for real-time updates
       if (global.io) {
-        console.log(`📡 Emitting new-post event to workspace-${workspaceId}`, post._id);
+        logger.info({ data: post._id }, `📡 Emitting new-post event to workspace-${workspaceId}`);
         global.io.to(`workspace-${workspaceId}`).emit('new-post', post);
       } else {
-        console.warn('⚠️ Socket.io not available, cannot emit new-post event');
+        logger.warn('⚠️ Socket.io not available, cannot emit new-post event');
       }
 
       res.status(201).json({
@@ -66,7 +67,7 @@ class PostController {
         data: post
       });
     } catch (error) {
-      console.error('Create post error:', error);
+      logger.error({ err: error }, 'Create post error:');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -107,7 +108,7 @@ class PostController {
         data: posts
       });
     } catch (error) {
-      console.error('Get posts error:', error);
+      logger.error({ err: error }, 'Get posts error:');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -188,7 +189,7 @@ class PostController {
         data: updatedPost
       });
     } catch (error) {
-      console.error('Update post error:', error);
+      logger.error({ err: error }, 'Update post error:');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -249,7 +250,7 @@ class PostController {
         message: 'Post deleted successfully'
       });
     } catch (error) {
-      console.error('Delete post error:', error);
+      logger.error({ err: error }, 'Delete post error:');
       res.status(500).json({
         success: false,
         message: 'Internal server error'

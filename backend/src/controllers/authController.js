@@ -5,6 +5,7 @@ const authService = require('../services/authService');
 const googleAuthService = require('../services/googleAuthService');
 const minioService = require('../services/minioService');
 const totpService = require('../services/totpService');
+const logger = require('../utils/logger').child({ module: 'controllers/authController' });
 const { 
   validateRegistration, 
   validateLogin, 
@@ -69,7 +70,7 @@ class AuthController {
       const activationCodeExpiry = authService.getActivationCodeExpiry();
       
       // Log activation code for development (remove in production)
-      console.log(`🔐 Activation code for ${user.email}: ${activationCode}`);
+      logger.info({ userId: user._id.toString() }, 'Generated activation code');
       
       // Save activation code to user
       await User.findByIdAndUpdate(user._id, {
@@ -82,7 +83,7 @@ class AuthController {
       try {
         await emailService.sendActivationCode(user.email, activationCode, user.firstName);
       } catch (emailError) {
-        console.error('Error sending activation email:', emailError);
+        logger.error({ err: emailError, userId: user._id.toString() }, 'Error sending activation email');
         // Continue with registration even if email fails
       }
 
@@ -96,7 +97,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Registration error:', error);
+      logger.error({ err: error }, 'Registration error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -194,7 +195,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error({ err: error }, 'Login error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -222,7 +223,7 @@ class AuthController {
 
       res.status(200).json(result);
     } catch (error) {
-      console.error('Refresh token error:', error);
+      logger.error({ err: error }, 'Refresh token error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -305,8 +306,7 @@ class AuthController {
           // Generate activation code for new Google users
           const activationCode = authService.generateActivationCode();
           const activationCodeExpiry = authService.getActivationCodeExpiry();
-          
-          console.log(`🔐 Activation code for ${user.email}: ${activationCode}`);
+      logger.info({ userId: user._id.toString() }, 'Generated activation code');
           
           await User.findByIdAndUpdate(user._id, {
             activationCode,
@@ -318,7 +318,7 @@ class AuthController {
           try {
             await emailService.sendActivationCode(user.email, activationCode, user.firstName);
           } catch (emailError) {
-            console.error('Error sending activation email:', emailError);
+            logger.error({ err: emailError, userId: user._id.toString() }, 'Error sending activation email');
           }
           
           return res.status(201).json({
@@ -370,7 +370,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Google auth error:', error);
+      logger.error({ err: error }, 'Google auth error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -390,7 +390,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Get Google auth URL error:', error);
+      logger.error({ err: error }, 'Get Google auth URL error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -473,8 +473,7 @@ class AuthController {
           // Generate activation code for new Google users
           const activationCode = authService.generateActivationCode();
           const activationCodeExpiry = authService.getActivationCodeExpiry();
-          
-          console.log(`🔐 Activation code for ${user.email}: ${activationCode}`);
+      logger.info({ userId: user._id.toString() }, 'Generated activation code');
           
           await User.findByIdAndUpdate(user._id, {
             activationCode,
@@ -486,7 +485,7 @@ class AuthController {
           try {
             await emailService.sendActivationCode(user.email, activationCode, user.firstName);
           } catch (emailError) {
-            console.error('Error sending activation email:', emailError);
+            logger.error({ err: emailError, userId: user._id.toString() }, 'Error sending activation email');
           }
           
           return res.status(201).json({
@@ -528,7 +527,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Google callback error:', error);
+      logger.error({ err: error }, 'Google callback error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -542,7 +541,7 @@ class AuthController {
       const { refreshToken } = req.body;
       const userId = req.user?._id || req.user?.id;
 
-      console.log('Logout request - userId:', userId, 'refreshToken provided:', !!refreshToken);
+      logger.info({ userId: userId?.toString(), hasRefreshToken: Boolean(refreshToken) }, 'Logout request received');
 
       if (refreshToken && userId) {
         await authService.removeRefreshToken(userId, refreshToken);
@@ -553,7 +552,7 @@ class AuthController {
         message: 'Logged out successfully'
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error({ err: error }, 'Logout error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -579,7 +578,7 @@ class AuthController {
         data: { user }
       });
     } catch (error) {
-      console.error('Get profile error:', error);
+      logger.error({ err: error }, 'Get profile error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -626,7 +625,7 @@ class AuthController {
         data: { user: publicProfile }
       });
     } catch (error) {
-      console.error('Get public profile error:', error);
+      logger.error({ err: error }, 'Get public profile error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -661,7 +660,7 @@ class AuthController {
         data: { user }
       });
     } catch (error) {
-      console.error('Update profile error:', error);
+      logger.error({ err: error }, 'Update profile error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -684,8 +683,7 @@ class AuthController {
       const { currentPassword, newPassword } = req.body;
       const userId = req.user._id || req.user.id;
 
-      console.log('Change password request for userId:', userId);
-      console.log('User object:', { id: req.user._id, email: req.user.email, authMethod: req.user.authMethod });
+      logger.info({ userId: userId.toString(), authMethod: req.user.authMethod }, 'Change password request received');
 
       // Check if user is using local auth (check from req.user first, then database)
       if (req.user.authMethod !== 'local') {
@@ -697,14 +695,14 @@ class AuthController {
 
       const user = await User.findById(userId).select('+password');
       if (!user) {
-        console.error('User not found in database for userId:', userId);
+        logger.warn({ userId: userId.toString() }, 'User not found during change password');
         return res.status(404).json({
           success: false,
           message: 'User not found'
         });
       }
 
-      console.log('Found user in database:', { id: user._id, email: user.email, authMethod: user.authMethod });
+      logger.debug({ userId: user._id.toString(), authMethod: user.authMethod }, 'Loaded user for password change');
 
       // Double check auth method from database
       if (user.authMethod !== 'local') {
@@ -727,7 +725,7 @@ class AuthController {
       user.password = newPassword;
       await user.save();
 
-      console.log('Password updated successfully for user:', user.email);
+      logger.info({ userId: user._id.toString() }, 'Password updated successfully');
 
       // Invalidate all refresh tokens for security
       await User.findByIdAndUpdate(userId, { refreshTokens: [] });
@@ -737,7 +735,7 @@ class AuthController {
         message: 'Password changed successfully. Please login again.'
       });
     } catch (error) {
-      console.error('Change password error:', error);
+      logger.error({ err: error }, 'Change password error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -748,12 +746,12 @@ class AuthController {
   // Upload user avatar
   async uploadAvatar(req, res) {
     try {
-      console.log('📸 Avatar upload request received for user:', req.user?._id || req.user?.id);
-      console.log('📁 File details:', req.file ? {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
+      logger.info({ userId: (req.user?._id || req.user?.id)?.toString() }, 'Avatar upload request received');
+      logger.debug(req.file ? {
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
         size: req.file.size
-      } : 'No file received');
+      } : { hasFile: false }, 'Avatar upload payload summary');
       
       const userId = req.user._id || req.user.id;
       
@@ -798,11 +796,11 @@ class AuthController {
       }
 
       // Update user's avatar URL in database
-      console.log('💾 Updating user avatar in database for userId:', userId);
+      logger.info({ userId: userId.toString() }, 'Updating user avatar in database');
       const updatedUser = await userRepository.updateUser(userId, {
         avatar: uploadResult.url
       });
-      console.log('✅ Database updated successfully. User avatar field:', updatedUser.avatar);
+      logger.info({ userId: userId.toString(), hasAvatar: Boolean(updatedUser.avatar) }, 'User avatar updated in database');
 
       res.status(200).json({
         success: true,
@@ -812,9 +810,9 @@ class AuthController {
           avatarUrl: uploadResult.url
         }
       });
-      console.log('📤 Avatar upload response sent successfully');
+      logger.info({ userId: userId.toString() }, 'Avatar upload response sent');
     } catch (error) {
-      console.error('Upload avatar error:', error);
+      logger.error({ err: error }, 'Upload avatar error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -841,7 +839,7 @@ class AuthController {
         data: { user: updatedUser }
       });
     } catch (error) {
-      console.error('Delete avatar error:', error);
+      logger.error({ err: error }, 'Delete avatar error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -887,7 +885,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Activation error:', error);
+      logger.error({ err: error }, 'Activation error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -927,9 +925,7 @@ class AuthController {
       // Generate new activation code
       const activationCode = authService.generateActivationCode();
       const activationCodeExpiry = authService.getActivationCodeExpiry();
-      
-      // Log activation code for development (remove in production)
-      console.log(`🔐 Resent activation code for ${user.email}: ${activationCode}`);
+      logger.info({ userId: user._id.toString() }, 'Generated activation code');
       
       // Save new activation code
       user.activationCode = activationCode;
@@ -945,14 +941,14 @@ class AuthController {
           message: 'Activation code resent successfully'
         });
       } catch (emailError) {
-        console.error('Error sending activation email:', emailError);
+        logger.error({ err: emailError, userId: user._id.toString() }, 'Error sending activation email');
         res.status(500).json({
           success: false,
           message: 'Failed to send activation email'
         });
       }
     } catch (error) {
-      console.error('Resend activation code error:', error);
+      logger.error({ err: error }, 'Resend activation code error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -1005,7 +1001,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Setup TOTP error:', error);
+      logger.error({ err: error }, 'Setup TOTP error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -1081,7 +1077,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Enable TOTP error:', error);
+      logger.error({ err: error }, 'Enable TOTP error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -1159,7 +1155,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Verify TOTP error:', error);
+      logger.error({ err: error }, 'Verify TOTP error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -1241,7 +1237,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Verify backup code error:', error);
+      logger.error({ err: error }, 'Verify backup code error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -1302,7 +1298,7 @@ class AuthController {
         message: 'Two-factor authentication disabled successfully'
       });
     } catch (error) {
-      console.error('Disable TOTP error:', error);
+      logger.error({ err: error }, 'Disable TOTP error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -1332,7 +1328,7 @@ class AuthController {
         }
       });
     } catch (error) {
-      console.error('Get TOTP status error:', error);
+      logger.error({ err: error }, 'Get TOTP status error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'

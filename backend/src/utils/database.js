@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const logger = require('./logger').child({ module: 'utils/database' });
 
 const connectDB = async (retries = 5, delay = 5000) => {
   for (let i = 0; i < retries; i++) {
@@ -15,31 +16,35 @@ const connectDB = async (retries = 5, delay = 5000) => {
         maxIdleTimeMS: 10000, // Close idle connections after 10s
       });
 
-      console.log(`MongoDB Connected: ${conn.connection.host}`);
+      logger.info({ host: conn.connection.host }, 'MongoDB connected');
 
       // Handle connection events
       mongoose.connection.on('error', (err) => {
-        console.error('MongoDB connection error:', err);
+        logger.error({ err }, 'MongoDB connection error');
       });
 
       mongoose.connection.on('disconnected', () => {
-        console.warn('MongoDB disconnected. Attempting to reconnect...');
+        logger.warn('MongoDB disconnected');
       });
 
       mongoose.connection.on('reconnected', () => {
-        console.log('MongoDB reconnected');
+        logger.info('MongoDB reconnected');
       });
 
       return; // Successfully connected, exit the function
 
     } catch (error) {
-      console.error(`MongoDB connection attempt ${i + 1}/${retries} failed:`, error.message);
+      logger.error({
+        err: error,
+        attempt: i + 1,
+        retries,
+      }, 'MongoDB connection attempt failed');
       
       if (i < retries - 1) {
-        console.log(`Retrying in ${delay / 1000} seconds...`);
+        logger.warn({ retryInSeconds: delay / 1000 }, 'Retrying MongoDB connection');
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        console.error('All MongoDB connection attempts failed. Exiting...');
+        logger.fatal({ retries }, 'All MongoDB connection attempts failed');
         process.exit(1);
       }
     }

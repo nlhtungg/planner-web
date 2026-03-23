@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('../utils/logger').child({ module: 'services/emailService' });
 
 class EmailService {
   constructor() {
@@ -96,7 +97,7 @@ class EmailService {
       await this.transporter.sendMail(mailOptions);
       return { success: true, message: 'Activation code sent successfully' };
     } catch (error) {
-      console.error('Error sending activation email:', error);
+      logger.error({ err: error, email }, 'Failed to send activation email');
       throw new Error('Failed to send activation email');
     }
   }
@@ -107,10 +108,10 @@ class EmailService {
   async verifyConnection() {
     try {
       await this.transporter.verify();
-      console.log('Email service is ready to send emails');
+      logger.info('Email service connection verified');
       return true;
     } catch (error) {
-      console.error('Email service configuration error:', error);
+      logger.error({ err: error }, 'Email service configuration error');
       return false;
     }
   }

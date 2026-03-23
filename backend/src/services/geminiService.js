@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { ChromaClient } = require('chromadb');
+const logger = require('../utils/logger').child({ module: 'services/geminiService' });
 
 /**
  * Gemini AI Service with RAG
@@ -11,28 +12,26 @@ class GeminiService {
     if (!this.apiKey) {
       throw new Error('GOOGLE_API_KEY is not configured');
     }
-    
-    // Log API key info (masked for security)
-    const maskedKey = this.apiKey.substring(0, 10) + '...' + this.apiKey.substring(this.apiKey.length - 4);
-    console.log('='.repeat(50));
-    console.log(`🔑 Gemini API Key: ${maskedKey}`);
-    console.log(`🤖 Chat Model: gemma-3-4b-it`);
-    console.log(`📝 Embed Model: text-embedding-004`);
-    console.log('='.repeat(50));
-    
+
+    const maskedKey = `${this.apiKey.substring(0, 10)}...${this.apiKey.substring(this.apiKey.length - 4)}`;
+    logger.info({
+      apiKeyPreview: maskedKey,
+      chatModel: 'gemma-3-4b-it',
+      embedModel: 'text-embedding-004',
+    }, 'Gemini service configured');
+
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     this.embedModel = this.genAI.getGenerativeModel({ model: 'text-embedding-004' });
-    this.chatModel = this.genAI.getGenerativeModel({ 
+    this.chatModel = this.genAI.getGenerativeModel({
       model: 'gemma-3-4b-it',
       generationConfig: {
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
         maxOutputTokens: 2048,
-      }
+      },
     });
-    
-    // Initialize ChromaDB client
+
     const chromaUrl = process.env.CHROMA_URL || 'http://chromadb:8000';
     this.chromaClient = new ChromaClient({ path: chromaUrl });
   }
@@ -45,7 +44,7 @@ class GeminiService {
       const result = await this.embedModel.embedContent(text);
       return result.embedding.values;
     } catch (error) {
-      console.error('Error generating embedding:', error);
+      logger.error({ err: error }, 'Error generating embedding');
       throw error;
     }
   }
@@ -56,13 +55,12 @@ class GeminiService {
   async getOrCreateCollection(userId) {
     const collectionName = `kb_user_${userId}`;
     try {
-      const collection = await this.chromaClient.getOrCreateCollection({
+      return await this.chromaClient.getOrCreateCollection({
         name: collectionName,
-        metadata: { userId: userId.toString() }
+        metadata: { userId: userId.toString() },
       });
-      return collection;
     } catch (error) {
-      console.error('Error creating collection:', error);
+      logger.error({ err: error, userId, collectionName }, 'Error creating collection');
       throw error;
     }
   }
@@ -72,56 +70,56 @@ class GeminiService {
    */
   async addDocumentToVectorDB(userId, documentId, chunks) {
     try {
-      console.log('\n' + '='.repeat(60));
-      console.log('🔄 [EMBEDDING] Starting document processing');
-      console.log('📋 Document ID:', documentId);
-      console.log('📦 Total chunks:', chunks.length);
-      console.log('='.repeat(60));
-      
+      logger.info({
+        userId: userId.toString(),
+        documentId,
+        chunkCount: chunks.length,
+      }, 'Starting document embedding workflow');
+
       const collection = await this.getOrCreateCollection(userId);
-      
-      // Generate embeddings for all chunks
-      console.log('🧠 [EMBEDDING] Generating embeddings for', chunks.length, 'chunks...');
+
       const startTime = Date.now();
       const embeddings = await Promise.all(
         chunks.map((chunk, idx) => {
           if ((idx + 1) % 5 === 0) {
-            console.log(`   Progress: ${idx + 1}/${chunks.length} chunks processed`);
+            logger.debug({
+              documentId,
+              processed: idx + 1,
+              total: chunks.length,
+            }, 'Embedding progress');
           }
           return this.generateEmbedding(chunk.text);
-        })
+        }),
       );
-      const embeddingTime = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`✅ [EMBEDDING] Generated ${embeddings.length} embeddings in ${embeddingTime}s`);
+      const embeddingTimeSeconds = Number(((Date.now() - startTime) / 1000).toFixed(2));
 
-      // Prepare data for ChromaDB
       const ids = chunks.map((chunk, idx) => chunk.id || `${documentId}_chunk_${idx}`);
-      const documents = chunks.map(chunk => chunk.text);
+      const documents = chunks.map((chunk) => chunk.text);
       const metadatas = chunks.map((chunk, idx) => ({
         documentId,
         chunkIndex: idx,
         pageNumber: chunk.pageNumber || 0,
-        ...(chunk.metadata || {}) // Preserve additional metadata from chunks
+        ...(chunk.metadata || {}),
       }));
 
-      // Add to ChromaDB
-      console.log('💾 [CHROMADB] Saving to vector database...');
       await collection.add({
         ids,
         embeddings,
         documents,
-        metadatas
+        metadatas,
       });
 
-      console.log('✅ [CHROMADB] Saved successfully!');
-      console.log('📊 Summary:');
-      console.log('   - Document ID:', documentId);
-      console.log('   - Chunks stored:', chunks.length);
-      console.log('   - Vector IDs:', ids.length);
-      console.log('='.repeat(60) + '\n');
+      logger.info({
+        userId: userId.toString(),
+        documentId,
+        chunkCount: chunks.length,
+        vectorCount: ids.length,
+        embeddingTimeSeconds,
+      }, 'Stored document embeddings in ChromaDB');
+
       return ids;
     } catch (error) {
-      console.error('Error adding to vector DB:', error);
+      logger.error({ err: error, userId, documentId }, 'Error adding document to vector DB');
       throw error;
     }
   }
@@ -132,54 +130,54 @@ class GeminiService {
   async searchSimilarChunks(userId, query, topK = 5, selectedDocumentIds = null) {
     try {
       const collection = await this.getOrCreateCollection(userId);
-      
-      // Log selected documents for debugging
-      console.log('🔍 Search Query:', query.substring(0, 50) + '...');
-      console.log('📋 Selected Document IDs:', selectedDocumentIds);
-      
-      // Generate embedding for query
       const queryEmbedding = await this.generateEmbedding(query);
 
-      // Build query options
       const queryOptions = {
         queryEmbeddings: [queryEmbedding],
-        nResults: topK
+        nResults: topK,
       };
 
-      // Filter by selected documents if provided
       if (selectedDocumentIds && selectedDocumentIds.length > 0) {
         queryOptions.where = {
-          documentId: { $in: selectedDocumentIds }
+          documentId: { $in: selectedDocumentIds },
         };
-        console.log('✅ Applying document filter:', selectedDocumentIds);
-      } else {
-        console.log('⚠️ No document filter - searching all documents');
       }
 
-      // Search in ChromaDB
-      const results = await collection.query(queryOptions);
-      
-      console.log('📊 Search results count:', results.documents[0]?.length || 0);
+      logger.info({
+        userId: userId.toString(),
+        topK,
+        hasDocumentFilter: Boolean(selectedDocumentIds?.length),
+        selectedDocumentCount: selectedDocumentIds?.length || 0,
+        queryPreview: query.substring(0, 50),
+      }, 'Searching similar chunks');
 
-      // Format results
+      const results = await collection.query(queryOptions);
+      const resultCount = results.documents?.[0]?.length || 0;
+      logger.info({ userId: userId.toString(), resultCount }, 'Completed vector search');
+
       if (!results.documents || results.documents.length === 0) {
         return [];
       }
 
       const chunks = [];
-      for (let i = 0; i < results.documents[0].length; i++) {
+      for (let i = 0; i < results.documents[0].length; i += 1) {
         const metadata = results.metadatas[0][i];
-        console.log(`  📄 Chunk ${i + 1}: Document ID = ${metadata.documentId}`);
+        logger.debug({
+          index: i,
+          documentId: metadata.documentId,
+          chunkIndex: metadata.chunkIndex,
+        }, 'Matched vector chunk');
+
         chunks.push({
           text: results.documents[0][i],
-          metadata: metadata,
-          distance: results.distances[0][i]
+          metadata,
+          distance: results.distances[0][i],
         });
       }
 
       return chunks;
     } catch (error) {
-      console.error('Error searching vector DB:', error);
+      logger.error({ err: error, userId }, 'Error searching vector DB');
       return [];
     }
   }
@@ -189,72 +187,65 @@ class GeminiService {
    */
   async generateChatResponse(userId, userMessage, chatHistory = [], selectedDocumentIds = null) {
     try {
-      // Search for relevant context from selected documents only
       const relevantChunks = await this.searchSimilarChunks(
-        userId, 
-        userMessage, 
+        userId,
+        userMessage,
         5,
-        selectedDocumentIds
+        selectedDocumentIds,
       );
 
-      // Build context from relevant chunks
       let context = '';
       const sources = [];
-      
+
       if (relevantChunks.length > 0) {
-        context = 'Dựa vào thông tin sau để trả lời câu hỏi:\n\n';
-        relevantChunks.forEach((chunk, idx) => {
+        context = 'Dua vao thong tin sau de tra loi cau hoi:\n\n';
+        relevantChunks.forEach((chunk) => {
           context += `${chunk.text}\n\n`;
           sources.push({
             documentId: chunk.metadata.documentId,
             chunkIndex: chunk.metadata.chunkIndex,
-            relevance: 1 - (chunk.distance || 0)
+            relevance: 1 - (chunk.distance || 0),
           });
         });
       }
 
-      // Build chat prompt
-      const systemPrompt = `Bạn là trợ lý AI thông minh, hỗ trợ người dùng trả lời câu hỏi dựa trên tài liệu được cung cấp.
+      const systemPrompt = `Ban la tro ly AI thong minh, ho tro nguoi dung tra loi cau hoi dua tren tai lieu duoc cung cap.
 
-Quy tắc:
-1. Trả lời bằng tiếng Việt, súc tích và rõ ràng
-2. Nếu có context từ tài liệu, ưu tiên sử dụng thông tin đó
-3. Nếu không tìm thấy thông tin trong tài liệu, hãy thông báo và đưa ra câu trả lời chung
-4. Nếu không chắc chắn, hãy nói rõ
+Quy tac:
+1. Tra loi bang tieng Viet, suc tich va ro rang
+2. Neu co context tu tai lieu, uu tien su dung thong tin do
+3. Neu khong tim thay thong tin trong tai lieu, hay thong bao va dua ra cau tra loi chung
+4. Neu khong chac chan, hay noi ro
 
-${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy trả lời dựa trên kiến thức chung.'}`;
+${context || 'Hien tai chua co tai lieu tham khao. Hay tra loi dua tren kien thuc chung.'}`;
 
-      // Build chat messages
       const messages = [
-        { role: 'user', parts: [{ text: systemPrompt }] }
+        { role: 'user', parts: [{ text: systemPrompt }] },
       ];
 
-      // Add chat history (last 5 messages)
       const recentHistory = chatHistory.slice(-5);
-      recentHistory.forEach(msg => {
+      recentHistory.forEach((message) => {
         messages.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }]
+          role: message.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: message.content }],
         });
       });
 
-      // Add current user message
       messages.push({
         role: 'user',
-        parts: [{ text: userMessage }]
+        parts: [{ text: userMessage }],
       });
 
-      // Generate response
       const chat = this.chatModel.startChat({ history: messages.slice(0, -1) });
       const result = await chat.sendMessage(userMessage);
       const response = result.response.text();
 
       return {
         response,
-        sources: []
+        sources,
       };
     } catch (error) {
-      console.error('Error generating chat response:', error);
+      logger.error({ err: error, userId }, 'Error generating chat response');
       throw error;
     }
   }
@@ -266,10 +257,9 @@ ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy tr�
     try {
       const collectionName = `kb_user_${userId}`;
       await this.chromaClient.deleteCollection({ name: collectionName });
-      console.log(`Deleted collection for user ${userId}`);
+      logger.info({ userId: userId.toString(), collectionName }, 'Deleted user collection');
     } catch (error) {
-      console.error('Error deleting collection:', error);
-      // Don't throw - collection might not exist
+      logger.error({ err: error, userId }, 'Error deleting collection');
     }
   }
 
@@ -278,26 +268,21 @@ ${context ? context : 'Hiện tại chưa có tài liệu tham khảo. Hãy tr�
    */
   async generateText(prompt, chatHistory = []) {
     try {
-      // Build chat messages
       const messages = [];
 
-      // Add chat history (last 5 messages)
       const recentHistory = chatHistory.slice(-5);
-      recentHistory.forEach(msg => {
+      recentHistory.forEach((message) => {
         messages.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }]
+          role: message.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: message.content }],
         });
       });
 
-      // Generate response
       const chat = this.chatModel.startChat({ history: messages });
       const result = await chat.sendMessage(prompt);
-      const response = result.response.text();
-
-      return response;
+      return result.response.text();
     } catch (error) {
-      console.error('Error generating text with Gemini:', error);
+      logger.error({ err: error }, 'Error generating text with Gemini');
       throw error;
     }
   }

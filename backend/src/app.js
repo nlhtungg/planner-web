@@ -1,9 +1,11 @@
+const crypto = require('crypto');
 const express = require('express');
 const config = require('./config/app.config');
 const { configureHelmet, configureCors, configureRateLimit } = require('./middlewares/security');
 const requestTimeout = require('./middlewares/requestTimeout');
 const routes = require('./routes');
 const errorHandler = require('./middlewares/errorHandler');
+const logger = require('./utils/logger').child({ module: 'app' });
 
 const app = express();
 
@@ -31,15 +33,29 @@ app.use(express.urlencoded({
   limit: config.bodyParser.urlEncodedLimit
 }));
 
-/**
- * Request Logging (development only)
- */
-if (config.env === 'development') {
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    next();
+app.use((req, res, next) => {
+  const startTime = process.hrtime.bigint();
+  const requestId = crypto.randomUUID();
+
+  req.requestId = requestId;
+  req.log = logger.child({
+    requestId,
+    method: req.method,
+    path: req.originalUrl || req.path,
   });
-}
+
+  req.log.info('Request started');
+
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - startTime) / 1e6;
+    req.log.info({
+      statusCode: res.statusCode,
+      durationMs: Number(durationMs.toFixed(2)),
+    }, 'Request completed');
+  });
+
+  next();
+});
 
 /**
  * Routes

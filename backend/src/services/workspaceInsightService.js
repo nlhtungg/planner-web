@@ -5,6 +5,7 @@ const PostComment = require('../models/PostComment');
 const Document = require('../models/Document');
 const DocumentComment = require('../models/DocumentComment');
 const geminiService = require('./geminiService');
+const logger = require('../utils/logger').child({ module: 'services/workspaceInsightService' });
 
 /**
  * Workspace Insight Service
@@ -16,55 +17,52 @@ class WorkspaceInsightService {
    */
   async collectWorkspaceData(workspaceId, userId) {
     try {
-      console.log(`📊 Collecting workspace data for: ${workspaceId}`);
+      logger.info({
+        workspaceId: workspaceId.toString(),
+        userId: userId.toString(),
+      }, 'Collecting workspace data');
 
-      // Get workspace details
       const workspace = await Workspace.findOne({
         _id: workspaceId,
         $or: [
           { owner: userId },
-          { 'members.user': userId }
-        ]
+          { 'members.user': userId },
+        ],
       })
-      .populate('owner', 'firstName lastName email')
-      .populate('members.user', 'firstName lastName email');
+        .populate('owner', 'firstName lastName email')
+        .populate('members.user', 'firstName lastName email');
 
       if (!workspace) {
         throw new Error('Workspace not found or no access');
       }
 
-      // Get tasks
       const tasks = await Task.find({ workspace: workspaceId })
         .populate('assignees', 'firstName lastName')
         .populate('createdBy', 'firstName lastName')
         .sort({ createdAt: -1 })
         .limit(100);
 
-      // Get recent posts
       const posts = await Post.find({ workspace: workspaceId })
         .populate('author', 'firstName lastName')
         .sort({ createdAt: -1 })
         .limit(50);
 
-      // Get recent post comments
-      const postIds = posts.map(p => p._id);
-      const postComments = await PostComment.find({ 
-        post: { $in: postIds } 
+      const postIds = posts.map((post) => post._id);
+      const postComments = await PostComment.find({
+        post: { $in: postIds },
       })
         .populate('author', 'firstName lastName')
         .sort({ createdAt: -1 })
         .limit(100);
 
-      // Get documents
       const documents = await Document.find({ workspace: workspaceId })
         .populate('createdBy', 'firstName lastName')
         .sort({ createdAt: -1 })
         .limit(50);
 
-      // Get document comments
-      const documentIds = documents.map(d => d._id);
+      const documentIds = documents.map((document) => document._id);
       const documentComments = await DocumentComment.find({
-        document: { $in: documentIds }
+        document: { $in: documentIds },
       })
         .populate('author', 'firstName lastName')
         .sort({ createdAt: -1 })
@@ -76,10 +74,10 @@ class WorkspaceInsightService {
         posts,
         postComments,
         documents,
-        documentComments
+        documentComments,
       };
     } catch (error) {
-      console.error('Error collecting workspace data:', error);
+      logger.error({ err: error, workspaceId, userId }, 'Error collecting workspace data');
       throw error;
     }
   }
@@ -89,9 +87,15 @@ class WorkspaceInsightService {
    */
   async generateWorkspaceChunks(workspaceData) {
     const chunks = [];
-    const { workspace, tasks, posts, postComments, documents, documentComments } = workspaceData;
+    const {
+      workspace,
+      tasks,
+      posts,
+      postComments,
+      documents,
+      documentComments,
+    } = workspaceData;
 
-    // Chunk 1: Workspace Overview
     const overview = {
       id: `ws_overview_${workspace._id}`,
       text: `
@@ -103,18 +107,17 @@ ${workspace.description || 'No description provided'}
 ## Members
 - Owner: ${workspace.owner.firstName} ${workspace.owner.lastName} (${workspace.owner.email})
 - Total Members: ${workspace.members.length}
-- Members: ${workspace.members.map(m => `${m.user.firstName} ${m.user.lastName} (${m.role})`).join(', ')}
+- Members: ${workspace.members.map((member) => `${member.user.firstName} ${member.user.lastName} (${member.role})`).join(', ')}
 
 ## Status
 - Created: ${workspace.createdAt.toLocaleDateString('vi-VN')}
 - Last Activity: ${workspace.lastActivity ? workspace.lastActivity.toLocaleDateString('vi-VN') : 'N/A'}
 - Active: ${workspace.isActive ? 'Yes' : 'No'}
       `.trim(),
-      metadata: { type: 'overview', workspaceId: workspace._id.toString() }
+      metadata: { type: 'overview', workspaceId: workspace._id.toString() },
     };
     chunks.push(overview);
 
-    // Chunk 2: Tasks Summary
     const tasksByStatus = tasks.reduce((acc, task) => {
       acc[task.status] = (acc[task.status] || 0) + 1;
       return acc;
@@ -135,11 +138,11 @@ ${Object.entries(tasksByStatus).map(([status, count]) => `- ${status}: ${count} 
 ${Object.entries(tasksByPriority).map(([priority, count]) => `- ${priority}: ${count} tasks`).join('\n')}
 
 ## Recent Tasks
-${tasks.slice(0, 20).map(task => `
+${tasks.slice(0, 20).map((task) => `
 ### ${task.title}
 - Status: ${task.status}
 - Priority: ${task.priority}
-- Assigned to: ${task.assignees && task.assignees.length > 0 ? task.assignees.map(a => `${a.firstName} ${a.lastName}`).join(', ') : 'Unassigned'}
+- Assigned to: ${task.assignees && task.assignees.length > 0 ? task.assignees.map((assignee) => `${assignee.firstName} ${assignee.lastName}`).join(', ') : 'Unassigned'}
 - Created by: ${task.createdBy.firstName} ${task.createdBy.lastName}
 - Deadline: ${task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : 'No deadline'}
 - Description: ${task.description || 'No description'}
@@ -148,16 +151,15 @@ ${tasks.slice(0, 20).map(task => `
     chunks.push({
       id: `ws_tasks_${workspace._id}`,
       text: tasksText,
-      metadata: { type: 'tasks', workspaceId: workspace._id.toString() }
+      metadata: { type: 'tasks', workspaceId: workspace._id.toString() },
     });
 
-    // Chunk 3: Posts and Discussions
     if (posts.length > 0) {
       const postsText = `
 # Recent Posts and Discussions (${posts.length} total)
 
-${posts.slice(0, 15).map(post => {
-  const comments = postComments.filter(c => c.post.toString() === post._id.toString());
+${posts.slice(0, 15).map((post) => {
+  const comments = postComments.filter((comment) => comment.post.toString() === post._id.toString());
   return `
 ## ${post.title}
 - Author: ${post.author.firstName} ${post.author.lastName}
@@ -166,39 +168,38 @@ ${posts.slice(0, 15).map(post => {
 - Reactions: ${post.reactions ? post.reactions.length : 0}
 
 ### Comments (${comments.length})
-${comments.slice(0, 5).map(c => `- ${c.author.firstName}: ${c.content}`).join('\n')}
+${comments.slice(0, 5).map((comment) => `- ${comment.author.firstName}: ${comment.content}`).join('\n')}
 `;
 }).join('\n')}
       `.trim();
       chunks.push({
         id: `ws_posts_${workspace._id}`,
         text: postsText,
-        metadata: { type: 'posts', workspaceId: workspace._id.toString() }
+        metadata: { type: 'posts', workspaceId: workspace._id.toString() },
       });
     }
 
-    // Chunk 4: Documents
     if (documents.length > 0) {
       const documentsText = `
 # Documents (${documents.length} total)
 
-${documents.slice(0, 20).map(doc => {
-  const comments = documentComments.filter(c => c.document.toString() === doc._id.toString());
+${documents.slice(0, 20).map((document) => {
+  const comments = documentComments.filter((comment) => comment.document.toString() === document._id.toString());
   return `
-## ${doc.title}
-- Created by: ${doc.createdBy.firstName} ${doc.createdBy.lastName}
-- Created: ${doc.createdAt.toLocaleDateString('vi-VN')}
-- Type: ${doc.fileType || 'Document'}
-- Content Preview: ${doc.content ? doc.content.substring(0, 300) : 'No content'}
+## ${document.title}
+- Created by: ${document.createdBy.firstName} ${document.createdBy.lastName}
+- Created: ${document.createdAt.toLocaleDateString('vi-VN')}
+- Type: ${document.fileType || 'Document'}
+- Content Preview: ${document.content ? document.content.substring(0, 300) : 'No content'}
 - Comments: ${comments.length}
-${comments.length > 0 ? `\nRecent comments:\n${comments.slice(0, 3).map(c => `- ${c.author.firstName}: ${c.content}`).join('\n')}` : ''}
+${comments.length > 0 ? `\nRecent comments:\n${comments.slice(0, 3).map((comment) => `- ${comment.author.firstName}: ${comment.content}`).join('\n')}` : ''}
 `;
 }).join('\n')}
       `.trim();
       chunks.push({
         id: `ws_documents_${workspace._id}`,
         text: documentsText,
-        metadata: { type: 'documents', workspaceId: workspace._id.toString() }
+        metadata: { type: 'documents', workspaceId: workspace._id.toString() },
       });
     }
 
@@ -210,43 +211,50 @@ ${comments.length > 0 ? `\nRecent comments:\n${comments.slice(0, 3).map(c => `- 
    */
   async indexWorkspace(workspaceId, userId) {
     try {
-      console.log(`🔄 Indexing workspace: ${workspaceId} for user: ${userId}`);
+      logger.info({
+        workspaceId: workspaceId.toString(),
+        userId: userId.toString(),
+      }, 'Indexing workspace');
 
-      // Collect data
       const workspaceData = await this.collectWorkspaceData(workspaceId, userId);
-      console.log(`📦 Collected data:`, {
+      logger.debug({
+        workspaceId: workspaceId.toString(),
         workspace: workspaceData.workspace?.name,
         tasks: workspaceData.tasks?.length,
         posts: workspaceData.posts?.length,
-        documents: workspaceData.documents?.length
-      });
+        documents: workspaceData.documents?.length,
+      }, 'Collected workspace data summary');
 
-      // Generate chunks
       const chunks = await this.generateWorkspaceChunks(workspaceData);
-      console.log(`📦 Generated ${chunks.length} chunks for workspace`);
+      logger.info({
+        workspaceId: workspaceId.toString(),
+        chunkCount: chunks.length,
+      }, 'Generated workspace chunks');
 
       if (chunks.length === 0) {
         throw new Error('No content to index in workspace');
       }
 
-      // Add to vector database with workspace prefix
       const documentIds = await geminiService.addDocumentToVectorDB(
         userId,
         `workspace_${workspaceId}`,
-        chunks
+        chunks,
       );
 
-      console.log(`✅ Workspace indexed successfully`);
+      logger.info({
+        workspaceId: workspaceId.toString(),
+        chunkCount: chunks.length,
+        documentCount: documentIds.length,
+      }, 'Workspace indexed successfully');
 
       return {
         success: true,
         workspaceId,
         chunksCount: chunks.length,
-        documentIds
+        documentIds,
       };
     } catch (error) {
-      console.error('❌ Error indexing workspace:', error.message);
-      console.error('Stack:', error.stack);
+      logger.error({ err: error, workspaceId, userId }, 'Error indexing workspace');
       throw error;
     }
   }
@@ -256,36 +264,42 @@ ${comments.length > 0 ? `\nRecent comments:\n${comments.slice(0, 3).map(c => `- 
    */
   async queryWorkspaceInsight(workspaceId, userId, question, conversationHistory = []) {
     try {
-      console.log(`💬 Querying workspace insight: ${question}`);
+      logger.info({
+        workspaceId: workspaceId.toString(),
+        userId: userId.toString(),
+        questionLength: question.length,
+      }, 'Querying workspace insight');
 
-      // Search for relevant chunks using searchSimilarChunks
       const relevantChunks = await geminiService.searchSimilarChunks(
         userId,
         question,
-        10, // Retrieve top 10 relevant chunks
-        null // No document filtering - we'll filter by workspace below
+        10,
+        null,
       );
 
-      console.log(`📚 Found ${relevantChunks.length} relevant chunks`);
+      logger.debug({
+        workspaceId: workspaceId.toString(),
+        relevantChunkCount: relevantChunks.length,
+      }, 'Found relevant chunks');
 
-      // Filter results to only include workspace-specific chunks
       const workspaceResults = relevantChunks.filter(
-        chunk => chunk.metadata?.workspaceId === workspaceId.toString()
+        (chunk) => chunk.metadata?.workspaceId === workspaceId.toString(),
       );
 
-      console.log(`🎯 Filtered to ${workspaceResults.length} workspace-specific chunks`);
+      logger.info({
+        workspaceId: workspaceId.toString(),
+        workspaceChunkCount: workspaceResults.length,
+      }, 'Filtered workspace-specific chunks');
 
       if (workspaceResults.length === 0) {
         return {
-          response: 'Không tìm thấy thông tin liên quan trong workspace này. Vui lòng thử câu hỏi khác hoặc đảm bảo workspace đã được phân tích.',
-          sources: []
+          response: 'Khong tim thay thong tin lien quan trong workspace nay. Vui long thu cau hoi khac hoac dam bao workspace da duoc phan tich.',
+          sources: [],
         };
       }
 
-      // Build context from relevant chunks
-      const context = workspaceResults.map(r => r.text).join('\n\n');
+      const context = workspaceResults.map((result) => result.text).join('\n\n');
 
-      // Generate response
       const systemPrompt = `You are a workspace assistant analyzing a workspace. 
       
 Provide insights, summaries, and answers based on the workspace data provided. Be specific, data-driven, and actionable. 
@@ -299,7 +313,7 @@ Answer in Vietnamese unless asked otherwise.`;
 ${context}
 
 ## Conversation History:
-${conversationHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')}
+${conversationHistory.map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`).join('\n')}
 
 ## User Question:
 ${question}
@@ -311,13 +325,13 @@ ${question}
       return {
         success: true,
         response: response.trim(),
-        sources: workspaceResults.slice(0, 5).map(r => ({
-          type: r.metadata?.type || 'unknown',
-          relevance: r.score || 0
-        }))
+        sources: workspaceResults.slice(0, 5).map((result) => ({
+          type: result.metadata?.type || 'unknown',
+          relevance: result.score || 0,
+        })),
       };
     } catch (error) {
-      console.error('Error querying workspace insight:', error);
+      logger.error({ err: error, workspaceId, userId }, 'Error querying workspace insight');
       throw error;
     }
   }

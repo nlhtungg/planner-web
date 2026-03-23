@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const logger = require('../utils/logger').child({ module: 'scripts/migrate-google-users' });
+
 require('dotenv').config();
 
 /**
@@ -8,35 +10,31 @@ require('dotenv').config();
  */
 async function migrateGoogleUsers() {
   try {
-    // Connect to database
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to database');
+    logger.info('Connected to database');
 
-    // Find Google auth users without googleId
     const googleUsersWithoutId = await User.find({
       authMethod: 'google',
-      googleId: { $exists: false }
+      googleId: { $exists: false },
     });
 
-    console.log(`Found ${googleUsersWithoutId.length} Google users without googleId:`);
-    googleUsersWithoutId.forEach(user => {
-      console.log(`- ${user.email} (${user._id})`);
+    logger.info({ count: googleUsersWithoutId.length }, 'Found Google users without googleId');
+    googleUsersWithoutId.forEach((user) => {
+      logger.info({ userId: user._id.toString() }, 'Google user missing googleId');
     });
 
-    // Find all Google users
     const allGoogleUsers = await User.find({ authMethod: 'google' });
-    console.log(`\nTotal Google users in database: ${allGoogleUsers.length}`);
+    logger.info({ count: allGoogleUsers.length }, 'Total Google users in database');
 
     if (googleUsersWithoutId.length > 0) {
-      console.log('\nNote: Users without googleId will be handled automatically by the authentication flow.');
-      console.log('When they sign in again with Google, their googleId will be added.');
+      logger.info('Users without googleId will be handled automatically by the authentication flow');
+      logger.info('googleId will be added when the user signs in again with Google');
     }
-
   } catch (error) {
-    console.error('Migration error:', error);
+    logger.error({ err: error }, 'Migration error');
   } finally {
     await mongoose.disconnect();
-    console.log('Disconnected from database');
+    logger.info('Disconnected from database');
   }
 }
 

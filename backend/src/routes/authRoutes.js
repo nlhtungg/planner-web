@@ -1,8 +1,10 @@
 const express = require('express');
-const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticateToken, validateRefreshToken } = require('../middlewares/auth');
 const { uploadSingle } = require('../middlewares/upload');
+const logger = require('../utils/logger').child({ module: 'routes/authRoutes' });
+
+const router = express.Router();
 
 // Public routes - Local Authentication
 router.post('/register', authController.register);
@@ -28,7 +30,7 @@ router.get('/users/:userId', authController.getUserPublicProfile);
 router.put('/profile', authController.updateProfile);
 router.post('/change-password', authController.changePassword);
 router.post('/upload-avatar', (req, res, next) => {
-  console.log('🛣️ Upload avatar route hit');
+  (req.log || logger).info({ userId: req.user?._id || req.user?.id }, 'Upload avatar route hit');
   next();
 }, uploadSingle, authController.uploadAvatar);
 router.delete('/delete-avatar', authController.deleteAvatar);

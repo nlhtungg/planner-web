@@ -1,4 +1,5 @@
 const Minio = require('minio');
+const logger = require('./logger').child({ module: 'utils/storage' });
 
 // Initialize MinIO client
 const minioClient = new Minio.Client({
@@ -34,7 +35,7 @@ const uploadFile = async (fileBuffer, fileName, mimeType, workspaceId, folderPat
 
         return getFileUrl(objectName);
     } catch (error) {
-        console.error('MinIO upload error:', error);
+        logger.error({ err: error, workspaceId, fileName }, 'MinIO upload error');
         throw error;
     }
 };
@@ -53,7 +54,7 @@ const deleteFile = async (objectName) => {
             : objectName;
         await minioClient.removeObject(BUCKET_NAME, name);
     } catch (error) {
-        console.error('MinIO delete error:', error);
+        logger.error({ err: error, objectName }, 'MinIO delete error');
         throw error;
     }
 };

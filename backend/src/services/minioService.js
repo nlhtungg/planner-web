@@ -1,7 +1,8 @@
 const { Client } = require('minio');
+const dns = require('dns');
+const logger = require('../utils/logger').child({ module: 'services/minioService' });
 
 // Force IPv4 DNS resolution to avoid IPv6 issues in Docker
-const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
 class MinioService {
@@ -11,86 +12,83 @@ class MinioService {
     this.chatbotDocumentsBucket = 'chatbot-documents';
     this.client = new Client({
       endPoint: process.env.MINIO_ENDPOINT || 'minio',
-      port: parseInt(process.env.MINIO_PORT) || 9000,
+      port: parseInt(process.env.MINIO_PORT, 10) || 9000,
       useSSL: process.env.MINIO_USE_SSL === 'true' || false,
       accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-      secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin'
+      secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
     });
 
-    // Delay initialization to allow MinIO to be fully ready
     setTimeout(() => this.initializeBuckets(), 5000);
   }
 
   async initializeBuckets() {
     try {
-      // Verify that buckets exist
       const userBucketExists = await this.client.bucketExists(this.userMediaBucket);
       const messageBucketExists = await this.client.bucketExists(this.messageMediaBucket);
       const chatbotBucketExists = await this.client.bucketExists(this.chatbotDocumentsBucket);
 
-      if (userBucketExists) {
-        console.log(`✅ MinIO connected successfully - ${this.userMediaBucket} bucket is ready`);
-      } else {
-        console.log(`⚠️  MinIO bucket ${this.userMediaBucket} not found`);
-      }
+      const bucketStates = [
+        { bucket: this.userMediaBucket, exists: userBucketExists },
+        { bucket: this.messageMediaBucket, exists: messageBucketExists },
+        { bucket: this.chatbotDocumentsBucket, exists: chatbotBucketExists },
+      ];
 
-      if (messageBucketExists) {
-        console.log(`✅ MinIO ${this.messageMediaBucket} bucket is ready`);
-      } else {
-        console.log(`⚠️  MinIO bucket ${this.messageMediaBucket} not found`);
-      }
-
-      if (chatbotBucketExists) {
-        console.log(`✅ MinIO ${this.chatbotDocumentsBucket} bucket is ready`);
-      } else {
-        console.log(`⚠️  MinIO bucket ${this.chatbotDocumentsBucket} not found`);
-      }
+      bucketStates.forEach(({ bucket, exists }) => {
+        logger[exists ? 'info' : 'warn']({ bucket }, exists ? 'MinIO bucket ready' : 'MinIO bucket not found');
+      });
     } catch (error) {
-      console.error('❌ MinIO connection failed:', error.message);
+      logger.error({ err: error }, 'MinIO connection failed');
     }
   }
 
   async uploadAvatar(userId, fileBuffer, fileName, mimeType) {
     try {
-      console.log('🚀 MinIO uploadAvatar called with:', { userId, fileName, mimeType, bufferSize: fileBuffer.length });
       const fileExtension = fileName.split('.').pop();
       const objectName = `${userId}/avatar.${fileExtension}`;
-      console.log('📂 Object name:', objectName);
+
+      logger.info({
+        userId: userId.toString(),
+        fileName,
+        mimeType,
+        sizeBytes: fileBuffer.length,
+        bucket: this.userMediaBucket,
+        objectName,
+      }, 'Uploading avatar to MinIO');
 
       const metaData = {
         'Content-Type': mimeType,
-        'Cache-Control': 'max-age=86400' // 24 hours
+        'Cache-Control': 'max-age=86400',
       };
 
-      // Upload the file
-      console.log('⬆️ Uploading to MinIO bucket:', this.userMediaBucket);
       await this.client.putObject(
         this.userMediaBucket,
         objectName,
         fileBuffer,
         fileBuffer.length,
-        metaData
+        metaData,
       );
-      console.log('✅ MinIO upload successful');
 
-      // Generate relative URL for proxy compatibility
       const publicUrl = `/minio/${this.userMediaBucket}/${objectName}`;
-      console.log('🔗 Generated public URL:', publicUrl);
+      logger.info({
+        userId: userId.toString(),
+        bucket: this.userMediaBucket,
+        objectName,
+        publicUrl,
+      }, 'Avatar uploaded to MinIO');
 
       return {
         success: true,
         url: publicUrl,
-        objectName: objectName
+        objectName,
       };
     } catch (error) {
-      console.error('Error uploading avatar to MinIO:', error);
+      logger.error({ err: error, userId, fileName }, 'Error uploading avatar to MinIO');
       throw new Error('Failed to upload avatar');
     }
   }
 
   async deleteAvatar(userId) {
     try {
-      // List all objects in the user's folder
       const objectsList = [];
       const stream = this.client.listObjects(this.userMediaBucket, `${userId}/`, false);
 
@@ -98,14 +96,18 @@ class MinioService {
         objectsList.push(obj.name);
       }
 
-      // Delete all objects in the user's folder
       if (objectsList.length > 0) {
         await this.client.removeObjects(this.userMediaBucket, objectsList);
       }
 
+      logger.info({
+        userId: userId.toString(),
+        deletedCount: objectsList.length,
+      }, 'Deleted avatar objects from MinIO');
+
       return { success: true };
     } catch (error) {
-      console.error('Error deleting avatar from MinIO:', error);
+      logger.error({ err: error, userId }, 'Error deleting avatar from MinIO');
       throw new Error('Failed to delete avatar');
     }
   }
@@ -113,16 +115,10 @@ class MinioService {
   async getAvatarUrl(userId, fileName) {
     try {
       const objectName = `${userId}/${fileName}`;
-
-      // Check if object exists
       await this.client.statObject(this.userMediaBucket, objectName);
-
-      // Generate relative URL for proxy compatibility
-      const publicUrl = `/minio/${this.userMediaBucket}/${objectName}`;
-
-      return publicUrl;
+      return `/minio/${this.userMediaBucket}/${objectName}`;
     } catch (error) {
-      console.error('Error getting avatar URL:', error);
+      logger.error({ err: error, userId, fileName }, 'Error getting avatar URL');
       return null;
     }
   }
@@ -132,51 +128,50 @@ class MinioService {
    */
   async uploadMessageMedia(userId, fileBuffer, fileName, mimeType) {
     try {
-      console.log('📤 [MinIO] Starting upload to bucket:', this.messageMediaBucket);
-      console.log('   User:', userId);
-      console.log('   File:', fileName);
-      console.log('   Type:', mimeType);
-      console.log('   Size:', (fileBuffer.length / 1024).toFixed(2), 'KB');
-
-      // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
-      // Only remove dangerous characters, keep Unicode (Vietnamese) characters
       const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
-      console.log('   Object:', objectName);
-
-      // Encode filename for Content-Disposition header
       const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
         'Content-Type': mimeType,
-        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`
+        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`,
       };
 
-      // Upload the file
-      console.log('   ⬆️ Uploading to MinIO...');
+      logger.info({
+        userId: userId.toString(),
+        bucket: this.messageMediaBucket,
+        fileName,
+        mimeType,
+        sizeBytes: fileBuffer.length,
+        objectName,
+      }, 'Uploading message media to MinIO');
+
       await this.client.putObject(
         this.messageMediaBucket,
         objectName,
         fileBuffer,
         fileBuffer.length,
-        metaData
+        metaData,
       );
 
-      // Generate relative URL for proxy compatibility
       const publicUrl = `/minio/${this.messageMediaBucket}/${objectName}`;
-      console.log('   ✅ Upload complete!');
-      console.log('   🔗 URL:', publicUrl);
+      logger.info({
+        userId: userId.toString(),
+        bucket: this.messageMediaBucket,
+        objectName,
+        publicUrl,
+      }, 'Message media uploaded to MinIO');
 
       return {
         success: true,
         url: publicUrl,
-        objectName: objectName,
-        fileName: fileName,
-        mimeType: mimeType,
-        size: fileBuffer.length
+        objectName,
+        fileName,
+        mimeType,
+        size: fileBuffer.length,
       };
     } catch (error) {
-      console.error('❌ Error uploading message media:', error);
+      logger.error({ err: error, userId, fileName }, 'Error uploading message media');
       throw new Error('Failed to upload message media');
     }
   }
@@ -186,51 +181,50 @@ class MinioService {
    */
   async uploadChatbotDocument(userId, fileBuffer, fileName, mimeType) {
     try {
-      console.log('📤 [MinIO] Uploading chatbot document to bucket:', this.chatbotDocumentsBucket);
-      console.log('   User:', userId);
-      console.log('   File:', fileName);
-      console.log('   Type:', mimeType);
-      console.log('   Size:', (fileBuffer.length / 1024).toFixed(2), 'KB');
-
-      // Generate unique filename (preserve Unicode characters)
       const timestamp = Date.now();
-      // Only remove dangerous characters, keep Unicode (Vietnamese) characters
       const sanitizedFileName = fileName.replace(/[\/\\:*?"<>|]/g, '_');
       const objectName = `${userId}/${timestamp}-${sanitizedFileName}`;
-      console.log('   Object:', objectName);
-
-      // Encode filename for Content-Disposition header
       const encodedFileName = encodeURIComponent(fileName);
       const metaData = {
         'Content-Type': mimeType,
-        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`
+        'Content-Disposition': `inline; filename*=UTF-8''${encodedFileName}`,
       };
 
-      // Upload the file
-      console.log('   ⬆️ Uploading to MinIO...');
+      logger.info({
+        userId: userId.toString(),
+        bucket: this.chatbotDocumentsBucket,
+        fileName,
+        mimeType,
+        sizeBytes: fileBuffer.length,
+        objectName,
+      }, 'Uploading chatbot document to MinIO');
+
       await this.client.putObject(
         this.chatbotDocumentsBucket,
         objectName,
         fileBuffer,
         fileBuffer.length,
-        metaData
+        metaData,
       );
 
-      // Generate relative URL for proxy compatibility
       const publicUrl = `/minio/${this.chatbotDocumentsBucket}/${objectName}`;
-      console.log('   ✅ Upload complete!');
-      console.log('   🔗 URL:', publicUrl);
+      logger.info({
+        userId: userId.toString(),
+        bucket: this.chatbotDocumentsBucket,
+        objectName,
+        publicUrl,
+      }, 'Chatbot document uploaded to MinIO');
 
       return {
         success: true,
         url: publicUrl,
-        objectName: objectName,
-        fileName: fileName,
-        mimeType: mimeType,
-        size: fileBuffer.length
+        objectName,
+        fileName,
+        mimeType,
+        size: fileBuffer.length,
       };
     } catch (error) {
-      console.error('❌ Error uploading chatbot document:', error);
+      logger.error({ err: error, userId, fileName }, 'Error uploading chatbot document');
       throw new Error('Failed to upload chatbot document');
     }
   }
@@ -241,10 +235,10 @@ class MinioService {
   async deleteChatbotDocument(objectName) {
     try {
       await this.client.removeObject(this.chatbotDocumentsBucket, objectName);
-      console.log('✅ Deleted chatbot document:', objectName);
+      logger.info({ bucket: this.chatbotDocumentsBucket, objectName }, 'Deleted chatbot document from MinIO');
       return { success: true };
     } catch (error) {
-      console.error('❌ Error deleting chatbot document:', error);
+      logger.error({ err: error, objectName }, 'Error deleting chatbot document');
       throw new Error('Failed to delete chatbot document');
     }
   }

@@ -1,5 +1,6 @@
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
+const logger = require('../utils/logger').child({ module: 'services/googleAuthService' });
 
 class GoogleAuthService {
   constructor() {
@@ -34,7 +35,7 @@ class GoogleAuthService {
         name: payload.name || ''
       };
     } catch (error) {
-      console.error('Error verifying Google ID token:', error);
+      logger.error({ err: error }, 'Error verifying Google ID token');
       throw new Error('Invalid Google ID token');
     }
   }
@@ -56,7 +57,7 @@ class GoogleAuthService {
         userInfo
       };
     } catch (error) {
-      console.error('Error getting tokens from code:', error);
+      logger.error({ err: error }, 'Error exchanging Google authorization code');
       throw new Error('Failed to exchange authorization code');
     }
   }
@@ -89,7 +90,7 @@ class GoogleAuthService {
         name: data.name || ''
       };
     } catch (error) {
-      console.error('Error fetching user info:', error);
+      logger.error({ err: error }, 'Error fetching Google user info');
       throw new Error('Failed to fetch user information from Google');
     }
   }

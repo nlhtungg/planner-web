@@ -1,13 +1,13 @@
+const logger = require('../utils/logger').child({ module: 'middlewares/errorHandler' });
+
 const errorHandler = (err, req, res, next) => {
-  // Enhanced error logging with more context
-  console.error('='.repeat(50));
-  console.error('Error occurred:');
-  console.error('Time:', new Date().toISOString());
-  console.error('Method:', req.method);
-  console.error('Path:', req.path);
-  console.error('Error:', err);
-  console.error('Stack:', err.stack);
-  console.error('='.repeat(50));
+  const requestLogger = req?.log || logger;
+  requestLogger.error({
+    err,
+    requestId: req?.requestId,
+    method: req?.method,
+    path: req?.originalUrl || req?.path,
+  }, 'Unhandled request error');
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {

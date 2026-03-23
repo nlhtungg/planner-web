@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const logger = require('../utils/logger').child({ module: 'repositories/userRepository' });
 
 class UserRepository {
   // Create a new user
@@ -168,19 +169,22 @@ class UserRepository {
   // Remove refresh token from user
   async removeRefreshToken(userId, refreshToken) {
     try {
-      console.log('removeRefreshToken called with userId:', userId, 'refreshToken:', refreshToken ? 'provided' : 'not provided');
+      logger.info({
+        userId,
+        hasRefreshToken: Boolean(refreshToken),
+      }, 'Removing refresh token');
       
       if (!userId) {
-        console.error('userId is null/undefined in removeRefreshToken');
+        logger.error('Missing userId in removeRefreshToken');
         throw new Error('User ID is required');
       }
 
       const user = await User.findById(userId);
       if (!user) {
-        console.error('User not found in removeRefreshToken for userId:', userId);
+        logger.error({ userId }, 'User not found in removeRefreshToken');
         throw new Error('User not found');
       }
-      console.log('Found user in removeRefreshToken:', { id: user._id, email: user.email });
+      logger.debug({ userId: user._id.toString() }, 'User found for refresh token removal');
 
       user.refreshTokens = user.refreshTokens.filter(
         token => token.token !== refreshToken

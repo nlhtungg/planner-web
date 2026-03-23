@@ -1,6 +1,7 @@
 const postReactionRepository = require('../repositories/postReactionRepository');
 const postRepository = require('../repositories/postRepository');
 const workspaceRepository = require('../repositories/workspaceRepository');
+const logger = require('../utils/logger').child({ module: 'controllers/postReactionController' });
 
 class PostReactionController {
   // Toggle reaction on a post
@@ -72,7 +73,7 @@ class PostReactionController {
         }
       });
     } catch (error) {
-      console.error('Toggle post reaction error:', error);
+      logger.error({ err: error }, 'Toggle post reaction error');
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error'
@@ -134,7 +135,7 @@ class PostReactionController {
         }
       });
     } catch (error) {
-      console.error('Get post reaction summary error:', error);
+      logger.error({ err: error }, 'Get post reaction summary error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -189,7 +190,7 @@ class PostReactionController {
         data: reactions
       });
     } catch (error) {
-      console.error('Get post reactions error:', error);
+      logger.error({ err: error }, 'Get post reactions error');
       res.status(500).json({
         success: false,
         message: 'Internal server error'

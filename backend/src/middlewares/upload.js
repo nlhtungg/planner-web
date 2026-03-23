@@ -1,56 +1,64 @@
 const multer = require('multer');
+const logger = require('../utils/logger').child({ module: 'middlewares/upload' });
 
 // Configure multer for memory storage (we'll upload to MinIO)
 const storage = multer.memoryStorage();
 
 // File filter for images
 const fileFilter = (req, file, cb) => {
-  console.log('📁 File filter check - mimetype:', file.mimetype, 'originalname:', file.originalname);
+  const requestLogger = req?.log || logger;
+  requestLogger.debug({
+    mimeType: file.mimetype,
+    fileName: file.originalname,
+  }, 'Validating avatar upload file type');
+
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  
+
   if (allowedTypes.includes(file.mimetype)) {
-    console.log('✅ File type accepted');
+    requestLogger.debug({ mimeType: file.mimetype }, 'Avatar upload file type accepted');
     cb(null, true);
-  } else {
-    console.log('❌ File type rejected');
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed'), false);
+    return;
   }
+
+  requestLogger.warn({ mimeType: file.mimetype }, 'Avatar upload file type rejected');
+  cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed'), false);
 };
 
 // Create multer instance
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 1 // Only one file at a time
+    files: 1, // Only one file at a time
   },
-  onError: (err, next) => {
-    console.log('❌ Multer error:', err);
-    next(err);
-  }
-});console.log('🔧 Multer instance created with memory storage');
+});
+
+logger.debug('Avatar upload middleware initialized');
 
 // Wrap the multer middleware to add logging
 const uploadSingleWithLogging = (req, res, next) => {
-  console.log('🔄 Multer middleware called');
-  console.log('📋 Request headers:', {
-    'content-type': req.headers['content-type'],
-    'content-length': req.headers['content-length']
-  });
-  
+  const requestLogger = req?.log || logger;
+  requestLogger.debug({
+    contentType: req.headers['content-type'],
+    contentLength: req.headers['content-length'],
+  }, 'Avatar upload middleware invoked');
+
   upload.single('avatar')(req, res, (err) => {
     if (err) {
-      console.log('❌ Multer error:', err);
+      requestLogger.error({ err }, 'Avatar upload failed in multer middleware');
       return next(err);
     }
-    console.log('✅ Multer processing complete');
-    console.log('📁 File after multer:', req.file ? 'File received' : 'No file');
+
+    requestLogger.debug({
+      hasFile: Boolean(req.file),
+      fileName: req.file?.originalname,
+    }, 'Avatar upload middleware completed');
     next();
   });
 };
 
 module.exports = {
   uploadSingle: uploadSingleWithLogging,
-  upload
+  upload,
 };

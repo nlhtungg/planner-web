@@ -1,5 +1,6 @@
 const messageRepository = require('../repositories/messageRepository');
 const minioService = require('../services/minioService');
+const logger = require('../utils/logger').child({ module: 'controllers/messageController' });
 
 class MessageController {
   /**
@@ -8,19 +9,23 @@ class MessageController {
   async getConversations(req, res) {
     try {
       const userId = req.user._id;
-      console.log('📋 Getting conversations for user:', userId);
+      logger.debug({ userId: userId.toString() }, 'Fetching conversations');
       const conversations = await messageRepository.getConversations(userId);
-      console.log('📋 Found conversations:', conversations.length);
-      
+
+      logger.info({
+        userId: userId.toString(),
+        count: conversations.length,
+      }, 'Fetched conversations');
+
       res.json({
         success: true,
-        data: conversations
+        data: conversations,
       });
     } catch (error) {
-      console.error('Error getting conversations:', error);
+      logger.error({ err: error }, 'Error getting conversations');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -33,23 +38,23 @@ class MessageController {
       const userId = req.user._id;
       const { otherUserId } = req.params;
       const { limit = 50, skip = 0 } = req.query;
-      
+
       const messages = await messageRepository.getMessages(
         userId,
         otherUserId,
-        parseInt(limit),
-        parseInt(skip)
+        parseInt(limit, 10),
+        parseInt(skip, 10),
       );
-      
+
       res.json({
         success: true,
-        data: messages.reverse() // Oldest first for display
+        data: messages.reverse(),
       });
     } catch (error) {
-      console.error('Error getting messages:', error);
+      logger.error({ err: error }, 'Error getting messages');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -65,76 +70,100 @@ class MessageController {
       if (!receiverId || !content) {
         return res.status(400).json({
           success: false,
-          message: 'Receiver and content are required'
+          message: 'Receiver and content are required',
         });
       }
 
-      // Handle file attachments if any
       let attachments = [];
       if (req.files && req.files.length > 0) {
-        console.log(`📎 Processing ${req.files.length} file(s) for user ${senderId}`);
-        
-        for (let i = 0; i < req.files.length; i++) {
+        logger.info({
+          senderId: senderId.toString(),
+          fileCount: req.files.length,
+        }, 'Processing message attachments');
+
+        for (let i = 0; i < req.files.length; i += 1) {
           const file = req.files[i];
           try {
-            console.log(`  [${i+1}/${req.files.length}] Uploading: ${file.originalname} (${(file.size/1024).toFixed(2)}KB, ${file.mimetype})`);
-            
+            logger.debug({
+              senderId: senderId.toString(),
+              index: i + 1,
+              total: req.files.length,
+              fileName: file.originalname,
+              mimeType: file.mimetype,
+              size: file.size,
+            }, 'Uploading message attachment');
+
             const uploadResult = await minioService.uploadMessageMedia(
               senderId,
               file.buffer,
               file.originalname,
-              file.mimetype
+              file.mimetype,
             );
-            
-            console.log(`  ✅ Uploaded successfully to: ${uploadResult.url}`);
-            
+
+            logger.debug({
+              senderId: senderId.toString(),
+              fileName: file.originalname,
+              url: uploadResult.url,
+            }, 'Uploaded message attachment');
+
             attachments.push({
               url: uploadResult.url,
               filename: uploadResult.fileName,
               mimetype: uploadResult.mimeType,
-              size: uploadResult.size
+              size: uploadResult.size,
             });
           } catch (error) {
-            console.error(`  ❌ Error uploading file ${file.originalname}:`, error.message);
-            // Continue with other files
+            logger.error({
+              err: error,
+              senderId: senderId.toString(),
+              fileName: file.originalname,
+            }, 'Error uploading message attachment');
           }
         }
-        
-        console.log(`📦 Total attachments uploaded: ${attachments.length}/${req.files.length}`);
+
+        logger.info({
+          senderId: senderId.toString(),
+          uploadedCount: attachments.length,
+          requestedCount: req.files.length,
+        }, 'Completed message attachment processing');
       }
 
       const message = await messageRepository.createMessage({
         sender: senderId,
         receiver: receiverId,
         content,
-        attachments
+        attachments,
       });
 
-      // Emit socket event to BOTH sender and receiver for real-time update
       if (global.io) {
-        console.log(`📤 Emitting new-message to receiver: user-${receiverId}`);
-        console.log(`📤 Emitting new-message to sender: user-${senderId}`);
         global.io.to(`user-${receiverId}`).emit('new-message', message);
         global.io.to(`user-${senderId}`).emit('new-message', message);
-        
-        // Log rooms for debugging
+
         const receiverRoom = global.io.sockets.adapter.rooms.get(`user-${receiverId}`);
         const senderRoom = global.io.sockets.adapter.rooms.get(`user-${senderId}`);
-        console.log(`   Receiver room user-${receiverId} has ${receiverRoom ? receiverRoom.size : 0} clients`);
-        console.log(`   Sender room user-${senderId} has ${senderRoom ? senderRoom.size : 0} clients`);
+
+        logger.info({
+          senderId: senderId.toString(),
+          receiverId: receiverId.toString(),
+          receiverRoomSize: receiverRoom ? receiverRoom.size : 0,
+          senderRoomSize: senderRoom ? senderRoom.size : 0,
+        }, 'Emitted new-message socket event');
       } else {
-        console.warn('⚠️ global.io not available');
+        logger.warn({
+          senderId: senderId.toString(),
+          receiverId: receiverId.toString(),
+        }, 'Socket.io not available while sending message');
       }
 
       res.status(201).json({
         success: true,
-        data: message
+        data: message,
       });
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error({ err: error }, 'Error sending message');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -149,24 +178,23 @@ class MessageController {
 
       const message = await messageRepository.markAsRead(messageId, userId);
 
-      // Emit socket event to sender with readBy data
       if (global.io && message) {
         global.io.to(`user-${message.sender._id}`).emit('message-read', {
           messageId: message._id,
           readAt: message.readAt,
-          readBy: message.readBy
+          readBy: message.readBy,
         });
       }
 
       res.json({
         success: true,
-        data: message
+        data: message,
       });
     } catch (error) {
-      console.error('Error marking message as read:', error);
+      logger.error({ err: error }, 'Error marking message as read');
       res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -182,25 +210,24 @@ class MessageController {
       await messageRepository.markConversationAsRead(
         currentUserId,
         otherUserId,
-        currentUserId
+        currentUserId,
       );
 
-      // Emit socket event
       if (global.io) {
         global.io.to(`user-${otherUserId}`).emit('conversation-read', {
-          userId: currentUserId
+          userId: currentUserId,
         });
       }
 
       res.json({
         success: true,
-        message: 'Conversation marked as read'
+        message: 'Conversation marked as read',
       });
     } catch (error) {
-      console.error('Error marking conversation as read:', error);
+      logger.error({ err: error }, 'Error marking conversation as read');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -217,13 +244,13 @@ class MessageController {
 
       res.json({
         success: true,
-        message: 'Message deleted'
+        message: 'Message deleted',
       });
     } catch (error) {
-      console.error('Error deleting message:', error);
+      logger.error({ err: error }, 'Error deleting message');
       res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -238,13 +265,13 @@ class MessageController {
 
       res.json({
         success: true,
-        data: { count }
+        data: { count },
       });
     } catch (error) {
-      console.error('Error getting unread count:', error);
+      logger.error({ err: error }, 'Error getting unread count');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -260,7 +287,7 @@ class MessageController {
       if (!q || q.trim().length < 2) {
         return res.status(400).json({
           success: false,
-          message: 'Search query must be at least 2 characters'
+          message: 'Search query must be at least 2 characters',
         });
       }
 
@@ -268,13 +295,13 @@ class MessageController {
 
       res.json({
         success: true,
-        data: users
+        data: users,
       });
     } catch (error) {
-      console.error('Error searching users:', error);
+      logger.error({ err: error }, 'Error searching users');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -291,32 +318,34 @@ class MessageController {
       if (!emoji) {
         return res.status(400).json({
           success: false,
-          message: 'Emoji is required'
+          message: 'Emoji is required',
         });
       }
 
       const message = await messageRepository.addReaction(messageId, userId, emoji);
-
-      // Get both users in the conversation
       const senderId = message.sender._id;
       const receiverId = message.receiver._id;
 
-      // Emit socket events - only emit reaction update, no system notification for reactions
       if (global.io) {
-        console.log('📤 Emitting reaction update to both users');
         global.io.to(`user-${receiverId}`).emit('message-reaction', message);
         global.io.to(`user-${userId}`).emit('message-reaction', message);
+
+        logger.info({
+          messageId: message._id.toString(),
+          senderId: senderId.toString(),
+          receiverId: receiverId.toString(),
+        }, 'Emitted message reaction update');
       }
 
       res.json({
         success: true,
-        data: message
+        data: message,
       });
     } catch (error) {
-      console.error('Error adding reaction:', error);
+      logger.error({ err: error }, 'Error adding reaction');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -331,10 +360,9 @@ class MessageController {
 
       const message = await messageRepository.removeReaction(messageId, userId);
 
-      // Emit socket event
       if (global.io) {
-        const receiverId = message.sender._id.toString() === userId.toString() 
-          ? message.receiver._id 
+        const receiverId = message.sender._id.toString() === userId.toString()
+          ? message.receiver._id
           : message.sender._id;
         global.io.to(`user-${receiverId}`).emit('message-reaction', message);
         global.io.to(`user-${userId}`).emit('message-reaction', message);
@@ -342,13 +370,13 @@ class MessageController {
 
       res.json({
         success: true,
-        data: message
+        data: message,
       });
     } catch (error) {
-      console.error('Error removing reaction:', error);
+      logger.error({ err: error }, 'Error removing reaction');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -358,49 +386,45 @@ class MessageController {
    */
   async togglePinMessage(req, res) {
     try {
-      const userId = req.user._id;
       const { messageId } = req.params;
-
       const message = await messageRepository.togglePinMessage(messageId);
-
-      // Get both users in the conversation
       const senderId = message.sender._id;
       const receiverId = message.receiver._id;
 
-      // Create system notification - Use same sender/receiver pattern as original message for consistency
       const action = message.isPinned ? 'pinned' : 'unpinned';
       const notificationContent = `${req.user.firstName} ${req.user.lastName} ${action} a message`;
-      console.log('📢 Creating pin notification:', notificationContent);
-      console.log('   For conversation between:', senderId.toString(), 'and', receiverId.toString());
+
+      logger.info({
+        messageId: message._id.toString(),
+        senderId: senderId.toString(),
+        receiverId: receiverId.toString(),
+        action,
+      }, 'Creating pin notification');
+
       const systemNotification = await messageRepository.createSystemNotification({
-        sender: senderId,  // Use original message sender
-        receiver: receiverId,  // Use original message receiver
+        sender: senderId,
+        receiver: receiverId,
         content: notificationContent,
         systemMessageType: message.isPinned ? 'message_pinned' : 'message_unpinned',
-        relatedMessage: messageId
+        relatedMessage: messageId,
       });
-      console.log('✅ System notification created:', systemNotification._id, 'isSystemMessage:', systemNotification.isSystemMessage);
 
-      // Emit socket events
       if (global.io) {
         global.io.to(`user-${senderId}`).emit('message-pinned', message);
         global.io.to(`user-${receiverId}`).emit('message-pinned', message);
-        
-        // Emit the system notification message
-        console.log('📤 Emitting pin notification to:', `user-${senderId}`, `user-${receiverId}`);
         global.io.to(`user-${senderId}`).emit('new-message', systemNotification);
         global.io.to(`user-${receiverId}`).emit('new-message', systemNotification);
       }
 
       res.json({
         success: true,
-        data: message
+        data: message,
       });
     } catch (error) {
-      console.error('Error toggling pin:', error);
+      logger.error({ err: error }, 'Error toggling pin');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -417,10 +441,9 @@ class MessageController {
       const conversation = await messageRepository.updateConversationSettings(
         userId,
         otherUserId,
-        { nickname, themeColor }
+        { nickname, themeColor },
       );
 
-      // Emit socket event
       if (global.io) {
         global.io.to(`user-${userId}`).emit('conversation-updated', conversation);
         global.io.to(`user-${otherUserId}`).emit('conversation-updated', conversation);
@@ -428,13 +451,13 @@ class MessageController {
 
       res.json({
         success: true,
-        data: conversation
+        data: conversation,
       });
     } catch (error) {
-      console.error('Error updating conversation settings:', error);
+      logger.error({ err: error }, 'Error updating conversation settings');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -451,7 +474,7 @@ class MessageController {
       if (!q || q.trim().length < 2) {
         return res.status(400).json({
           success: false,
-          message: 'Search query must be at least 2 characters'
+          message: 'Search query must be at least 2 characters',
         });
       }
 
@@ -459,13 +482,13 @@ class MessageController {
 
       res.json({
         success: true,
-        data: messages
+        data: messages,
       });
     } catch (error) {
-      console.error('Error searching messages:', error);
+      logger.error({ err: error }, 'Error searching messages');
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
