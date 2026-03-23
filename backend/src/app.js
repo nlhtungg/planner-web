@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const express = require('express');
+const morgan = require('morgan');
 const config = require('./config/app.config');
 const { configureHelmet, configureCors, configureRateLimit } = require('./middlewares/security');
 const requestTimeout = require('./middlewares/requestTimeout');
