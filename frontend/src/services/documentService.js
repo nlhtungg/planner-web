@@ -5,7 +5,7 @@ const getAuthHeader = () => {
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api') + '/documents';
+const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/documents`;
 
 const createDocument = async (data) => {
     const response = await axios.post(API_URL, data, getAuthHeader());

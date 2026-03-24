@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
+  const apiBaseUrl = `${import.meta.env.VITE_API_URL || '/api'}/auth`;
   const { user, logout, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -266,10 +267,10 @@ const Dashboard = () => {
         {/* API Testing Card */}
         <div className="card mt-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">API Information</h2>
-          <div className="bg-gray-100 rounded-md p-4">
-            <p className="text-sm text-gray-700 mb-2">
-              <strong>API Base URL:</strong> http://localhost:3001/api/auth
-            </p>
+            <div className="bg-gray-100 rounded-md p-4">
+              <p className="text-sm text-gray-700 mb-2">
+              <strong>API Base URL:</strong> {apiBaseUrl}
+              </p>
             <p className="text-sm text-gray-700 mb-2">
               <strong>Access Token:</strong>{' '}
               <span className="font-mono text-xs break-all">
