@@ -1,0 +1,16 @@
+{
+  "name": "festive-suite-playwright",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Authorized Playwright user-journey runner for Festive Suite",
+  "type": "commonjs",
+  "scripts": {
+    "journey": "node src/run-user-journey.js",
+    "journey:headed": "node src/run-user-journey.js --headed"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.52.0"
+  }
+}
+
