@@ -5,6 +5,7 @@
   "description": "Authorized Playwright user-journey runner for Festive Suite",
   "type": "commonjs",
   "scripts": {
+    "setup:browsers": "npx playwright install --with-deps chromium",
     "journey": "node src/run-user-journey.js",
     "journey:headed": "node src/run-user-journey.js --headed"
   },

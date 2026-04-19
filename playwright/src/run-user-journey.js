@@ -33,6 +33,20 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function printBrowserDependencyHint(error) {
+  const message = String(error?.message || "");
+  const missingLibPattern = /error while loading shared libraries|libnspr4\.so/i;
+  if (!missingLibPattern.test(message)) {
+    return;
+  }
+
+  console.error("\nPlaywright browser launch failed due to missing Linux shared libraries.");
+  console.error("Run one of these commands and retry:");
+  console.error("  cd playwright && npm run setup:browsers");
+  console.error("or");
+  console.error("  sudo apt-get update && sudo apt-get install -y libnspr4 libnss3");
+}
+
 async function runSession(browser, config, runDir, sessionIndex) {
   const sessionName = `session-${String(sessionIndex + 1).padStart(2, "0")}`;
   const logger = await createSessionLogger(runDir, sessionName);
@@ -143,9 +157,15 @@ async function main() {
   assertConfig(config);
   registerSignalHandlers();
 
-  const browser = await chromium.launch({
-    headless: config.headless
-  });
+  let browser;
+  try {
+    browser = await chromium.launch({
+      headless: config.headless
+    });
+  } catch (error) {
+    printBrowserDependencyHint(error);
+    throw error;
+  }
 
   try {
     let cycleIndex = 0;

@@ -1,0 +1,66 @@
+# Collect host (instance) logs and metrics.
+[sources.instance_logs]
+type = "file"
+include = ["/host/var/log/**/*.log"]
+ignore_older_secs = 86400
+read_from = "beginning"
+
+[sources.instance_logs.fingerprint]
+strategy = "device_and_inode"
+
+[sources.instance_metrics]
+type = "host_metrics"
+filesystem.devices.excludes = ["binfmt_misc"]
+filesystem.filesystems.excludes = ["binfmt_misc"]
+collectors = ["cpu", "disk", "filesystem", "load", "host", "memory", "network"]
+scrape_interval_secs = 5
+
+# Collect Docker container logs and metrics.
+[sources.container_logs]
+type = "docker_logs"
+docker_host = "unix:///var/run/docker.sock"
+
+[sources.container_metrics]
+type = "host_metrics"
+collectors = ["cgroups"]
+scrape_interval_secs = 5
+
+[sources.container_metrics.cgroups]
+base = "/"
+
+# Kafka sink accepts log events, so convert metric events to logs first.
+[transforms.instance_metrics_to_log]
+type = "metric_to_log"
+inputs = ["instance_metrics"]
+
+[transforms.container_metrics_to_log]
+type = "metric_to_log"
+inputs = ["container_metrics"]
+
+[sinks.kafka_instance_logs]
+type = "kafka"
+inputs = ["instance_logs"]
+bootstrap_servers = "10.140.0.6:9092"
+topic = "instance-logs"
+encoding.codec = "json"
+
+[sinks.kafka_instance_metrics]
+type = "kafka"
+inputs = ["instance_metrics_to_log"]
+bootstrap_servers = "10.140.0.6:9092"
+topic = "instance-metrics"
+encoding.codec = "json"
+
+[sinks.kafka_container_logs]
+type = "kafka"
+inputs = ["container_logs"]
+bootstrap_servers = "10.140.0.6:9092"
+topic = "container-logs"
+encoding.codec = "json"
+
+[sinks.kafka_container_metrics]
+type = "kafka"
+inputs = ["container_metrics_to_log"]
+bootstrap_servers = "10.140.0.6:9092"
+topic = "container-metrics"
+encoding.codec = "json"

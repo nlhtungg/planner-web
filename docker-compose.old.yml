@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data/mongo_data:/data/db
+    networks:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: backend
+    restart: always
+    depends_on:
+      - mongodb
+      - minio
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/.env:/app/.env
+    networks:
+      - backend
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Console UI
+    volumes:
+      - ./data/minio_data:/data
+    networks:
+      - backend
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        sleep 10;
+        mc alias set local http://minio:9000 minioadmin minioadmin;
+        mc mb -p local/user-media local/workspace-media local/message-media local/chatbot-documents;
+        mc anonymous set public local/user-media; 
+        mc anonymous set public local/workspace-media;
+        mc anonymous set public local/message-media;
+        mc anonymous set public local/chatbot-documents;
+        echo 'MinIO buckets created: user-media, workspace-media, message-media, chatbot-documents';
+      "
+    networks:
+      - backend
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/chroma_data:/chroma/chroma
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge

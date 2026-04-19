@@ -1,16 +1,12 @@
-version: "3.9"
-
 services:
-
   mongodb:
     image: mongo:7
-    container_name: mongodb
-    restart: always
+    container_name: mongodb-prod
+    restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: admin123
-    ports:
-      - "27017:27017"
+      MONGO_INITDB_DATABASE: auth_db
     volumes:
       - ./data/mongo_data:/data/db
     networks:
@@ -19,63 +15,102 @@ services:
   backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
-    container_name: backend
-    restart: always
+      dockerfile: backend/Dockerfile.prod
+    container_name: backend-prod
+    restart: unless-stopped
     depends_on:
       - mongodb
       - minio
-    ports:
-      - "3001:3001"
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/.env:/app/.env
+      - chromadb
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      STRICT_PRODUCTION_ENV: "true"
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      CHROMA_URL: http://chromadb:8000
+    expose:
+      - "3001"
     networks:
       - backend
 
   minio:
     image: minio/minio:latest
-    container_name: minio
-    command: server /data --console-address ":9001"
-    restart: always
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000" # S3 API
-      - "9001:9001" # Console UI
+    container_name: minio-prod
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'MINIO_ROOT_USER="$$MINIO_ACCESS_KEY" MINIO_ROOT_PASSWORD="$$MINIO_SECRET_KEY" exec minio server /data --console-address ":9001"'
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
     volumes:
       - ./data/minio_data:/data
+    expose:
+      - "9000"
+      - "9001"
     networks:
       - backend
 
   minio-init:
     image: minio/mc:latest
-    container_name: minio-init
+    container_name: minio-init-prod
+    restart: on-failure
     depends_on:
       - minio
-    entrypoint: >
-      /bin/sh -c "
-        sleep 10;
-        mc alias set local http://minio:9000 minioadmin minioadmin;
-        mc mb -p local/user-media local/workspace-media local/message-media local/chatbot-documents;
-        mc anonymous set public local/user-media; 
-        mc anonymous set public local/workspace-media;
-        mc anonymous set public local/message-media;
-        mc anonymous set public local/chatbot-documents;
-        echo 'MinIO buckets created: user-media, workspace-media, message-media, chatbot-documents';
-      "
+    env_file:
+      - ./backend/.env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'until mc alias set local http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY"; do echo "Waiting for MinIO..."; sleep 2; done; mc mb -p local/user-media || true; mc mb -p local/workspace-media || true; mc mb -p local/message-media || true; mc mb -p local/chatbot-documents || true; mc anonymous set public local/user-media; mc anonymous set public local/workspace-media; mc anonymous set public local/message-media; mc anonymous set public local/chatbot-documents; echo "MinIO buckets ready";'
     networks:
       - backend
 
   chromadb:
     image: chromadb/chroma:latest
-    container_name: chromadb
-    restart: always
-    ports:
-      - "8000:8000"
+    container_name: chromadb-prod
+    restart: unless-stopped
     volumes:
       - ./data/chroma_data:/chroma/chroma
+    expose:
+      - "8000"
+    networks:
+      - backend
+
+  nginx:
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
+    container_name: nginx-prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - minio
+    ports:
+      - "80:80"
+    networks:
+      - backend
+
+  vector:
+    image: timberio/vector:0.39.0-alpine
+    container_name: vector-prod
+    restart: unless-stopped
+    environment:
+      PROCFS_ROOT: /host/proc
+      SYSFS_ROOT: /host/sys
+    volumes:
+      - ./deploy/vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/host/var/log:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+    command:
+      - --config
+      - /etc/vector/vector.toml
     networks:
       - backend
 

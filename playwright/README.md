@@ -7,7 +7,15 @@ Playwright project nay chay cac user journey hop le tren giao dien Festive Suite
 ```bash
 cd playwright
 npm install
+npm run setup:browsers
 cp .env.example .env
+```
+
+Neu gap loi Linux thieu thu vien khi launch Chromium (vd: `libnspr4.so`), chay them:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libnspr4 libnss3
 ```
 
 ## Bien moi truong chinh
