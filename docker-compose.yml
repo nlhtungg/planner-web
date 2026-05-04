@@ -94,23 +94,49 @@ services:
     networks:
       - backend
 
-  vector:
-    image: timberio/vector:0.39.0-alpine
-    container_name: vector-prod
-    restart: unless-stopped
+  # vector:
+  #   image: timberio/vector:0.39.0-alpine
+  #   container_name: vector-prod
+  #   restart: unless-stopped
+  #   environment:
+  #     PROCFS_ROOT: /host/proc
+  #     SYSFS_ROOT: /host/sys
+  #   volumes:
+  #     - ./deploy/vector/vector.toml:/etc/vector/vector.toml:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - /var/log:/host/var/log:ro
+  #     - /proc:/host/proc:ro
+  #     - /sys:/host/sys:ro
+  #     - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+  #   command:
+  #     - --config
+  #     - /etc/vector/vector.toml
+  #   networks:
+  #     - backend
+
+  grafana-alloy:
+    image: grafana/alloy:latest
+    container_name: grafana-alloy
+    privileged: true
+    ports:
+      - "12345:12345"
     environment:
-      PROCFS_ROOT: /host/proc
-      SYSFS_ROOT: /host/sys
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - KAFKA_BROKERS=10.140.0.6:9092
+      - KAFKA_TOPIC=container-metrics
     volumes:
-      - ./deploy/vector/vector.toml:/etc/vector/vector.toml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/log:/host/var/log:ro
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
     command:
-      - --config
-      - /etc/vector/vector.toml
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
     networks:
       - backend
 

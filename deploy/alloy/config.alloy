@@ -1,0 +1,84 @@
+logging {
+  level = "info"
+}
+
+prometheus.exporter.cadvisor "containers" {
+  docker_host = "unix:///var/run/docker.sock"
+  docker_only = true
+  disable_root_cgroup_stats = true
+  store_container_labels = false
+  enabled_metrics = ["cpu", "memory", "network", "disk", "diskIO"]
+}
+
+prometheus.scrape "containers" {
+  targets    = prometheus.exporter.cadvisor.containers.targets
+  forward_to = [otelcol.receiver.prometheus.containers.receiver]
+}
+
+otelcol.receiver.prometheus "containers" {
+  output {
+    metrics = [otelcol.processor.filter.metrics_basic.input]
+  }
+}
+
+otelcol.processor.filter "metrics_basic" {
+  error_mode = "ignore"
+
+  metric_conditions {
+    context = "metric"
+    conditions = [
+      `not (name == "container_cpu_usage_seconds_total" or name == "container_memory_working_set_bytes" or name == "container_fs_usage_bytes" or name == "container_network_receive_bytes_total" or name == "container_network_transmit_bytes_total")`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.transform.metrics_trim.input]
+  }
+}
+
+otelcol.processor.transform "metrics_trim" {
+  error_mode = "ignore"
+
+  metric_statements {
+    context = "resource"
+    statements = [
+      `keep_keys(attributes, ["host.name"])`,
+    ]
+  }
+
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `keep_keys(attributes, ["container", "container_name", "name"])`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  timeout = "1s"
+  send_batch_size = 200
+  send_batch_max_size = 500
+
+  output {
+    metrics = [otelcol.exporter.kafka.metrics.input]
+  }
+}
+
+otelcol.exporter.kafka "metrics" {
+  brokers          = [sys.env("KAFKA_BROKERS")]
+  protocol_version = "2.0.0"
+
+  producer {
+    compression = "gzip"
+    max_message_bytes = 900000
+  }
+
+  metrics {
+    topic    = sys.env("KAFKA_TOPIC")
+    encoding = "otlp_json"
+  }
+}
