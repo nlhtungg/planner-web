@@ -143,3 +143,5 @@ package-lock.json
 frontend/.vite/
 
 PROJECT_COMPLETION_REPORT.md
+
+system_snapshot.txt

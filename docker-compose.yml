@@ -94,6 +94,22 @@ services:
     networks:
       - backend
 
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --web.listen-address=:9100
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+
   # vector:
   #   image: timberio/vector:0.39.0-alpine
   #   container_name: vector-prod
@@ -117,13 +133,16 @@ services:
   grafana-alloy:
     image: grafana/alloy:latest
     container_name: grafana-alloy
+    user: "0"
     privileged: true
     ports:
       - "12345:12345"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - KAFKA_BROKERS=10.140.0.6:9092
-      - KAFKA_TOPIC=container-metrics
+      - KAFKA_TOPIC_CONTAINER_METRICS=container-metrics
+      - KAFKA_TOPIC_INSTANCE_METRICS=instance-metrics
+      - KAFKA_TOPIC_CONTAINER_LOGS=container-logs
     volumes:
       - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -135,6 +154,7 @@ services:
     command:
       - run
       - /etc/alloy/config.alloy
+      - --stability.level=public-preview
       - --server.http.listen-addr=0.0.0.0:12345
       - --storage.path=/var/lib/alloy/data
     networks:

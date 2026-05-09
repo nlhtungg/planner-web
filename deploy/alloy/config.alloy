@@ -11,6 +11,8 @@ prometheus.exporter.cadvisor "containers" {
 }
 
 prometheus.scrape "containers" {
+  scrape_interval = "5s"
+  scrape_timeout  = "4s"
   targets    = prometheus.exporter.cadvisor.containers.targets
   forward_to = [otelcol.receiver.prometheus.containers.receiver]
 }
@@ -78,7 +80,152 @@ otelcol.exporter.kafka "metrics" {
   }
 
   metrics {
-    topic    = sys.env("KAFKA_TOPIC")
+    topic    = sys.env("KAFKA_TOPIC_CONTAINER_METRICS")
+    encoding = "otlp_json"
+  }
+}
+
+prometheus.scrape "instance" {
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+  targets = [
+    {
+      "__address__" = "10.140.0.5:9100",
+      "job"         = "node-exporter",
+    },
+  ]
+  forward_to = [otelcol.receiver.prometheus.instance.receiver]
+}
+
+otelcol.receiver.prometheus "instance" {
+  output {
+    metrics = [otelcol.processor.filter.instance_metrics_basic.input]
+  }
+}
+
+otelcol.processor.filter "instance_metrics_basic" {
+  error_mode = "ignore"
+
+  metric_conditions {
+    context = "metric"
+    conditions = [
+      `not (name == "node_cpu_seconds_total" or name == "node_memory_MemTotal_bytes" or name == "node_memory_MemAvailable_bytes" or name == "node_load1" or name == "node_load5" or name == "node_load15" or name == "node_filesystem_size_bytes" or name == "node_filesystem_avail_bytes" or name == "node_disk_read_bytes_total" or name == "node_disk_written_bytes_total" or name == "node_network_receive_bytes_total" or name == "node_network_transmit_bytes_total")`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.transform.instance_metrics_trim.input]
+  }
+}
+
+otelcol.processor.transform "instance_metrics_trim" {
+  error_mode = "ignore"
+
+  metric_statements {
+    context = "resource"
+    statements = [
+      `keep_keys(attributes, ["host.name"])`,
+    ]
+  }
+
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `keep_keys(attributes, ["instance", "job", "cpu", "mode", "device", "mountpoint", "fstype"])`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.instance.input]
+  }
+}
+
+otelcol.processor.batch "instance" {
+  timeout = "1s"
+  send_batch_size = 200
+  send_batch_max_size = 500
+
+  output {
+    metrics = [otelcol.exporter.kafka.instance_metrics.input]
+  }
+}
+
+otelcol.exporter.kafka "instance_metrics" {
+  brokers          = [sys.env("KAFKA_BROKERS")]
+  protocol_version = "2.0.0"
+
+  producer {
+    compression = "gzip"
+    max_message_bytes = 900000
+  }
+
+  metrics {
+    topic    = sys.env("KAFKA_TOPIC_INSTANCE_METRICS")
+    encoding = "otlp_json"
+  }
+}
+
+otelcol.receiver.filelog "docker" {
+  include  = [
+    "/var/lib/docker/containers/*/*-json.log",
+    "/var/lib/docker/containers/*/*-json.log.*",
+  ]
+  start_at = "end"
+
+  operators = [
+    {
+      type = "regex_parser",
+      id = "docker_filename",
+      parse_from = "attributes[\"log.file.name\"]",
+      regex = "^(?P<container_id>[a-f0-9]{64})-json\\.log$",
+      parse_to = "attributes",
+      on_error = "send",
+    },
+    {
+      type = "json_parser",
+      id = "docker_json",
+      parse_from = "body",
+      parse_to = "attributes.docker",
+      on_error = "send",
+      timestamp = {
+        parse_from = "attributes.docker.time",
+        layout_type = "strptime",
+        layout     = "%Y-%m-%dT%H:%M:%S.%fZ",
+      },
+    },
+    {
+      type = "move",
+      from = "attributes.docker.log",
+      to   = "body",
+    },
+  ]
+
+  output {
+    logs = [otelcol.processor.batch.logs.input]
+  }
+}
+
+otelcol.processor.batch "logs" {
+  timeout = "1s"
+  send_batch_size = 200
+  send_batch_max_size = 500
+
+  output {
+    logs = [otelcol.exporter.kafka.logs.input]
+  }
+}
+
+otelcol.exporter.kafka "logs" {
+  brokers          = [sys.env("KAFKA_BROKERS")]
+  protocol_version = "2.0.0"
+
+  producer {
+    compression = "gzip"
+    max_message_bytes = 900000
+  }
+
+  logs {
+    topic    = sys.env("KAFKA_TOPIC_CONTAINER_LOGS")
     encoding = "otlp_json"
   }
 }
