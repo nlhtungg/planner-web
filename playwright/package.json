@@ -7,9 +7,12 @@
   "scripts": {
     "setup:browsers": "npx playwright install --with-deps chromium",
     "journey": "node src/run-user-journey.js",
-    "journey:headed": "node src/run-user-journey.js --headed"
+    "journey:headed": "node src/run-user-journey.js --headed",
+    "test:planner": "npx playwright test tests/planner-web.spec.js",
+    "test:planner:headed": "npx playwright test tests/planner-web.spec.js --headed"
   },
   "dependencies": {
+    "@playwright/test": "^1.52.0",
     "dotenv": "^16.4.5",
     "playwright": "^1.52.0"
   }

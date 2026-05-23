@@ -1,0 +1,4 @@
+Planner-Web sample document.
+
+This file is used by Playwright load simulations.
+Replace it with a larger file via UPLOAD_FILE_PATH to stress MinIO uploads.

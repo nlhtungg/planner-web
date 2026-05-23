@@ -3,7 +3,8 @@ require("dotenv").config();
 const { chromium } = require("playwright");
 
 const { createConfig } = require("./config");
-const { simulateUserJourney } = require("./journeys/festiveSuiteJourney");
+const { simulateUserJourney: simulateFestiveSuiteJourney } = require("./journeys/festiveSuiteJourney");
+const { simulateUserJourney: simulatePlannerWebJourney } = require("./journeys/plannerWebJourney");
 const { createFingerprint } = require("./utils/fingerprint");
 const { createRunArtifacts, createSessionLogger, writeSummary } = require("./utils/logger");
 const { attachApiLogging, configureResourceBlocking } = require("./utils/network");
@@ -18,6 +19,26 @@ function assertConfig(config) {
   if (config.maxConcurrency > config.sessionCount) {
     config.maxConcurrency = config.sessionCount;
   }
+}
+
+function resolveJourney(config) {
+  const journeyName = String(config.journeyName || "").trim().toLowerCase();
+
+  if (["planner", "planner-web", "plannerweb"].includes(journeyName)) {
+    return {
+      name: "planner-web",
+      simulateUserJourney: simulatePlannerWebJourney
+    };
+  }
+
+  if (journeyName && !["festive-suite", "festive"].includes(journeyName)) {
+    console.warn(`Unknown JOURNEY '${config.journeyName}', defaulting to festive-suite.`);
+  }
+
+  return {
+    name: "festive-suite",
+    simulateUserJourney: simulateFestiveSuiteJourney
+  };
 }
 
 function registerSignalHandlers() {
@@ -47,7 +68,7 @@ function printBrowserDependencyHint(error) {
   console.error("  sudo apt-get update && sudo apt-get install -y libnspr4 libnss3");
 }
 
-async function runSession(browser, config, runDir, sessionIndex) {
+async function runSession(browser, config, runDir, sessionIndex, journey) {
   const sessionName = `session-${String(sessionIndex + 1).padStart(2, "0")}`;
   const logger = await createSessionLogger(runDir, sessionName);
   const fingerprint = createFingerprint(config, sessionIndex);
@@ -74,7 +95,7 @@ async function runSession(browser, config, runDir, sessionIndex) {
 
   try {
     await configureResourceBlocking(context, config);
-    return await simulateUserJourney(
+    return await journey.simulateUserJourney(
       context,
       config,
       logger,
@@ -109,12 +130,12 @@ async function runWithConcurrency(items, worker, limit) {
   return results;
 }
 
-async function runCycle(browser, config, cycleIndex) {
+async function runCycle(browser, config, cycleIndex, journey) {
   const runDir = await createRunArtifacts(config.outputRoot);
   const sessions = Array.from({ length: config.sessionCount }, (_, index) => index);
   const results = await runWithConcurrency(
     sessions,
-    async (_, index) => runSession(browser, config, runDir, index),
+    async (_, index) => runSession(browser, config, runDir, index, journey),
     config.maxConcurrency
   );
 
@@ -122,6 +143,8 @@ async function runCycle(browser, config, cycleIndex) {
     createdAt: new Date().toISOString(),
     cycle: cycleIndex + 1,
     config: {
+      journey: journey.name,
+      mode: config.mode,
       baseUrl: config.baseUrl,
       headless: config.headless,
       continuous: config.continuous,
@@ -156,6 +179,7 @@ async function main() {
   const config = createConfig();
   assertConfig(config);
   registerSignalHandlers();
+  const journey = resolveJourney(config);
 
   let browser;
   try {
@@ -172,7 +196,7 @@ async function main() {
 
     while (!shouldStop) {
       console.log(`Starting cycle ${cycleIndex + 1}`);
-      const { runDir } = await runCycle(browser, config, cycleIndex);
+      const { runDir } = await runCycle(browser, config, cycleIndex, journey);
       console.log(`Finished cycle ${cycleIndex + 1}. Output: ${runDir}`);
       cycleIndex += 1;
 

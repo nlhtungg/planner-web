@@ -84,3 +84,22 @@ npm run journey
 - `output/<timestamp>/summary.json`: tong hop ket qua cac session
 
 Mac dinh journey la read-only. Khi `ENABLE_WRITE_ACTIONS=true`, script co the tao mot personal calendar event qua UI.
+
+## Planner-Web load journey
+
+Chon journey Planner-Web bang bien moi truong `JOURNEY`:
+
+```bash
+cd playwright
+JOURNEY=planner-web MODE=NORMAL ENABLE_WRITE_ACTIONS=true npm run journey
+```
+
+MODE ho tro:
+
+- `NORMAL`: chia 60/30/10 giua Task Manager / Active Chatter / AI Knowledge Manager
+- `CHAT_SPAM`: tat ca user la Active Chatter, khong think time
+- `AI_RESOURCE_STRESS`: tat ca user la AI Knowledge Manager, lap upload + query
+- `AUTH_ERROR_STORM`: login sai + request API sai lien tuc
+
+Cac selector can chinh trong `src/journeys/plannerWebJourney.js`.
+Neu can file upload lon, set `UPLOAD_FILE_PATH=/abs/path/to/big-file`.

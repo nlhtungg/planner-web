@@ -60,6 +60,8 @@ function parseCredentials(value) {
 
 function createConfig(argv = process.argv.slice(2)) {
   const headedFlag = argv.includes("--headed");
+  const baseUrl = process.env.FRONTEND_BASE_URL || "http://localhost:3000";
+  const journeyName = process.env.JOURNEY || process.env.JOURNEY_NAME || "festive-suite";
   const credentials = parseCredentials(process.env.USER_CREDENTIALS);
   const fallbackCredential = process.env.LOGIN_IDENTIFIER && process.env.LOGIN_PASSWORD
     ? [{
@@ -73,10 +75,13 @@ function createConfig(argv = process.argv.slice(2)) {
     : Math.max(resolvedCredentials.length, 1);
 
   return {
-    baseUrl: process.env.FRONTEND_BASE_URL || "http://localhost:3000",
+    baseUrl,
+    apiBaseUrl: process.env.API_BASE_URL || baseUrl,
     loginIdentifier: process.env.LOGIN_IDENTIFIER || "",
     loginPassword: process.env.LOGIN_PASSWORD || "",
     credentials: resolvedCredentials,
+    journeyName,
+    mode: process.env.MODE || "NORMAL",
     headless: headedFlag ? false : parseBoolean(process.env.HEADLESS, true),
     continuous: parseBoolean(process.env.CONTINUOUS, false),
     sessionCount: resolvedSessionCount,
